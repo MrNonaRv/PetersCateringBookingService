@@ -277,9 +277,9 @@ export default function BookingModal({
     return false;
   };
 
-  // Format price from cents to dollars
+  // Format price from cents to Philippine Peso
   const formatPrice = (priceInCents: number) => {
-    return `$${(priceInCents / 100).toFixed(2)}`;
+    return `₱${(priceInCents / 100).toFixed(2)}`;
   };
 
   // Render booking form based on current step

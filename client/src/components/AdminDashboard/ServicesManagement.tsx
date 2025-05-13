@@ -63,7 +63,7 @@ export default function ServicesManagement() {
                   <h3 className="text-lg font-bold mb-2">{service.name}</h3>
                   <p className="text-sm text-gray-600 mb-4">{service.description}</p>
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">${(service.basePrice / 100).toFixed(2)}/person</span>
+                    <span className="font-medium">₱{(service.basePrice / 100).toFixed(2)}/person</span>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm">
                         <Edit className="h-4 w-4" />
