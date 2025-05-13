@@ -248,8 +248,11 @@ function setupAuthentication(app: Express) {
         return done(null, false, { message: "Incorrect username." });
       }
       
-      // In a real app, we'd use bcrypt to compare passwords
-      if (user.password !== password) {
+      // Use bcrypt to compare passwords
+      const { compare } = await import('bcrypt');
+      const isMatch = await compare(password, user.password);
+      
+      if (!isMatch) {
         return done(null, false, { message: "Incorrect password." });
       }
       

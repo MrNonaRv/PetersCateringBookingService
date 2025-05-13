@@ -12,6 +12,7 @@ import AdminServices from "@/pages/admin/services";
 import AdminCustomers from "@/pages/admin/customers";
 import Login from "@/pages/login";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { ProtectedRoute } from "@/components/providers/ProtectedRoute";
 
 function App() {
   const [location] = useLocation();
@@ -27,11 +28,31 @@ function App() {
           <Switch>
             <Route path="/" component={Home} />
             <Route path="/login" component={Login} />
-            <Route path="/admin" component={AdminDashboard} />
-            <Route path="/admin/dashboard" component={AdminDashboard} />
-            <Route path="/admin/bookings" component={AdminBookings} />
-            <Route path="/admin/services" component={AdminServices} />
-            <Route path="/admin/customers" component={AdminCustomers} />
+            <Route path="/admin" component={() => 
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/dashboard" component={() => 
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/bookings" component={() => 
+              <ProtectedRoute>
+                <AdminBookings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/services" component={() => 
+              <ProtectedRoute>
+                <AdminServices />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/customers" component={() => 
+              <ProtectedRoute>
+                <AdminCustomers />
+              </ProtectedRoute>
+            } />
             <Route component={NotFound} />
           </Switch>
         </TooltipProvider>
