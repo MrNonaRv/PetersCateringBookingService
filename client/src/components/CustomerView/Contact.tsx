@@ -156,21 +156,21 @@ export default function Contact() {
                     <i className="fas fa-map-marker-alt text-secondary mt-1 mr-3"></i>
                     <div>
                       <p className="font-medium">Address</p>
-                      <p className="text-[#343a40]">123 Culinary Lane, Gourmet City, GC 12345</p>
+                      <p className="text-[#343a40]">The Grand Venue Brgy. Atiplo</p>
                     </div>
                   </div>
                   <div className="flex items-start">
                     <i className="fas fa-phone-alt text-secondary mt-1 mr-3"></i>
                     <div>
                       <p className="font-medium">Phone</p>
-                      <p className="text-[#343a40]">(555) 123-4567</p>
+                      <p className="text-[#343a40]">0998 579 7571</p>
                     </div>
                   </div>
                   <div className="flex items-start">
                     <i className="fas fa-envelope text-secondary mt-1 mr-3"></i>
                     <div>
                       <p className="font-medium">Email</p>
-                      <p className="text-[#343a40]">info@peterscreation.com</p>
+                      <p className="text-[#343a40]">peterscreation2016@gmail.com</p>
                     </div>
                   </div>
                   <div className="flex items-start">
@@ -179,22 +179,18 @@ export default function Contact() {
                       <p className="font-medium">Business Hours</p>
                       <p className="text-[#343a40]">Monday - Friday: 9:00 AM - 5:00 PM</p>
                       <p className="text-[#343a40]">Saturday: 10:00 AM - 3:00 PM</p>
-                      <p className="text-[#343a40]">Sunday: Closed</p>
+                      <p className="text-[#343a40]">Sunday: By appointment only</p>
+                      <p className="text-[#343a40] mt-2 italic">Please call for consultations</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4 mt-6">
-                    <a href="#" className="text-primary hover:text-secondary transition">
-                      <i className="fab fa-facebook-f text-xl"></i>
-                    </a>
-                    <a href="#" className="text-primary hover:text-secondary transition">
-                      <i className="fab fa-instagram text-xl"></i>
-                    </a>
-                    <a href="#" className="text-primary hover:text-secondary transition">
-                      <i className="fab fa-twitter text-xl"></i>
-                    </a>
-                    <a href="#" className="text-primary hover:text-secondary transition">
-                      <i className="fab fa-pinterest text-xl"></i>
-                    </a>
+                  <div className="mt-6">
+                    <p className="font-medium mb-2">Follow us on social media</p>
+                    <div className="flex items-center">
+                      <a href="https://www.facebook.com/peterscreation2016?mibextid=rS40aB7S9Ucbxw6v" target="_blank" rel="noopener noreferrer" className="flex items-center text-primary hover:text-secondary transition">
+                        <i className="fab fa-facebook-f text-xl mr-2"></i>
+                        <span>Peter's Creation Catering Services</span>
+                      </a>
+                    </div>
                   </div>
                 </div>
               </CardContent>
