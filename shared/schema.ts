@@ -1,6 +1,7 @@
-import { pgTable, text, serial, integer, boolean, date, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, date, timestamp, json, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 // Users table for admin and staff access
 export const users = pgTable("users", {
@@ -31,11 +32,21 @@ export const availability = pgTable("availability", {
   notes: text("notes"),
 });
 
+// Customer information
+export const customers = pgTable("customers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  company: text("company"),
+});
+
 // Customer bookings
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
+  customerId: integer("customer_id").notNull().references(() => customers.id),
   bookingReference: text("booking_reference").notNull().unique(),
-  serviceId: integer("service_id").notNull(),
+  serviceId: integer("service_id").notNull().references(() => services.id),
   eventDate: date("event_date").notNull(),
   eventType: text("event_type").notNull(),
   eventTime: text("event_time").notNull(),
@@ -48,16 +59,6 @@ export const bookings = pgTable("bookings", {
   status: text("status").notNull().default("pending"), // pending, confirmed, cancelled, completed
   totalPrice: integer("total_price").notNull(), // in cents
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-// Customer information
-export const customers = pgTable("customers", {
-  id: serial("id").primaryKey(),
-  bookingId: integer("booking_id").notNull(),
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone").notNull(),
-  company: text("company"),
 });
 
 // Insert schemas
@@ -108,6 +109,30 @@ export type Booking = typeof bookings.$inferSelect;
 
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
+
+// Define relations
+export const usersRelations = relations(users, ({ many }) => ({
+  bookings: many(bookings),
+}));
+
+export const servicesRelations = relations(services, ({ many }) => ({
+  bookings: many(bookings),
+}));
+
+export const bookingsRelations = relations(bookings, ({ one }) => ({
+  customer: one(customers, {
+    fields: [bookings.customerId],
+    references: [customers.id],
+  }),
+  service: one(services, {
+    fields: [bookings.serviceId],
+    references: [services.id],
+  }),
+}));
+
+export const customersRelations = relations(customers, ({ many }) => ({
+  bookings: many(bookings),
+}));
 
 // Combined booking with customer data
 export type BookingWithCustomer = Booking & {

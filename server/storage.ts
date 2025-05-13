@@ -349,4 +349,268 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// End of MemStorage class
+
+// Import the database and drizzle operators
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
+
+// Database implementation of IStorage
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getServices(): Promise<Service[]> {
+    return db.select().from(services);
+  }
+
+  async getService(id: number): Promise<Service | undefined> {
+    const [service] = await db.select().from(services).where(eq(services.id, id));
+    return service || undefined;
+  }
+
+  async createService(insertService: InsertService): Promise<Service> {
+    const [service] = await db
+      .insert(services)
+      .values(insertService)
+      .returning();
+    return service;
+  }
+
+  async updateService(id: number, serviceUpdate: Partial<InsertService>): Promise<Service | undefined> {
+    const [updatedService] = await db
+      .update(services)
+      .set(serviceUpdate)
+      .where(eq(services.id, id))
+      .returning();
+    return updatedService || undefined;
+  }
+
+  async deleteService(id: number): Promise<boolean> {
+    const result = await db
+      .delete(services)
+      .where(eq(services.id, id))
+      .returning({ deletedId: services.id });
+    return result.length > 0;
+  }
+
+  async getAvailabilities(): Promise<Availability[]> {
+    return db.select().from(availability);
+  }
+
+  async getAvailability(dateStr: string): Promise<Availability | undefined> {
+    const [availabilityRecord] = await db
+      .select()
+      .from(availability)
+      .where(eq(availability.date, dateStr));
+    return availabilityRecord || undefined;
+  }
+
+  async setAvailability(insertAvailability: InsertAvailability): Promise<Availability> {
+    // Check if availability for the date already exists
+    const existingAvailability = await this.getAvailability(insertAvailability.date);
+    
+    if (existingAvailability) {
+      // Update existing record
+      const [updated] = await db
+        .update(availability)
+        .set(insertAvailability)
+        .where(eq(availability.id, existingAvailability.id))
+        .returning();
+      return updated;
+    } else {
+      // Insert new record
+      const [newAvailability] = await db
+        .insert(availability)
+        .values(insertAvailability)
+        .returning();
+      return newAvailability;
+    }
+  }
+
+  async updateAvailability(id: number, availabilityUpdate: Partial<InsertAvailability>): Promise<Availability | undefined> {
+    const [updatedAvailability] = await db
+      .update(availability)
+      .set(availabilityUpdate)
+      .where(eq(availability.id, id))
+      .returning();
+    return updatedAvailability || undefined;
+  }
+
+  async getBookings(): Promise<BookingWithCustomer[]> {
+    // Get all bookings
+    const bookingsData = await db.select().from(bookings);
+    
+    // Fetch the related data for each booking
+    const result: BookingWithCustomer[] = await Promise.all(
+      bookingsData.map(async (booking) => {
+        // Get customer data
+        const [customer] = await db
+          .select()
+          .from(customers)
+          .where(eq(customers.id, booking.customerId));
+        
+        // Get service data
+        const [service] = await db
+          .select()
+          .from(services)
+          .where(eq(services.id, booking.serviceId));
+        
+        // Combine the data
+        return {
+          ...booking,
+          customer,
+          service
+        };
+      })
+    );
+    
+    return result;
+  }
+
+  async getBooking(id: number): Promise<BookingWithCustomer | undefined> {
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, id));
+    
+    if (!booking) return undefined;
+    
+    // Get customer data
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, booking.customerId));
+    
+    // Get service data
+    const [service] = await db
+      .select()
+      .from(services)
+      .where(eq(services.id, booking.serviceId));
+    
+    return {
+      ...booking,
+      customer,
+      service
+    };
+  }
+
+  async getBookingByReference(reference: string): Promise<BookingWithCustomer | undefined> {
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.reference, reference));
+    
+    if (!booking) return undefined;
+    
+    // Get customer data
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, booking.customerId));
+    
+    // Get service data
+    const [service] = await db
+      .select()
+      .from(services)
+      .where(eq(services.id, booking.serviceId));
+    
+    return {
+      ...booking,
+      customer,
+      service
+    };
+  }
+
+  async createBooking(insertBooking: InsertBooking, insertCustomer: InsertCustomer): Promise<BookingWithCustomer> {
+    // First check if a customer with this email already exists
+    let customer: Customer;
+    const [existingCustomer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.email, insertCustomer.email));
+    
+    if (existingCustomer) {
+      // Update existing customer information
+      const [updatedCustomer] = await db
+        .update(customers)
+        .set(insertCustomer)
+        .where(eq(customers.id, existingCustomer.id))
+        .returning();
+      customer = updatedCustomer;
+    } else {
+      // Create new customer
+      const [newCustomer] = await db
+        .insert(customers)
+        .values(insertCustomer)
+        .returning();
+      customer = newCustomer;
+    }
+    
+    // Create booking with the customer ID
+    const bookingWithCustomerId = {
+      ...insertBooking,
+      customerId: customer.id
+    };
+    
+    const [booking] = await db
+      .insert(bookings)
+      .values(bookingWithCustomerId)
+      .returning();
+    
+    // Get service data
+    const [service] = await db
+      .select()
+      .from(services)
+      .where(eq(services.id, booking.serviceId));
+    
+    return {
+      ...booking,
+      customer,
+      service
+    };
+  }
+
+  async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
+    const [updatedBooking] = await db
+      .update(bookings)
+      .set({ status })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updatedBooking || undefined;
+  }
+
+  async getCustomer(id: number): Promise<Customer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, id));
+    return customer || undefined;
+  }
+
+  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.email, email));
+    return customer || undefined;
+  }
+}
+
+// Use DatabaseStorage instead of MemStorage
+export const storage = new DatabaseStorage();
