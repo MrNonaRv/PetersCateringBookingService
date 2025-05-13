@@ -17,9 +17,9 @@ interface ServicesProps {
 }
 
 export default function Services({ services, isLoading, onSelectService }: ServicesProps) {
-  // Format price from cents to dollars
+  // Format price from cents to Philippine Peso
   const formatPrice = (priceInCents: number) => {
-    return `$${(priceInCents / 100).toFixed(2)}`;
+    return `₱${(priceInCents / 100).toFixed(2)}`;
   };
   
   return (
