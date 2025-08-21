@@ -2,6 +2,7 @@ import { useState } from "react";
 import Navigation from "./Navigation";
 import Hero from "./Hero";
 import Services from "./Services";
+import BudgetInquiry from "./BudgetInquiry";
 import About from "./About";
 import Gallery from "./Gallery";
 import { RecentEvents } from "./RecentEvents";
@@ -73,6 +74,12 @@ export default function CustomerView() {
         services={services || []} 
         isLoading={isLoading} 
         onSelectService={(serviceId) => openBookingModal(serviceId)} 
+      />
+      
+      <BudgetInquiry 
+        services={services || []}
+        onSelectService={(serviceId) => openBookingModal(serviceId)}
+        onCustomInquiry={() => openBookingModal()}
       />
       
       <About />
