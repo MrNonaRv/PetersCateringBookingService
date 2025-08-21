@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import logoImage from "@assets/logo.png_1755745222226.jpeg";
 
 interface NavigationProps {
   onBookNow: () => void;
@@ -17,8 +18,15 @@ export default function Navigation({ onBookNow }: NavigationProps) {
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <h1 className="text-2xl font-heading font-bold text-primary">Peter's Creation</h1>
-            <span className="ml-2 text-secondary font-accent">Catering Services</span>
+            <img 
+              src={logoImage} 
+              alt="Peter's Creation Logo" 
+              className="h-12 w-auto mr-3 object-contain"
+            />
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-heading font-bold text-primary leading-tight">Peter's Creation</h1>
+              <span className="text-sm text-secondary font-accent">Catering Services</span>
+            </div>
           </div>
           <div className="hidden md:flex space-x-6 font-accent text-[#343a40]">
             <a href="#services" className="hover:text-secondary transition">Services</a>

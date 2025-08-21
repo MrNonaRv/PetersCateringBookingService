@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import logoImage from "@assets/logo.png_1755745222226.jpeg";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -25,14 +26,26 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
       collapsed ? "w-16" : "w-64"
     )}>
       <div className="p-4 border-b border-white border-opacity-20">
-        <h2 className={cn(
-          "font-heading font-bold transition-all duration-300 ease-in-out",
-          collapsed ? "text-xs text-center" : "text-xl"
-        )}>
-          {collapsed ? "PCC" : "Admin Dashboard"}
-        </h2>
-        {!collapsed && (
-          <p className="text-sm text-white text-opacity-70">Peter's Creation Catering</p>
+        {collapsed ? (
+          <div className="flex justify-center">
+            <img 
+              src={logoImage} 
+              alt="Peter's Creation Logo" 
+              className="h-8 w-auto object-contain brightness-0 invert"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center">
+            <img 
+              src={logoImage} 
+              alt="Peter's Creation Logo" 
+              className="h-10 w-auto mr-3 object-contain brightness-0 invert"
+            />
+            <div>
+              <h2 className="font-heading font-bold text-xl">Admin Dashboard</h2>
+              <p className="text-sm text-white text-opacity-70">Peter's Creation Catering</p>
+            </div>
+          </div>
         )}
       </div>
       
