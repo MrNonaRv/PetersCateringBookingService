@@ -10,6 +10,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminBookings from "@/pages/admin/bookings";
 import AdminServices from "@/pages/admin/services";
 import AdminServicePackages from "@/pages/admin/service-packages";
+import AdminGallery from "@/pages/admin/gallery";
 import AdminCustomers from "@/pages/admin/customers";
 import AdminRecentEvents from "@/pages/admin/recent-events";
 import Login from "@/pages/login";
@@ -53,6 +54,11 @@ function App() {
             <Route path="/admin/service-packages" component={() => 
               <ProtectedRoute>
                 <AdminServicePackages />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/gallery" component={() => 
+              <ProtectedRoute>
+                <AdminGallery />
               </ProtectedRoute>
             } />
             <Route path="/admin/customers" component={() => 

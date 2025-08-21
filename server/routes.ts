@@ -8,8 +8,12 @@ import {
   insertAvailabilitySchema, 
   insertBookingSchema, 
   insertCustomerSchema,
-  insertRecentEventSchema
+  insertRecentEventSchema,
+  insertGalleryImageSchema
 } from "@shared/schema";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import express from "express";
 import session from "express-session";
 import passport from "passport";
@@ -19,6 +23,9 @@ import MemoryStore from "memorystore";
 const MemorySessionStore = MemoryStore(session);
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve static files from uploads directory
+  app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
+
   // Setup session middleware
   app.use(session({
     secret: process.env.SESSION_SECRET || "peter-creation-catering-secret",
@@ -176,6 +183,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).end();
     } catch (error) {
       res.status(500).json({ message: "Error deleting service package" });
+    }
+  });
+
+  // Gallery images routes
+  // Setup multer for file upload
+  const uploadDir = path.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, uploadDir);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, file.fieldname + "-" + uniqueSuffix + ext);
+      }
+    }),
+    fileFilter: (req, file, cb) => {
+      const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'));
+      }
+    },
+    limits: {
+      fileSize: 5 * 1024 * 1024 // 5MB limit
+    }
+  });
+
+  app.get("/api/gallery-images", async (req, res) => {
+    try {
+      const category = req.query.category as string;
+      const images = category 
+        ? await storage.getGalleryImagesByCategory(category)
+        : await storage.getGalleryImages();
+      res.json(images);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching gallery images" });
+    }
+  });
+
+  app.get("/api/gallery-images/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const image = await storage.getGalleryImage(id);
+      
+      if (!image) {
+        return res.status(404).json({ message: "Gallery image not found" });
+      }
+      
+      res.json(image);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching gallery image" });
+    }
+  });
+
+  app.post("/api/gallery-images", isAuthenticated, upload.array('images', 10), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ message: "No images uploaded" });
+      }
+
+      const { title, description, category } = req.body;
+      
+      const uploadedImages = [];
+      
+      for (const file of files) {
+        const imageData = {
+          title: title || file.originalname,
+          description: description || "",
+          filename: file.filename,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+          category: category || "general",
+          isActive: true
+        };
+
+        const image = await storage.createGalleryImage(imageData);
+        uploadedImages.push(image);
+      }
+      
+      res.status(201).json(uploadedImages);
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      res.status(400).json({ message: "Error uploading images" });
+    }
+  });
+
+  app.put("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const imageData = insertGalleryImageSchema.partial().parse(req.body);
+      const image = await storage.updateGalleryImage(id, imageData);
+      
+      if (!image) {
+        return res.status(404).json({ message: "Gallery image not found" });
+      }
+      
+      res.json(image);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid gallery image data" });
+    }
+  });
+
+  app.delete("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Get image info first to delete file
+      const image = await storage.getGalleryImage(id);
+      if (image) {
+        const filePath = path.join(uploadDir, image.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      
+      const deleted = await storage.deleteGalleryImage(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Gallery image not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting gallery image" });
     }
   });
 

@@ -6,6 +6,7 @@ import {
   bookings, type Booking, type InsertBooking,
   customers, type Customer, type InsertCustomer,
   recentEvents, type RecentEvent, type InsertRecentEvent,
+  galleryImages, type GalleryImage, type InsertGalleryImage,
   type BookingWithCustomer
 } from "@shared/schema";
 
@@ -54,6 +55,14 @@ export interface IStorage {
   createRecentEvent(event: InsertRecentEvent): Promise<RecentEvent>;
   updateRecentEvent(id: number, event: Partial<InsertRecentEvent>): Promise<RecentEvent | undefined>;
   deleteRecentEvent(id: number): Promise<boolean>;
+  
+  // Gallery image operations
+  getGalleryImages(): Promise<GalleryImage[]>;
+  getGalleryImagesByCategory(category: string): Promise<GalleryImage[]>;
+  getGalleryImage(id: number): Promise<GalleryImage | undefined>;
+  createGalleryImage(image: InsertGalleryImage): Promise<GalleryImage>;
+  updateGalleryImage(id: number, image: Partial<InsertGalleryImage>): Promise<GalleryImage | undefined>;
+  deleteGalleryImage(id: number): Promise<boolean>;
 }
 
 // Commented out MemStorage since we're using DatabaseStorage
@@ -709,6 +718,50 @@ export class DatabaseStorage implements IStorage {
       .delete(servicePackages)
       .where(eq(servicePackages.id, id))
       .returning({ deletedId: servicePackages.id });
+    return result.length > 0;
+  }
+
+  // Gallery image operations
+  async getGalleryImages(): Promise<GalleryImage[]> {
+    return db.select().from(galleryImages).orderBy(galleryImages.createdAt);
+  }
+
+  async getGalleryImagesByCategory(category: string): Promise<GalleryImage[]> {
+    return db.select().from(galleryImages)
+      .where(eq(galleryImages.category, category))
+      .orderBy(galleryImages.createdAt);
+  }
+
+  async getGalleryImage(id: number): Promise<GalleryImage | undefined> {
+    const [image] = await db
+      .select()
+      .from(galleryImages)
+      .where(eq(galleryImages.id, id));
+    return image || undefined;
+  }
+
+  async createGalleryImage(insertGalleryImage: InsertGalleryImage): Promise<GalleryImage> {
+    const [image] = await db
+      .insert(galleryImages)
+      .values(insertGalleryImage)
+      .returning();
+    return image;
+  }
+
+  async updateGalleryImage(id: number, imageUpdate: Partial<InsertGalleryImage>): Promise<GalleryImage | undefined> {
+    const [updatedImage] = await db
+      .update(galleryImages)
+      .set(imageUpdate)
+      .where(eq(galleryImages.id, id))
+      .returning();
+    return updatedImage || undefined;
+  }
+
+  async deleteGalleryImage(id: number): Promise<boolean> {
+    const result = await db
+      .delete(galleryImages)
+      .where(eq(galleryImages.id, id))
+      .returning({ deletedId: galleryImages.id });
     return result.length > 0;
   }
 }

@@ -93,6 +93,20 @@ export const recentEvents = pgTable("recent_events", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Gallery images for Peter's creations
+export const galleryImages = pgTable("gallery_images", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  filename: text("filename").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(), // in bytes
+  category: text("category").default("general").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -135,6 +149,11 @@ export const insertRecentEventSchema = createInsertSchema(recentEvents).omit({
   createdAt: true,
 });
 
+export const insertGalleryImageSchema = createInsertSchema(galleryImages).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -156,6 +175,9 @@ export type Customer = typeof customers.$inferSelect;
 
 export type InsertRecentEvent = z.infer<typeof insertRecentEventSchema>;
 export type RecentEvent = typeof recentEvents.$inferSelect;
+
+export type InsertGalleryImage = z.infer<typeof insertGalleryImageSchema>;
+export type GalleryImage = typeof galleryImages.$inferSelect;
 
 // Define relations
 export const usersRelations = relations(users, ({ many }) => ({
