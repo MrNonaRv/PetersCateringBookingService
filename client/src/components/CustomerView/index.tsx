@@ -4,6 +4,8 @@ import Hero from "./Hero";
 import Services from "./Services";
 import About from "./About";
 import Gallery from "./Gallery";
+import { RecentEvents } from "./RecentEvents";
+import { PaymentMethods } from "./PaymentMethods";
 import Testimonials from "./Testimonials";
 import Contact from "./Contact";
 import Footer from "./Footer";
@@ -74,7 +76,9 @@ export default function CustomerView() {
       />
       
       <About />
+      <RecentEvents />
       <Gallery />
+      <PaymentMethods />
       <Testimonials />
       <Contact />
       <Footer />

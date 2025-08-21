@@ -84,6 +84,16 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
           </a>
         </Link>
         
+        <Link href="/admin/recent-events">
+          <a className={cn(
+            "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
+            isActive('/admin/recent-events') && "bg-white bg-opacity-10"
+          )}>
+            <i className="fas fa-images mr-3"></i>
+            {!collapsed && <span>Recent Events</span>}
+          </a>
+        </Link>
+        
         <div className={cn(
           "mt-4 px-4 py-2 text-sm text-white text-opacity-70 uppercase",
           collapsed && "text-center"

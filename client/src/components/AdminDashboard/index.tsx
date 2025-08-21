@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ServicesManagement from "./ServicesManagement";
 import CustomersManagement from "./CustomersManagement";
+import { RecentEventsManagement } from "./RecentEventsManagement";
 
 interface AdminDashboardProps {
   currentPage: string;
@@ -69,6 +70,9 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
       
       case "customers":
         return <CustomersManagement />;
+      
+      case "recent-events":
+        return <RecentEventsManagement />;
       
       default:
         return <div>404 - Page not found</div>;

@@ -4,6 +4,7 @@ import {
   availability, type Availability, type InsertAvailability,
   bookings, type Booking, type InsertBooking,
   customers, type Customer, type InsertCustomer,
+  recentEvents, type RecentEvent, type InsertRecentEvent,
   type BookingWithCustomer
 } from "@shared/schema";
 
@@ -37,9 +38,17 @@ export interface IStorage {
   // Customer operations
   getCustomer(id: number): Promise<Customer | undefined>;
   getCustomerByEmail(email: string): Promise<Customer | undefined>;
+  
+  // Recent events operations
+  getRecentEvents(): Promise<RecentEvent[]>;
+  getRecentEvent(id: number): Promise<RecentEvent | undefined>;
+  createRecentEvent(event: InsertRecentEvent): Promise<RecentEvent>;
+  updateRecentEvent(id: number, event: Partial<InsertRecentEvent>): Promise<RecentEvent | undefined>;
+  deleteRecentEvent(id: number): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
+// Commented out MemStorage since we're using DatabaseStorage
+/*export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private services: Map<number, Service>;
   private availabilities: Map<number, Availability>;
@@ -350,10 +359,11 @@ export class MemStorage implements IStorage {
 }
 
 // End of MemStorage class
+*/
 
 // Import the database and drizzle operators
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 // Database implementation of IStorage
 export class DatabaseStorage implements IStorage {
@@ -514,7 +524,7 @@ export class DatabaseStorage implements IStorage {
     const [booking] = await db
       .select()
       .from(bookings)
-      .where(eq(bookings.reference, reference));
+      .where(eq(bookings.bookingReference, reference));
     
     if (!booking) return undefined;
     
@@ -609,6 +619,44 @@ export class DatabaseStorage implements IStorage {
       .from(customers)
       .where(eq(customers.email, email));
     return customer || undefined;
+  }
+
+  // Recent events operations
+  async getRecentEvents(): Promise<RecentEvent[]> {
+    return db.select().from(recentEvents).orderBy(desc(recentEvents.eventDate));
+  }
+
+  async getRecentEvent(id: number): Promise<RecentEvent | undefined> {
+    const [event] = await db
+      .select()
+      .from(recentEvents)
+      .where(eq(recentEvents.id, id));
+    return event || undefined;
+  }
+
+  async createRecentEvent(insertEvent: InsertRecentEvent): Promise<RecentEvent> {
+    const [event] = await db
+      .insert(recentEvents)
+      .values(insertEvent)
+      .returning();
+    return event;
+  }
+
+  async updateRecentEvent(id: number, eventUpdate: Partial<InsertRecentEvent>): Promise<RecentEvent | undefined> {
+    const [updatedEvent] = await db
+      .update(recentEvents)
+      .set(eventUpdate)
+      .where(eq(recentEvents.id, id))
+      .returning();
+    return updatedEvent || undefined;
+  }
+
+  async deleteRecentEvent(id: number): Promise<boolean> {
+    const result = await db
+      .delete(recentEvents)
+      .where(eq(recentEvents.id, id))
+      .returning({ deletedId: recentEvents.id });
+    return result.length > 0;
   }
 }
 

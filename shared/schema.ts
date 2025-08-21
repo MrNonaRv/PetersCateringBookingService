@@ -58,6 +58,24 @@ export const bookings = pgTable("bookings", {
   specialRequests: text("special_requests"),
   status: text("status").notNull().default("pending"), // pending, confirmed, cancelled, completed
   totalPrice: integer("total_price").notNull(), // in cents
+  paymentMethod: text("payment_method"), // gcash, paymaya, bank_transfer, cash
+  paymentStatus: text("payment_status").notNull().default("pending"), // pending, paid, failed
+  paymentReference: text("payment_reference"), // transaction reference from payment provider
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Recent events showcase
+export const recentEvents = pgTable("recent_events", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  eventType: text("event_type").notNull(),
+  eventDate: date("event_date").notNull(),
+  venue: text("venue").notNull(),
+  guestCount: integer("guest_count").notNull(),
+  imageUrl: text("image_url").notNull(),
+  highlights: text("highlights").array(), // array of highlight features
+  featured: boolean("featured").default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -94,6 +112,11 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
 });
 
+export const insertRecentEventSchema = createInsertSchema(recentEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -110,6 +133,9 @@ export type Booking = typeof bookings.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
 
+export type InsertRecentEvent = z.infer<typeof insertRecentEventSchema>;
+export type RecentEvent = typeof recentEvents.$inferSelect;
+
 // Define relations
 export const usersRelations = relations(users, ({ many }) => ({
   bookings: many(bookings),
@@ -118,6 +144,8 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const servicesRelations = relations(services, ({ many }) => ({
   bookings: many(bookings),
 }));
+
+export const recentEventsRelations = relations(recentEvents, ({ }) => ({}));
 
 export const bookingsRelations = relations(bookings, ({ one }) => ({
   customer: one(customers, {

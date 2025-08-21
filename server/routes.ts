@@ -6,7 +6,8 @@ import {
   insertServiceSchema, 
   insertAvailabilitySchema, 
   insertBookingSchema, 
-  insertCustomerSchema 
+  insertCustomerSchema,
+  insertRecentEventSchema
 } from "@shared/schema";
 import express from "express";
 import session from "express-session";
@@ -227,6 +228,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ user: req.user });
     }
     res.status(401).json({ message: "Not authenticated" });
+  });
+
+  // Recent Events routes
+  app.get("/api/recent-events", async (req, res) => {
+    try {
+      const events = await storage.getRecentEvents();
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching recent events" });
+    }
+  });
+
+  app.get("/api/recent-events/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const event = await storage.getRecentEvent(id);
+      
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching event" });
+    }
+  });
+
+  // Protected admin routes for recent events
+  app.post("/api/recent-events", isAuthenticated, async (req, res) => {
+    try {
+      const eventData = insertRecentEventSchema.parse(req.body);
+      const event = await storage.createRecentEvent(eventData);
+      res.status(201).json(event);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid event data" });
+    }
+  });
+
+  app.put("/api/recent-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const eventData = insertRecentEventSchema.partial().parse(req.body);
+      const event = await storage.updateRecentEvent(id, eventData);
+      
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      res.json(event);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid event data" });
+    }
+  });
+
+  app.delete("/api/recent-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteRecentEvent(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting event" });
+    }
+  });
+
+  // Payment methods endpoint
+  app.get("/api/payment-methods", (req, res) => {
+    const paymentMethods = [
+      {
+        id: "gcash",
+        name: "GCash",
+        description: "Pay using GCash mobile wallet",
+        icon: "smartphone",
+        type: "digital_wallet"
+      },
+      {
+        id: "paymaya",
+        name: "PayMaya",
+        description: "Pay using PayMaya digital wallet",
+        icon: "credit-card",
+        type: "digital_wallet"
+      },
+      {
+        id: "bank_transfer",
+        name: "Bank Transfer",
+        description: "Direct bank transfer to our account",
+        icon: "building-2",
+        type: "bank_transfer",
+        details: {
+          accountName: "Peter's Creation Catering Services",
+          accountNumber: "1234567890",
+          bankName: "BPI Bank",
+          instructions: "Please include your booking reference in the transfer description"
+        }
+      },
+      {
+        id: "cash",
+        name: "Cash Payment",
+        description: "Pay in cash upon service delivery",
+        icon: "banknote",
+        type: "cash"
+      }
+    ];
+    
+    res.json(paymentMethods);
+  });
+
+  // Payment processing endpoint
+  app.post("/api/process-payment", async (req, res) => {
+    try {
+      const { bookingId, paymentMethod, paymentReference } = req.body;
+      
+      if (!bookingId || !paymentMethod) {
+        return res.status(400).json({ message: "Booking ID and payment method are required" });
+      }
+      
+      // Simulate payment processing logic
+      // In a real application, you would integrate with actual payment processors
+      const paymentResult = {
+        success: true,
+        transactionId: `TXN-${Date.now()}`,
+        paymentMethod,
+        paymentReference: paymentReference || `REF-${Date.now()}`,
+        timestamp: new Date()
+      };
+      
+      res.json(paymentResult);
+    } catch (error) {
+      res.status(500).json({ message: "Payment processing error" });
+    }
   });
 
   // Create HTTP server

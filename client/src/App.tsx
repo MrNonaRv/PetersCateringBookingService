@@ -10,6 +10,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminBookings from "@/pages/admin/bookings";
 import AdminServices from "@/pages/admin/services";
 import AdminCustomers from "@/pages/admin/customers";
+import AdminRecentEvents from "@/pages/admin/recent-events";
 import Login from "@/pages/login";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/providers/ProtectedRoute";
@@ -51,6 +52,11 @@ function App() {
             <Route path="/admin/customers" component={() => 
               <ProtectedRoute>
                 <AdminCustomers />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/recent-events" component={() => 
+              <ProtectedRoute>
+                <AdminRecentEvents />
               </ProtectedRoute>
             } />
             <Route component={NotFound} />

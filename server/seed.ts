@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, services, availability, customers, bookings } from "@shared/schema";
+import { users, services, availability, customers, bookings, recentEvents } from "@shared/schema";
 import { hash } from "bcrypt";
 
 async function seed() {
@@ -104,6 +104,83 @@ async function seed() {
     console.log("Created initial availability settings");
   } else {
     console.log(`Availability settings already exist (${availabilityCount.length} found)`);
+  }
+  
+  // Create sample recent events
+  const recentEventsCount = await db.select().from(recentEvents);
+  
+  if (recentEventsCount.length === 0) {
+    await db.insert(recentEvents).values([
+      {
+        title: "Martinez Wedding Reception",
+        description: "A beautiful garden wedding reception for 150 guests featuring Filipino and Spanish fusion cuisine. The event included a full buffet setup with live cooking stations, elegant table settings, and custom floral arrangements.",
+        eventType: "Wedding",
+        eventDate: "2024-01-15",
+        venue: "The Grand Venue Brgy. Atiplo",
+        guestCount: 150,
+        imageUrl: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
+        highlights: ["Live cooking stations", "Custom floral arrangements", "Filipino-Spanish fusion menu", "Professional service staff"],
+        featured: true
+      },
+      {
+        title: "TechCorp Annual Conference",
+        description: "Corporate catering for a 3-day technology conference with 200 attendees. Provided breakfast, lunch, and coffee breaks with modern presentation and networking-friendly menu options.",
+        eventType: "Corporate",
+        eventDate: "2024-02-22",
+        venue: "Metro Manila Convention Center",
+        guestCount: 200,
+        imageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
+        highlights: ["3-day conference catering", "Modern presentation", "Networking-friendly menu", "Coffee break stations"],
+        featured: true
+      },
+      {
+        title: "Golden Anniversary Celebration",
+        description: "50th wedding anniversary celebration for the Santos family with traditional Filipino dishes and a nostalgic menu featuring classic recipes. The intimate gathering celebrated five decades of love.",
+        eventType: "Anniversary",
+        eventDate: "2024-03-10",
+        venue: "Private Residence, Quezon City",
+        guestCount: 80,
+        imageUrl: "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
+        highlights: ["Traditional Filipino dishes", "Nostalgic classic recipes", "Intimate family gathering", "50th anniversary celebration"],
+        featured: false
+      },
+      {
+        title: "University Graduation Party",
+        description: "Graduation celebration for batch 2024 Engineering students with 120 guests. Featured a modern buffet setup with international cuisine and interactive food stations for a memorable celebration.",
+        eventType: "Graduation",
+        eventDate: "2024-04-05",
+        venue: "University of the Philippines Diliman",
+        guestCount: 120,
+        imageUrl: "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
+        highlights: ["Modern buffet setup", "International cuisine", "Interactive food stations", "Graduation celebration"],
+        featured: true
+      },
+      {
+        title: "Christmas Holiday Gathering",
+        description: "Corporate Christmas party for ABCD Company with 180 employees and their families. Featured traditional holiday menu with lechon, ham, and Christmas specialties in a festive atmosphere.",
+        eventType: "Holiday",
+        eventDate: "2023-12-20",
+        venue: "ABCD Company Headquarters",
+        guestCount: 180,
+        imageUrl: "https://images.unsplash.com/photo-1543353071-087092ec393a?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
+        highlights: ["Traditional holiday menu", "Lechon and ham centerpieces", "Christmas specialties", "Festive family atmosphere"],
+        featured: false
+      },
+      {
+        title: "Private Birthday Dinner",
+        description: "Elegant 60th birthday celebration with a curated fine dining experience for 40 guests. Multi-course plated dinner with wine pairing and personalized service in an upscale home setting.",
+        eventType: "Birthday",
+        eventDate: "2024-05-18",
+        venue: "Private Residence, Makati City",
+        guestCount: 40,
+        imageUrl: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
+        highlights: ["Fine dining experience", "Multi-course plated dinner", "Wine pairing", "Personalized service"],
+        featured: true
+      }
+    ]);
+    console.log("Created sample recent events");
+  } else {
+    console.log(`Recent events already exist (${recentEventsCount.length} found)`);
   }
   
   console.log("✅ Database seeded successfully");
