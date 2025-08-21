@@ -64,15 +64,12 @@ export default function Services({ services, isLoading, onSelectService }: Servi
           {service.name}
         </h3>
         <p className="text-[#343a40] mb-4 line-clamp-3">{service.description}</p>
-        <div className="flex justify-between items-center">
-          <span className="text-secondary font-accent font-bold">
-            Starting at {formatPrice(service.basePrice)}/person
-          </span>
+        <div className="flex justify-center">
           <Button 
             onClick={() => onSelectService(service.id)}
-            className="bg-primary hover:bg-secondary text-white font-accent text-sm transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+            className="bg-primary hover:bg-secondary text-white font-accent text-sm transition-all duration-300 transform hover:scale-105 hover:shadow-lg w-full"
           >
-            Select
+            View Packages & Pricing
           </Button>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, 
   insertServiceSchema, 
+  insertServicePackageSchema,
   insertAvailabilitySchema, 
   insertBookingSchema, 
   insertCustomerSchema,
@@ -99,6 +100,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).end();
     } catch (error) {
       res.status(500).json({ message: "Error deleting service" });
+    }
+  });
+
+  // Service Packages routes
+  app.get("/api/service-packages", async (req, res) => {
+    try {
+      const packages = await storage.getServicePackages();
+      res.json(packages);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching service packages" });
+    }
+  });
+
+  app.get("/api/service-packages/service/:serviceId", async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.serviceId);
+      const packages = await storage.getServicePackagesByService(serviceId);
+      res.json(packages);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching service packages" });
+    }
+  });
+
+  app.get("/api/service-packages/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const servicePackage = await storage.getServicePackage(id);
+      
+      if (!servicePackage) {
+        return res.status(404).json({ message: "Service package not found" });
+      }
+      
+      res.json(servicePackage);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching service package" });
+    }
+  });
+
+  app.post("/api/service-packages", isAuthenticated, async (req, res) => {
+    try {
+      const packageData = insertServicePackageSchema.parse(req.body);
+      const servicePackage = await storage.createServicePackage(packageData);
+      res.status(201).json(servicePackage);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid service package data" });
+    }
+  });
+
+  app.put("/api/service-packages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const packageData = insertServicePackageSchema.partial().parse(req.body);
+      const servicePackage = await storage.updateServicePackage(id, packageData);
+      
+      if (!servicePackage) {
+        return res.status(404).json({ message: "Service package not found" });
+      }
+      
+      res.json(servicePackage);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid service package data" });
+    }
+  });
+
+  app.delete("/api/service-packages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteServicePackage(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Service package not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting service package" });
     }
   });
 

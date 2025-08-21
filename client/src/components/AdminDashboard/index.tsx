@@ -7,6 +7,7 @@ import BookingsTable from "./BookingsTable";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ServicesManagement from "./ServicesManagement";
+import ServicePackageManagement from "./ServicePackageManagement";
 import CustomersManagement from "./CustomersManagement";
 import { RecentEventsManagement } from "./RecentEventsManagement";
 
@@ -67,6 +68,9 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
       
       case "services":
         return <ServicesManagement />;
+      
+      case "service-packages":
+        return <ServicePackageManagement />;
       
       case "customers":
         return <CustomersManagement />;

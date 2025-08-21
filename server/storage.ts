@@ -1,6 +1,7 @@
 import { 
   users, type User, type InsertUser,
   services, type Service, type InsertService,
+  servicePackages, type ServicePackage, type InsertServicePackage,
   availability, type Availability, type InsertAvailability,
   bookings, type Booking, type InsertBooking,
   customers, type Customer, type InsertCustomer,
@@ -21,6 +22,14 @@ export interface IStorage {
   createService(service: InsertService): Promise<Service>;
   updateService(id: number, service: Partial<InsertService>): Promise<Service | undefined>;
   deleteService(id: number): Promise<boolean>;
+  
+  // Service package operations
+  getServicePackages(): Promise<ServicePackage[]>;
+  getServicePackagesByService(serviceId: number): Promise<ServicePackage[]>;
+  getServicePackage(id: number): Promise<ServicePackage | undefined>;
+  createServicePackage(servicePackage: InsertServicePackage): Promise<ServicePackage>;
+  updateServicePackage(id: number, servicePackage: Partial<InsertServicePackage>): Promise<ServicePackage | undefined>;
+  deleteServicePackage(id: number): Promise<boolean>;
   
   // Availability operations
   getAvailabilities(): Promise<Availability[]>;
@@ -656,6 +665,50 @@ export class DatabaseStorage implements IStorage {
       .delete(recentEvents)
       .where(eq(recentEvents.id, id))
       .returning({ deletedId: recentEvents.id });
+    return result.length > 0;
+  }
+
+  // Service package operations
+  async getServicePackages(): Promise<ServicePackage[]> {
+    return db.select().from(servicePackages);
+  }
+
+  async getServicePackagesByService(serviceId: number): Promise<ServicePackage[]> {
+    return db.select().from(servicePackages)
+      .where(eq(servicePackages.serviceId, serviceId))
+      .orderBy(servicePackages.sortOrder, servicePackages.pricePerPerson);
+  }
+
+  async getServicePackage(id: number): Promise<ServicePackage | undefined> {
+    const [servicePackage] = await db
+      .select()
+      .from(servicePackages)
+      .where(eq(servicePackages.id, id));
+    return servicePackage || undefined;
+  }
+
+  async createServicePackage(insertServicePackage: InsertServicePackage): Promise<ServicePackage> {
+    const [servicePackage] = await db
+      .insert(servicePackages)
+      .values(insertServicePackage)
+      .returning();
+    return servicePackage;
+  }
+
+  async updateServicePackage(id: number, servicePackageUpdate: Partial<InsertServicePackage>): Promise<ServicePackage | undefined> {
+    const [updatedServicePackage] = await db
+      .update(servicePackages)
+      .set(servicePackageUpdate)
+      .where(eq(servicePackages.id, id))
+      .returning();
+    return updatedServicePackage || undefined;
+  }
+
+  async deleteServicePackage(id: number): Promise<boolean> {
+    const result = await db
+      .delete(servicePackages)
+      .where(eq(servicePackages.id, id))
+      .returning({ deletedId: servicePackages.id });
     return result.length > 0;
   }
 }

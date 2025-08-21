@@ -97,6 +97,16 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
           </a>
         </Link>
         
+        <Link href="/admin/service-packages">
+          <a className={cn(
+            "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
+            isActive('/admin/service-packages') && "bg-white bg-opacity-10"
+          )}>
+            <i className="fas fa-box mr-3"></i>
+            {!collapsed && <span>Packages</span>}
+          </a>
+        </Link>
+        
         <Link href="/admin/recent-events">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",

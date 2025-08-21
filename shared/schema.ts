@@ -24,6 +24,20 @@ export const services = pgTable("services", {
   featured: boolean("featured").default(false),
 });
 
+// Service packages for each service
+export const servicePackages = pgTable("service_packages", {
+  id: serial("id").primaryKey(),
+  serviceId: integer("service_id").notNull().references(() => services.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(), // e.g., "Basic Package", "Premium Package"
+  description: text("description").notNull(),
+  pricePerPerson: integer("price_per_person").notNull(), // in cents
+  minGuests: integer("min_guests").notNull().default(10),
+  maxGuests: integer("max_guests"), // null = no limit
+  features: text("features").array(), // array of features included
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0), // for ordering packages
+});
+
 // Settings for date availability
 export const availability = pgTable("availability", {
   id: serial("id").primaryKey(),
@@ -97,6 +111,10 @@ export const insertServiceSchema = createInsertSchema(services).pick({
   featured: true,
 });
 
+export const insertServicePackageSchema = createInsertSchema(servicePackages).omit({
+  id: true,
+});
+
 export const insertAvailabilitySchema = createInsertSchema(availability).pick({
   date: true,
   isAvailable: true,
@@ -124,6 +142,9 @@ export type User = typeof users.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type Service = typeof services.$inferSelect;
 
+export type InsertServicePackage = z.infer<typeof insertServicePackageSchema>;
+export type ServicePackage = typeof servicePackages.$inferSelect;
+
 export type InsertAvailability = z.infer<typeof insertAvailabilitySchema>;
 export type Availability = typeof availability.$inferSelect;
 
@@ -143,6 +164,14 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const servicesRelations = relations(services, ({ many }) => ({
   bookings: many(bookings),
+  packages: many(servicePackages),
+}));
+
+export const servicePackagesRelations = relations(servicePackages, ({ one }) => ({
+  service: one(services, {
+    fields: [servicePackages.serviceId],
+    references: [services.id],
+  }),
 }));
 
 export const recentEventsRelations = relations(recentEvents, ({ }) => ({}));
