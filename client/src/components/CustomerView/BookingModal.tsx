@@ -159,13 +159,12 @@ export default function BookingModal({
         venueAddress: data.venueAddress,
         menuPreference: data.menuPreference,
         serviceStyle: data.serviceStyle,
-        additionalServices: data.additionalServices,
-        specialRequests: data.specialRequests,
+        additionalServices: data.additionalServices || "",
+        specialRequests: data.specialRequests || "",
         // Calculate total price based on base price and guest count
         totalPrice: (services.find(s => s.id === data.serviceId)?.basePrice || 0) * data.guestCount,
-        // Generate booking reference (this will be done server-side)
-        bookingReference: "",
-        status: "pending"
+        status: "pending",
+        paymentStatus: "pending"
       };
       
       // Prepare customer data
@@ -173,8 +172,7 @@ export default function BookingModal({
         name: data.name,
         email: data.email,
         phone: data.phone,
-        company: data.company,
-        bookingId: 0 // This will be set server-side
+        company: data.company || ""
       };
       
       // Send booking request
@@ -321,10 +319,10 @@ export default function BookingModal({
                 mode="single"
                 selected={form.getValues("eventDate")}
                 onSelect={(date) => date && form.setValue("eventDate", date, { shouldValidate: true })}
-                disabled={(date) => {
+                disabled={(date: Date) => {
                   // Disable past dates and unavailable dates
                   return date < new Date(new Date().setHours(0, 0, 0, 0)) || 
-                         unavailableDates.some(unavailableDate => 
+                         unavailableDates.some((unavailableDate: Date) => 
                            unavailableDate.getDate() === date.getDate() && 
                            unavailableDate.getMonth() === date.getMonth() && 
                            unavailableDate.getFullYear() === date.getFullYear()

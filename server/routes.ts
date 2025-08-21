@@ -181,13 +181,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { booking, customer } = req.body;
       
-      const bookingData = insertBookingSchema.parse(booking);
-      const customerData = insertCustomerSchema.parse(customer);
+      console.log("Received booking data:", booking);
+      console.log("Received customer data:", customer);
+      
+      // Generate a unique booking reference
+      const bookingReference = `PCB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      
+      // Prepare booking data with all required fields
+      const bookingWithDefaults = {
+        ...booking,
+        bookingReference,
+        customerId: 0, // This will be overridden by storage layer
+        totalPrice: booking.totalPrice || 0,
+        paymentStatus: booking.paymentStatus || "pending",
+        status: booking.status || "pending",
+        additionalServices: booking.additionalServices || "",
+        specialRequests: booking.specialRequests || "",
+        paymentMethod: booking.paymentMethod || null,
+        paymentReference: booking.paymentReference || null
+      };
+      
+      console.log("Prepared booking data:", bookingWithDefaults);
+      
+      // Prepare customer data
+      const customerWithDefaults = {
+        ...customer,
+        company: customer.company || ""
+      };
+      
+      console.log("Prepared customer data:", customerWithDefaults);
+      
+      // Validate the data
+      const bookingData = insertBookingSchema.parse(bookingWithDefaults);
+      const customerData = insertCustomerSchema.parse(customerWithDefaults);
       
       const createdBooking = await storage.createBooking(bookingData, customerData);
       res.status(201).json(createdBooking);
     } catch (error) {
-      res.status(400).json({ message: "Invalid booking data" });
+      console.error("Booking creation error:", error);
+      if (error instanceof Error) {
+        console.error("Error details:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+      res.status(400).json({ 
+        message: "Invalid booking data",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
