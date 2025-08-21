@@ -12,6 +12,7 @@ import Contact from "./Contact";
 import Footer from "./Footer";
 import BookingModal from "./BookingModal";
 import ConfirmationModal from "./ConfirmationModal";
+import Chatbot from "./Chatbot";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
@@ -103,6 +104,8 @@ export default function CustomerView() {
         onClose={closeConfirmationModal}
         bookingReference={bookingReference}
       />
+
+      <Chatbot services={services || []} />
     </div>
   );
 }
