@@ -65,8 +65,8 @@ export interface IStorage {
   deleteGalleryImage(id: number): Promise<boolean>;
 }
 
-// Commented out MemStorage since we're using DatabaseStorage
-/*export class MemStorage implements IStorage {
+// Using MemStorage temporarily until database connection is fixed
+export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private services: Map<number, Service>;
   private availabilities: Map<number, Availability>;
@@ -124,7 +124,12 @@ export interface IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentIds.user++;
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      ...insertUser, 
+      id,
+      role: insertUser.role || "staff",
+      phone: insertUser.phone || null
+    };
     this.users.set(id, user);
     return user;
   }
@@ -140,7 +145,11 @@ export interface IStorage {
 
   async createService(insertService: InsertService): Promise<Service> {
     const id = this.currentIds.service++;
-    const service: Service = { ...insertService, id };
+    const service: Service = { 
+      ...insertService, 
+      id,
+      featured: insertService.featured ?? false
+    };
     this.services.set(id, service);
     return service;
   }
@@ -374,10 +383,59 @@ export interface IStorage {
       });
     }
   }
+
+  // Service package operations (stub implementations)
+  async getServicePackages(): Promise<ServicePackage[]> {
+    return [];
+  }
+
+  async getServicePackagesByService(serviceId: number): Promise<ServicePackage[]> {
+    return [];
+  }
+
+  async getServicePackage(id: number): Promise<ServicePackage | undefined> {
+    return undefined;
+  }
+
+  async createServicePackage(servicePackage: InsertServicePackage): Promise<ServicePackage> {
+    throw new Error("Service packages not implemented in MemStorage");
+  }
+
+  async updateServicePackage(id: number, servicePackage: Partial<InsertServicePackage>): Promise<ServicePackage | undefined> {
+    return undefined;
+  }
+
+  async deleteServicePackage(id: number): Promise<boolean> {
+    return false;
+  }
+
+  // Gallery image operations (stub implementations)
+  async getGalleryImages(): Promise<GalleryImage[]> {
+    return [];
+  }
+
+  async getGalleryImagesByCategory(category: string): Promise<GalleryImage[]> {
+    return [];
+  }
+
+  async getGalleryImage(id: number): Promise<GalleryImage | undefined> {
+    return undefined;
+  }
+
+  async createGalleryImage(image: InsertGalleryImage): Promise<GalleryImage> {
+    throw new Error("Gallery images not implemented in MemStorage");
+  }
+
+  async updateGalleryImage(id: number, image: Partial<InsertGalleryImage>): Promise<GalleryImage | undefined> {
+    return undefined;
+  }
+
+  async deleteGalleryImage(id: number): Promise<boolean> {
+    return false;
+  }
 }
 
 // End of MemStorage class
-*/
 
 // Import the database and drizzle operators
 import { db } from "./db";
@@ -766,5 +824,6 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Use DatabaseStorage instead of MemStorage
-export const storage = new DatabaseStorage();
+// Temporarily use MemStorage due to database connection issues
+// TODO: Switch back to DatabaseStorage once database is properly configured
+export const storage = new MemStorage();
