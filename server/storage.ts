@@ -72,12 +72,14 @@ export class MemStorage implements IStorage {
   private availabilities: Map<number, Availability>;
   private bookings: Map<number, Booking>;
   private customers: Map<number, Customer>;
+  private recentEvents: Map<number, RecentEvent>;
   private currentIds: {
     user: number;
     service: number;
     availability: number;
     booking: number;
     customer: number;
+    recentEvent: number;
   };
 
   constructor() {
@@ -86,12 +88,14 @@ export class MemStorage implements IStorage {
     this.availabilities = new Map();
     this.bookings = new Map();
     this.customers = new Map();
+    this.recentEvents = new Map();
     this.currentIds = {
       user: 1,
       service: 1,
       availability: 1,
       booking: 1,
-      customer: 1
+      customer: 1,
+      recentEvent: 1
     };
 
     // Initialize with an admin user
@@ -184,14 +188,19 @@ export class MemStorage implements IStorage {
     
     if (existingAvail) {
       // Update existing
-      existingAvail.isAvailable = insertAvailability.isAvailable;
-      existingAvail.notes = insertAvailability.notes;
+      existingAvail.isAvailable = insertAvailability.isAvailable ?? null;
+      existingAvail.notes = insertAvailability.notes ?? null;
       this.availabilities.set(existingAvail.id, existingAvail);
       return existingAvail;
     } else {
       // Create new
       const id = this.currentIds.availability++;
-      const availability: Availability = { ...insertAvailability, id };
+      const availability: Availability = { 
+        ...insertAvailability, 
+        id,
+        isAvailable: insertAvailability.isAvailable ?? null,
+        notes: insertAvailability.notes ?? null
+      };
       this.availabilities.set(id, availability);
       return availability;
     }
@@ -250,28 +259,35 @@ export class MemStorage implements IStorage {
   }
 
   async createBooking(insertBooking: InsertBooking, insertCustomer: InsertCustomer): Promise<BookingWithCustomer> {
-    // Create booking
+    // Create customer first
+    const customerId = this.currentIds.customer++;
+    const customer: Customer = { 
+      ...insertCustomer, 
+      id: customerId,
+      company: insertCustomer.company ?? null
+    };
+    
+    this.customers.set(customerId, customer);
+    
+    // Create booking with customer ID
     const bookingId = this.currentIds.booking++;
     const bookingReference = `PCC-${Math.floor(10000 + Math.random() * 90000)}`;
     
     const booking: Booking = { 
       ...insertBooking, 
       id: bookingId,
+      customerId,
       bookingReference,
+      status: insertBooking.status || "pending",
+      paymentStatus: insertBooking.paymentStatus || "pending",
+      additionalServices: insertBooking.additionalServices ?? null,
+      specialRequests: insertBooking.specialRequests ?? null,
+      paymentMethod: insertBooking.paymentMethod ?? null,
+      paymentReference: insertBooking.paymentReference ?? null,
       createdAt: new Date()
     };
     
     this.bookings.set(bookingId, booking);
-    
-    // Create customer
-    const customerId = this.currentIds.customer++;
-    const customer: Customer = { 
-      ...insertCustomer, 
-      id: customerId,
-      bookingId
-    };
-    
-    this.customers.set(customerId, customer);
     
     const service = this.services.get(booking.serviceId) as Service;
     
@@ -302,11 +318,47 @@ export class MemStorage implements IStorage {
     );
   }
 
+  // Recent events operations
+  async getRecentEvents(): Promise<RecentEvent[]> {
+    return Array.from(this.recentEvents.values())
+      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+  }
+
+  async getRecentEvent(id: number): Promise<RecentEvent | undefined> {
+    return this.recentEvents.get(id);
+  }
+
+  async createRecentEvent(insertEvent: InsertRecentEvent): Promise<RecentEvent> {
+    const id = this.currentIds.recentEvent++;
+    const event: RecentEvent = {
+      ...insertEvent,
+      id,
+      highlights: insertEvent.highlights ?? null,
+      featured: insertEvent.featured ?? false,
+      createdAt: new Date()
+    };
+    this.recentEvents.set(id, event);
+    return event;
+  }
+
+  async updateRecentEvent(id: number, eventUpdate: Partial<InsertRecentEvent>): Promise<RecentEvent | undefined> {
+    const existingEvent = this.recentEvents.get(id);
+    if (!existingEvent) return undefined;
+
+    const updatedEvent = { ...existingEvent, ...eventUpdate };
+    this.recentEvents.set(id, updatedEvent);
+    return updatedEvent;
+  }
+
+  async deleteRecentEvent(id: number): Promise<boolean> {
+    return this.recentEvents.delete(id);
+  }
+
   // Helper methods
   private getCustomerByBookingId(bookingId: number): Customer | undefined {
-    return Array.from(this.customers.values()).find(
-      (customer) => customer.bookingId === bookingId
-    );
+    const booking = this.bookings.get(bookingId);
+    if (!booking) return undefined;
+    return this.customers.get(booking.customerId);
   }
 
   private initializeServices(): void {
