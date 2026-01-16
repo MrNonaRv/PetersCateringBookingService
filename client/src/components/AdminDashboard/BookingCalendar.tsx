@@ -39,6 +39,18 @@ export default function BookingCalendar() {
     }
   });
   
+  // Fetch capacity calendar
+  const { data: capacityData } = useQuery({
+    queryKey: ['/api/capacity-calendar'],
+    queryFn: async () => {
+      const res = await fetch('/api/capacity-calendar');
+      if (!res.ok) {
+        throw new Error('Failed to fetch capacity');
+      }
+      return res.json();
+    }
+  });
+  
   // Navigate to previous month
   const prevMonth = () => {
     const prev = new Date(month);
@@ -74,9 +86,22 @@ export default function BookingCalendar() {
     return availability.isAvailable;
   };
   
+  // Get capacity for a specific date
+  const getCapacityForDate = (dateToCheck: Date) => {
+    if (!capacityData) return { bookedSlots: 0, maxSlots: 7 };
+    
+    const dateString = format(dateToCheck, 'yyyy-MM-dd');
+    const capacity = capacityData.find((c: any) => c.date === dateString);
+    
+    if (!capacity) return { bookedSlots: 0, maxSlots: 7 };
+    
+    return { bookedSlots: capacity.bookedSlots, maxSlots: capacity.maxSlots };
+  };
+  
   // Custom day render to show booking indicators
   const renderDay = (day: Date) => {
     const dateBookings = getBookingsForDate(day);
+    const capacity = getCapacityForDate(day);
     const isAvailable = isDateAvailable(day);
     
     return (
@@ -87,6 +112,11 @@ export default function BookingCalendar() {
             {dateBookings.length} event{dateBookings.length > 1 ? 's' : ''}
           </div>
         )}
+        {capacity.bookedSlots > 0 && (
+          <div className="text-[9px] text-gray-500">
+            {capacity.bookedSlots}/{capacity.maxSlots}
+          </div>
+        )}
       </div>
     );
   };
@@ -94,13 +124,21 @@ export default function BookingCalendar() {
   // Determine CSS class for days
   const getDayClass = (day: Date) => {
     const dateBookings = getBookingsForDate(day);
+    const capacity = getCapacityForDate(day);
     const isAvailable = isDateAvailable(day);
     
+    // Date is marked as unavailable
     if (!isAvailable) {
       return "bg-[#e74c3c] bg-opacity-20 border border-[#e74c3c]";
     }
     
-    if (dateBookings.length > 0) {
+    // Date is at full capacity
+    if (capacity.bookedSlots >= capacity.maxSlots) {
+      return "bg-[#e74c3c] bg-opacity-20 border border-[#e74c3c]";
+    }
+    
+    // Date has bookings (partially filled)
+    if (dateBookings.length > 0 || capacity.bookedSlots > 0) {
       return "bg-primary bg-opacity-20 border border-primary";
     }
     

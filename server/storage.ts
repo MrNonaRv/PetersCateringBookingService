@@ -878,6 +878,31 @@ export class DatabaseStorage implements IStorage {
       await db.insert(bookingDishes).values(dishInserts);
     }
     
+    // Update capacity calendar for the event date
+    const eventDateStr = insertBooking.eventDate;
+    const [existingCapacity] = await db
+      .select()
+      .from(capacityCalendar)
+      .where(eq(capacityCalendar.date, eventDateStr));
+    
+    if (existingCapacity) {
+      // Increment booked slots
+      await db
+        .update(capacityCalendar)
+        .set({ bookedSlots: existingCapacity.bookedSlots + 1 })
+        .where(eq(capacityCalendar.id, existingCapacity.id));
+    } else {
+      // Create new capacity record for this date with 1 booked slot
+      await db
+        .insert(capacityCalendar)
+        .values({
+          date: eventDateStr,
+          dayType: 'normal',
+          maxSlots: 7,
+          bookedSlots: 1
+        });
+    }
+    
     // Get service data
     const [service] = await db
       .select()

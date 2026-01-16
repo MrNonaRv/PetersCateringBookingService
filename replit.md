@@ -91,6 +91,11 @@ The frontend is built with **React 18** and **TypeScript**, utilizing a componen
 ### Status Workflow
 Booking statuses: `pending_approval` → `approved` → `deposit_paid` → `fully_paid` → `confirmed` → `completed` (with `cancelled` option)
 
+### Admin Calendar Accuracy
+- **Automatic Capacity Tracking**: When a booking is created, the `capacity_calendar` table is updated with booked slot counts
+- **Visual Indicators**: Admin calendar shows booking counts and capacity (e.g., "3/7" for 3 of 7 slots booked)
+- **Color Coding**: Full capacity dates shown in red, partial bookings in blue
+
 ### Data Notes
 - **Package Pricing**: The `pricePerPerson` field in `service_packages` table stores total package price (not per-person) for fixed-price packages like "Diamond Wedding ₱235,000"
 - **Currency**: All prices displayed in Philippine Peso (₱) with centavos stored in database

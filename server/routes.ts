@@ -386,6 +386,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Capacity Calendar - shows booked slots per date (admin only)
+  app.get("/api/capacity-calendar", isAuthenticated, async (req, res) => {
+    try {
+      const capacity = await storage.getCapacityCalendar();
+      res.json(capacity);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching capacity calendar" });
+    }
+  });
+
+  app.get("/api/capacity-calendar/:date", isAuthenticated, async (req, res) => {
+    try {
+      const date = req.params.date;
+      const capacity = await storage.getCapacityByDate(date);
+      
+      if (!capacity) {
+        return res.json({ date, bookedSlots: 0, maxSlots: 7, dayType: 'normal' });
+      }
+      
+      res.json(capacity);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching capacity" });
+    }
+  });
+
   // Bookings
   app.get("/api/bookings", isAuthenticated, async (req, res) => {
     try {
