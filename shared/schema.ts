@@ -14,6 +14,91 @@ export const users = pgTable("users", {
   phone: text("phone"),
 });
 
+// Capacity calendar for daily booking limits
+export const capacityCalendar = pgTable("capacity_calendar", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull().unique(),
+  dayType: text("day_type").notNull().default("normal"), // 'normal', 'peak', 'closed'
+  maxSlots: integer("max_slots").notNull().default(7), // 7 normal, 10 peak, 0 closed
+  bookedSlots: integer("booked_slots").notNull().default(0),
+  notes: text("notes"),
+});
+
+// Dishes/Menu items for package selection
+export const dishes = pgTable("dishes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // 'appetizer', 'main', 'dessert', 'beverage', 'side'
+  tags: text("tags").array(), // e.g., ['vegetarian', 'spicy', 'popular']
+  imageUrl: text("image_url"),
+  additionalCost: integer("additional_cost").default(0), // in cents, for premium items
+  isAvailable: boolean("is_available").default(true),
+  sortOrder: integer("sort_order").default(0),
+});
+
+// Add-ons/Extra services
+export const addOns = pgTable("add_ons", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // 'equipment', 'service', 'decoration', 'entertainment'
+  priceType: text("price_type").notNull().default("fixed"), // 'fixed', 'per_person', 'per_hour'
+  price: integer("price").notNull(), // in cents
+  minQuantity: integer("min_quantity").default(1),
+  maxQuantity: integer("max_quantity"),
+  isAvailable: boolean("is_available").default(true),
+});
+
+// Custom quote requests
+export const customQuotes = pgTable("custom_quotes", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").notNull().references(() => customers.id),
+  quoteReference: text("quote_reference").notNull().unique(),
+  eventDate: date("event_date").notNull(),
+  eventTime: text("event_time").notNull(),
+  eventType: text("event_type").notNull(),
+  guestCount: integer("guest_count").notNull(),
+  venueAddress: text("venue_address").notNull(),
+  budget: integer("budget"), // in cents, customer's budget range
+  preferences: text("preferences"), // dietary preferences, cuisine style
+  specialRequests: text("special_requests"),
+  status: text("status").notNull().default("new"), // 'new', 'quote_sent', 'accepted', 'revision_requested', 'rejected', 'approved', 'deposit_paid'
+  proposedPackage: text("proposed_package"), // JSON string of proposed menu/package
+  proposedPrice: integer("proposed_price"), // in cents
+  depositAmount: integer("deposit_amount"), // in cents
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Package dishes junction table
+export const packageDishes = pgTable("package_dishes", {
+  packageId: integer("package_id").notNull().references(() => servicePackages.id, { onDelete: 'cascade' }),
+  dishId: integer("dish_id").notNull().references(() => dishes.id, { onDelete: 'cascade' }),
+  isRequired: boolean("is_required").default(false),
+  maxSelections: integer("max_selections").default(1),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.packageId, t.dishId] })
+}));
+
+// Booking dishes (selected dishes for a booking)
+export const bookingDishes = pgTable("booking_dishes", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull().references(() => bookings.id, { onDelete: 'cascade' }),
+  dishId: integer("dish_id").notNull().references(() => dishes.id),
+  quantity: integer("quantity").default(1),
+});
+
+// Booking add-ons (selected add-ons for a booking)
+export const bookingAddOns = pgTable("booking_add_ons", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull().references(() => bookings.id, { onDelete: 'cascade' }),
+  addOnId: integer("add_on_id").notNull().references(() => addOns.id),
+  quantity: integer("quantity").default(1),
+  totalPrice: integer("total_price").notNull(), // calculated price for this add-on
+});
+
 // Catering services offered
 export const services = pgTable("services", {
   id: serial("id").primaryKey(),
@@ -61,20 +146,33 @@ export const bookings = pgTable("bookings", {
   customerId: integer("customer_id").notNull().references(() => customers.id),
   bookingReference: text("booking_reference").notNull().unique(),
   serviceId: integer("service_id").notNull().references(() => services.id),
+  packageId: integer("package_id").references(() => servicePackages.id),
   eventDate: date("event_date").notNull(),
   eventType: text("event_type").notNull(),
   eventTime: text("event_time").notNull(),
+  eventDuration: integer("event_duration").default(4), // in hours
   guestCount: integer("guest_count").notNull(),
   venueAddress: text("venue_address").notNull(),
   menuPreference: text("menu_preference").notNull(),
   serviceStyle: text("service_style").notNull(),
   additionalServices: text("additional_services"),
   specialRequests: text("special_requests"),
-  status: text("status").notNull().default("pending"), // pending, confirmed, cancelled, completed
+  status: text("status").notNull().default("pending_approval"), // pending_approval, approved, deposit_paid, fully_paid, confirmed, completed, cancelled
   totalPrice: integer("total_price").notNull(), // in cents
-  paymentMethod: text("payment_method"), // gcash, paymaya, bank_transfer, cash
-  paymentStatus: text("payment_status").notNull().default("pending"), // pending, paid, failed
-  paymentReference: text("payment_reference"), // transaction reference from payment provider
+  depositAmount: integer("deposit_amount").default(0), // in cents (typically 50% of total)
+  depositPaid: boolean("deposit_paid").default(false),
+  depositPaymentMethod: text("deposit_payment_method"), // gcash, paymaya, bank_transfer
+  depositPaymentReference: text("deposit_payment_reference"),
+  depositPaidAt: timestamp("deposit_paid_at"),
+  balanceAmount: integer("balance_amount").default(0), // remaining balance in cents
+  balancePaid: boolean("balance_paid").default(false),
+  balancePaymentMethod: text("balance_payment_method"),
+  balancePaymentReference: text("balance_payment_reference"),
+  balancePaidAt: timestamp("balance_paid_at"),
+  paymentMethod: text("payment_method"), // gcash, paymaya, bank_transfer, cash (legacy)
+  paymentStatus: text("payment_status").notNull().default("pending"), // pending, deposit_paid, fully_paid, failed
+  paymentReference: text("payment_reference"),
+  adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -154,6 +252,34 @@ export const insertGalleryImageSchema = createInsertSchema(galleryImages).omit({
   createdAt: true,
 });
 
+export const insertCapacityCalendarSchema = createInsertSchema(capacityCalendar).omit({
+  id: true,
+});
+
+export const insertDishSchema = createInsertSchema(dishes).omit({
+  id: true,
+});
+
+export const insertAddOnSchema = createInsertSchema(addOns).omit({
+  id: true,
+});
+
+export const insertCustomQuoteSchema = createInsertSchema(customQuotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPackageDishSchema = createInsertSchema(packageDishes);
+
+export const insertBookingDishSchema = createInsertSchema(bookingDishes).omit({
+  id: true,
+});
+
+export const insertBookingAddOnSchema = createInsertSchema(bookingAddOns).omit({
+  id: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -178,6 +304,27 @@ export type RecentEvent = typeof recentEvents.$inferSelect;
 
 export type InsertGalleryImage = z.infer<typeof insertGalleryImageSchema>;
 export type GalleryImage = typeof galleryImages.$inferSelect;
+
+export type InsertCapacityCalendar = z.infer<typeof insertCapacityCalendarSchema>;
+export type CapacityCalendar = typeof capacityCalendar.$inferSelect;
+
+export type InsertDish = z.infer<typeof insertDishSchema>;
+export type Dish = typeof dishes.$inferSelect;
+
+export type InsertAddOn = z.infer<typeof insertAddOnSchema>;
+export type AddOn = typeof addOns.$inferSelect;
+
+export type InsertCustomQuote = z.infer<typeof insertCustomQuoteSchema>;
+export type CustomQuote = typeof customQuotes.$inferSelect;
+
+export type InsertPackageDish = z.infer<typeof insertPackageDishSchema>;
+export type PackageDish = typeof packageDishes.$inferSelect;
+
+export type InsertBookingDish = z.infer<typeof insertBookingDishSchema>;
+export type BookingDish = typeof bookingDishes.$inferSelect;
+
+export type InsertBookingAddOn = z.infer<typeof insertBookingAddOnSchema>;
+export type BookingAddOn = typeof bookingAddOns.$inferSelect;
 
 // Define relations
 export const usersRelations = relations(users, ({ many }) => ({
@@ -211,10 +358,65 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
 
 export const customersRelations = relations(customers, ({ many }) => ({
   bookings: many(bookings),
+  customQuotes: many(customQuotes),
+}));
+
+export const dishesRelations = relations(dishes, ({ many }) => ({
+  packageDishes: many(packageDishes),
+  bookingDishes: many(bookingDishes),
+}));
+
+export const addOnsRelations = relations(addOns, ({ many }) => ({
+  bookingAddOns: many(bookingAddOns),
+}));
+
+export const customQuotesRelations = relations(customQuotes, ({ one }) => ({
+  customer: one(customers, {
+    fields: [customQuotes.customerId],
+    references: [customers.id],
+  }),
+}));
+
+export const packageDishesRelations = relations(packageDishes, ({ one }) => ({
+  package: one(servicePackages, {
+    fields: [packageDishes.packageId],
+    references: [servicePackages.id],
+  }),
+  dish: one(dishes, {
+    fields: [packageDishes.dishId],
+    references: [dishes.id],
+  }),
+}));
+
+export const bookingDishesRelations = relations(bookingDishes, ({ one }) => ({
+  booking: one(bookings, {
+    fields: [bookingDishes.bookingId],
+    references: [bookings.id],
+  }),
+  dish: one(dishes, {
+    fields: [bookingDishes.dishId],
+    references: [dishes.id],
+  }),
+}));
+
+export const bookingAddOnsRelations = relations(bookingAddOns, ({ one }) => ({
+  booking: one(bookings, {
+    fields: [bookingAddOns.bookingId],
+    references: [bookings.id],
+  }),
+  addOn: one(addOns, {
+    fields: [bookingAddOns.addOnId],
+    references: [addOns.id],
+  }),
 }));
 
 // Combined booking with customer data
 export type BookingWithCustomer = Booking & {
   customer: Customer;
   service: Service;
+};
+
+// Combined quote with customer data
+export type CustomQuoteWithCustomer = CustomQuote & {
+  customer: Customer;
 };

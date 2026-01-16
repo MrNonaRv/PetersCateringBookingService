@@ -7,7 +7,12 @@ import {
   customers, type Customer, type InsertCustomer,
   recentEvents, type RecentEvent, type InsertRecentEvent,
   galleryImages, type GalleryImage, type InsertGalleryImage,
-  type BookingWithCustomer
+  capacityCalendar, type CapacityCalendar, type InsertCapacityCalendar,
+  dishes, type Dish, type InsertDish,
+  addOns, type AddOn, type InsertAddOn,
+  customQuotes, type CustomQuote, type InsertCustomQuote,
+  type BookingWithCustomer,
+  type CustomQuoteWithCustomer
 } from "@shared/schema";
 
 // Storage interface with CRUD operations
@@ -63,6 +68,35 @@ export interface IStorage {
   createGalleryImage(image: InsertGalleryImage): Promise<GalleryImage>;
   updateGalleryImage(id: number, image: Partial<InsertGalleryImage>): Promise<GalleryImage | undefined>;
   deleteGalleryImage(id: number): Promise<boolean>;
+
+  // Capacity calendar operations
+  getCapacityCalendar(): Promise<CapacityCalendar[]>;
+  getCapacityByDate(date: string): Promise<CapacityCalendar | undefined>;
+  setCapacity(capacity: InsertCapacityCalendar): Promise<CapacityCalendar>;
+  updateCapacity(id: number, capacity: Partial<InsertCapacityCalendar>): Promise<CapacityCalendar | undefined>;
+
+  // Dish operations
+  getDishes(): Promise<Dish[]>;
+  getDishesByCategory(category: string): Promise<Dish[]>;
+  getDish(id: number): Promise<Dish | undefined>;
+  createDish(dish: InsertDish): Promise<Dish>;
+  updateDish(id: number, dish: Partial<InsertDish>): Promise<Dish | undefined>;
+  deleteDish(id: number): Promise<boolean>;
+
+  // Add-on operations
+  getAddOns(): Promise<AddOn[]>;
+  getAddOnsByCategory(category: string): Promise<AddOn[]>;
+  getAddOn(id: number): Promise<AddOn | undefined>;
+  createAddOn(addOn: InsertAddOn): Promise<AddOn>;
+  updateAddOn(id: number, addOn: Partial<InsertAddOn>): Promise<AddOn | undefined>;
+  deleteAddOn(id: number): Promise<boolean>;
+
+  // Custom quote operations
+  getCustomQuotes(): Promise<CustomQuoteWithCustomer[]>;
+  getCustomQuote(id: number): Promise<CustomQuoteWithCustomer | undefined>;
+  getCustomQuoteByReference(reference: string): Promise<CustomQuoteWithCustomer | undefined>;
+  createCustomQuote(quote: InsertCustomQuote, customer: InsertCustomer): Promise<CustomQuoteWithCustomer>;
+  updateCustomQuoteStatus(id: number, status: string, updates?: Partial<InsertCustomQuote>): Promise<CustomQuote | undefined>;
 }
 
 // Using MemStorage temporarily until database connection is fixed
@@ -278,12 +312,25 @@ export class MemStorage implements IStorage {
       id: bookingId,
       customerId,
       bookingReference,
-      status: insertBooking.status || "pending",
+      packageId: insertBooking.packageId ?? null,
+      eventDuration: insertBooking.eventDuration ?? 4,
+      status: insertBooking.status || "pending_approval",
       paymentStatus: insertBooking.paymentStatus || "pending",
+      depositAmount: insertBooking.depositAmount ?? 0,
+      depositPaid: insertBooking.depositPaid ?? false,
+      depositPaymentMethod: insertBooking.depositPaymentMethod ?? null,
+      depositPaymentReference: insertBooking.depositPaymentReference ?? null,
+      depositPaidAt: insertBooking.depositPaidAt ?? null,
+      balanceAmount: insertBooking.balanceAmount ?? 0,
+      balancePaid: insertBooking.balancePaid ?? false,
+      balancePaymentMethod: insertBooking.balancePaymentMethod ?? null,
+      balancePaymentReference: insertBooking.balancePaymentReference ?? null,
+      balancePaidAt: insertBooking.balancePaidAt ?? null,
       additionalServices: insertBooking.additionalServices ?? null,
       specialRequests: insertBooking.specialRequests ?? null,
       paymentMethod: insertBooking.paymentMethod ?? null,
       paymentReference: insertBooking.paymentReference ?? null,
+      adminNotes: insertBooking.adminNotes ?? null,
       createdAt: new Date()
     };
     
