@@ -62,9 +62,9 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
     });
   };
   
-  // Format price from cents to dollars
+  // Format price from cents to pesos
   const formatPrice = (priceInCents: number) => {
-    return `$${(priceInCents / 100).toFixed(2)}`;
+    return `₱${(priceInCents / 100).toFixed(2)}`;
   };
   
   // View booking details
