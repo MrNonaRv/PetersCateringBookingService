@@ -532,6 +532,94 @@ export class MemStorage implements IStorage {
   async deleteGalleryImage(id: number): Promise<boolean> {
     return false;
   }
+
+  // Capacity calendar operations (stub implementations)
+  async getCapacityCalendar(): Promise<CapacityCalendar[]> {
+    return [];
+  }
+
+  async getCapacityByDate(date: string): Promise<CapacityCalendar | undefined> {
+    return undefined;
+  }
+
+  async setCapacity(capacity: InsertCapacityCalendar): Promise<CapacityCalendar> {
+    throw new Error("Capacity calendar not implemented in MemStorage");
+  }
+
+  async updateCapacity(id: number, capacity: Partial<InsertCapacityCalendar>): Promise<CapacityCalendar | undefined> {
+    return undefined;
+  }
+
+  // Dish operations (stub implementations)
+  async getDishes(): Promise<Dish[]> {
+    return [];
+  }
+
+  async getDishesByCategory(category: string): Promise<Dish[]> {
+    return [];
+  }
+
+  async getDish(id: number): Promise<Dish | undefined> {
+    return undefined;
+  }
+
+  async createDish(dish: InsertDish): Promise<Dish> {
+    throw new Error("Dishes not implemented in MemStorage");
+  }
+
+  async updateDish(id: number, dish: Partial<InsertDish>): Promise<Dish | undefined> {
+    return undefined;
+  }
+
+  async deleteDish(id: number): Promise<boolean> {
+    return false;
+  }
+
+  // Add-on operations (stub implementations)
+  async getAddOns(): Promise<AddOn[]> {
+    return [];
+  }
+
+  async getAddOnsByCategory(category: string): Promise<AddOn[]> {
+    return [];
+  }
+
+  async getAddOn(id: number): Promise<AddOn | undefined> {
+    return undefined;
+  }
+
+  async createAddOn(addOn: InsertAddOn): Promise<AddOn> {
+    throw new Error("Add-ons not implemented in MemStorage");
+  }
+
+  async updateAddOn(id: number, addOn: Partial<InsertAddOn>): Promise<AddOn | undefined> {
+    return undefined;
+  }
+
+  async deleteAddOn(id: number): Promise<boolean> {
+    return false;
+  }
+
+  // Custom quote operations (stub implementations)
+  async getCustomQuotes(): Promise<CustomQuoteWithCustomer[]> {
+    return [];
+  }
+
+  async getCustomQuote(id: number): Promise<CustomQuoteWithCustomer | undefined> {
+    return undefined;
+  }
+
+  async getCustomQuoteByReference(reference: string): Promise<CustomQuoteWithCustomer | undefined> {
+    return undefined;
+  }
+
+  async createCustomQuote(quote: InsertCustomQuote, customer: InsertCustomer): Promise<CustomQuoteWithCustomer> {
+    throw new Error("Custom quotes not implemented in MemStorage");
+  }
+
+  async updateCustomQuoteStatus(id: number, status: string, updates?: Partial<InsertCustomQuote>): Promise<CustomQuote | undefined> {
+    return undefined;
+  }
 }
 
 // End of MemStorage class
@@ -921,8 +1009,169 @@ export class DatabaseStorage implements IStorage {
       .returning({ deletedId: galleryImages.id });
     return result.length > 0;
   }
+
+  // Capacity calendar operations
+  async getCapacityCalendar(): Promise<CapacityCalendar[]> {
+    return db.select().from(capacityCalendar).orderBy(capacityCalendar.date);
+  }
+
+  async getCapacityByDate(dateStr: string): Promise<CapacityCalendar | undefined> {
+    const [capacity] = await db
+      .select()
+      .from(capacityCalendar)
+      .where(eq(capacityCalendar.date, dateStr));
+    return capacity || undefined;
+  }
+
+  async setCapacity(insertCapacity: InsertCapacityCalendar): Promise<CapacityCalendar> {
+    const existing = await this.getCapacityByDate(insertCapacity.date);
+    if (existing) {
+      const [updated] = await db
+        .update(capacityCalendar)
+        .set(insertCapacity)
+        .where(eq(capacityCalendar.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [newCapacity] = await db
+        .insert(capacityCalendar)
+        .values(insertCapacity)
+        .returning();
+      return newCapacity;
+    }
+  }
+
+  async updateCapacity(id: number, capacityUpdate: Partial<InsertCapacityCalendar>): Promise<CapacityCalendar | undefined> {
+    const [updated] = await db
+      .update(capacityCalendar)
+      .set(capacityUpdate)
+      .where(eq(capacityCalendar.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Dish operations
+  async getDishes(): Promise<Dish[]> {
+    return db.select().from(dishes).orderBy(dishes.sortOrder);
+  }
+
+  async getDishesByCategory(category: string): Promise<Dish[]> {
+    return db.select().from(dishes)
+      .where(eq(dishes.category, category))
+      .orderBy(dishes.sortOrder);
+  }
+
+  async getDish(id: number): Promise<Dish | undefined> {
+    const [dish] = await db.select().from(dishes).where(eq(dishes.id, id));
+    return dish || undefined;
+  }
+
+  async createDish(insertDish: InsertDish): Promise<Dish> {
+    const [dish] = await db.insert(dishes).values(insertDish).returning();
+    return dish;
+  }
+
+  async updateDish(id: number, dishUpdate: Partial<InsertDish>): Promise<Dish | undefined> {
+    const [updated] = await db
+      .update(dishes)
+      .set(dishUpdate)
+      .where(eq(dishes.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteDish(id: number): Promise<boolean> {
+    const result = await db.delete(dishes).where(eq(dishes.id, id)).returning({ deletedId: dishes.id });
+    return result.length > 0;
+  }
+
+  // Add-on operations
+  async getAddOns(): Promise<AddOn[]> {
+    return db.select().from(addOns);
+  }
+
+  async getAddOnsByCategory(category: string): Promise<AddOn[]> {
+    return db.select().from(addOns).where(eq(addOns.category, category));
+  }
+
+  async getAddOn(id: number): Promise<AddOn | undefined> {
+    const [addOn] = await db.select().from(addOns).where(eq(addOns.id, id));
+    return addOn || undefined;
+  }
+
+  async createAddOn(insertAddOn: InsertAddOn): Promise<AddOn> {
+    const [addOn] = await db.insert(addOns).values(insertAddOn).returning();
+    return addOn;
+  }
+
+  async updateAddOn(id: number, addOnUpdate: Partial<InsertAddOn>): Promise<AddOn | undefined> {
+    const [updated] = await db
+      .update(addOns)
+      .set(addOnUpdate)
+      .where(eq(addOns.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAddOn(id: number): Promise<boolean> {
+    const result = await db.delete(addOns).where(eq(addOns.id, id)).returning({ deletedId: addOns.id });
+    return result.length > 0;
+  }
+
+  // Custom quote operations
+  async getCustomQuotes(): Promise<CustomQuoteWithCustomer[]> {
+    const quotesData = await db.select().from(customQuotes).orderBy(desc(customQuotes.createdAt));
+    const result: CustomQuoteWithCustomer[] = await Promise.all(
+      quotesData.map(async (quote) => {
+        const [customer] = await db.select().from(customers).where(eq(customers.id, quote.customerId));
+        return { ...quote, customer };
+      })
+    );
+    return result;
+  }
+
+  async getCustomQuote(id: number): Promise<CustomQuoteWithCustomer | undefined> {
+    const [quote] = await db.select().from(customQuotes).where(eq(customQuotes.id, id));
+    if (!quote) return undefined;
+    const [customer] = await db.select().from(customers).where(eq(customers.id, quote.customerId));
+    return { ...quote, customer };
+  }
+
+  async getCustomQuoteByReference(reference: string): Promise<CustomQuoteWithCustomer | undefined> {
+    const [quote] = await db.select().from(customQuotes).where(eq(customQuotes.quoteReference, reference));
+    if (!quote) return undefined;
+    const [customer] = await db.select().from(customers).where(eq(customers.id, quote.customerId));
+    return { ...quote, customer };
+  }
+
+  async createCustomQuote(insertQuote: InsertCustomQuote, insertCustomer: InsertCustomer): Promise<CustomQuoteWithCustomer> {
+    let customer: Customer;
+    const [existingCustomer] = await db.select().from(customers).where(eq(customers.email, insertCustomer.email));
+    if (existingCustomer) {
+      customer = existingCustomer;
+    } else {
+      const [newCustomer] = await db.insert(customers).values(insertCustomer).returning();
+      customer = newCustomer;
+    }
+    
+    const quoteReference = `PCQ-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    const [quote] = await db
+      .insert(customQuotes)
+      .values({ ...insertQuote, customerId: customer.id, quoteReference })
+      .returning();
+    
+    return { ...quote, customer };
+  }
+
+  async updateCustomQuoteStatus(id: number, status: string, updates?: Partial<InsertCustomQuote>): Promise<CustomQuote | undefined> {
+    const [updated] = await db
+      .update(customQuotes)
+      .set({ ...updates, status, updatedAt: new Date() })
+      .where(eq(customQuotes.id, id))
+      .returning();
+    return updated || undefined;
+  }
 }
 
-// Temporarily use MemStorage due to database connection issues
-// TODO: Switch back to DatabaseStorage once database is properly configured
-export const storage = new MemStorage();
+// Use DatabaseStorage with Supabase connection
+export const storage = new DatabaseStorage();
