@@ -11,11 +11,13 @@ if (!connectionString) {
   );
 }
 
-// Use SSL only for external databases (like Supabase)
-const isExternalDb = connectionString.includes('supabase.co') || connectionString.includes('neon.tech');
+// Use SSL for external databases (like Supabase, Neon)
+const isExternalDb = connectionString.includes('supabase.com') || 
+                     connectionString.includes('pooler.supabase.com') || 
+                     connectionString.includes('neon.tech');
 
 export const pool = new Pool({ 
   connectionString,
-  ...(isExternalDb ? { ssl: { rejectUnauthorized: false } } : {})
+  ssl: isExternalDb ? { rejectUnauthorized: false } : false
 });
 export const db = drizzle(pool, { schema });
