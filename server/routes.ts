@@ -19,6 +19,16 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
+import { createCheckoutSession, getCheckoutSession, isPaymongoConfigured } from "./paymongo";
+import { 
+  isTwilioConfigured, 
+  sendBookingConfirmation, 
+  sendBookingApproved, 
+  sendDepositReceived,
+  sendPaymentReminder,
+  sendEventReminder,
+  sendCustomMessage 
+} from "./twilio";
 
 const MemorySessionStore = MemoryStore(session);
 
@@ -595,7 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(paymentMethods);
   });
 
-  // Payment processing endpoint
+  // Payment processing endpoint (legacy - kept for backward compatibility)
   app.post("/api/process-payment", async (req, res) => {
     try {
       const { bookingId, paymentMethod, paymentReference } = req.body;
@@ -617,6 +627,400 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(paymentResult);
     } catch (error) {
       res.status(500).json({ message: "Payment processing error" });
+    }
+  });
+
+  // Paymongo Payment Integration Routes
+  
+  // Check if Paymongo is configured
+  app.get("/api/paymongo/status", (req, res) => {
+    res.json({ 
+      configured: isPaymongoConfigured(),
+      publicKey: process.env.PAYMONGO_PUBLIC_KEY ? 'configured' : 'missing'
+    });
+  });
+
+  // Create Paymongo checkout session for booking payment
+  app.post("/api/paymongo/create-checkout", async (req, res) => {
+    try {
+      const { 
+        bookingId, 
+        paymentType, // 'deposit', 'balance', or 'full'
+        successUrl,
+        cancelUrl 
+      } = req.body;
+
+      if (!bookingId) {
+        return res.status(400).json({ message: "Booking ID is required" });
+      }
+
+      // Get booking details
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Get customer details
+      const customer = await storage.getCustomer(booking.customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Calculate amount based on payment type
+      let amount: number;
+      let description: string;
+
+      if (paymentType === 'deposit') {
+        // Deposit is typically 50% of total
+        amount = Math.round(booking.totalPrice * 0.5);
+        description = `Deposit Payment for Catering Service`;
+      } else if (paymentType === 'balance') {
+        // Balance is the remaining amount
+        amount = booking.balanceAmount || Math.round(booking.totalPrice * 0.5);
+        description = `Balance Payment for Catering Service`;
+      } else {
+        // Full payment
+        amount = booking.totalPrice;
+        description = `Full Payment for Catering Service`;
+      }
+
+      // Build success and cancel URLs
+      const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 
+                      process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 
+                      'http://localhost:5000';
+      
+      const finalSuccessUrl = successUrl || `${baseUrl}/payment-success?booking=${booking.bookingReference}&type=${paymentType}`;
+      const finalCancelUrl = cancelUrl || `${baseUrl}/payment-cancelled?booking=${booking.bookingReference}`;
+
+      // Create checkout session
+      const checkoutSession = await createCheckoutSession({
+        amount,
+        description,
+        bookingReference: booking.bookingReference,
+        customerEmail: customer.email,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        paymentType,
+        successUrl: finalSuccessUrl,
+        cancelUrl: finalCancelUrl
+      });
+
+      res.json({
+        success: true,
+        checkoutUrl: checkoutSession.checkoutUrl,
+        checkoutId: checkoutSession.id,
+        amount,
+        paymentType
+      });
+    } catch (error: any) {
+      console.error("Paymongo checkout error:", error);
+      res.status(500).json({ 
+        message: error.message || "Failed to create checkout session" 
+      });
+    }
+  });
+
+  // Verify payment status
+  app.get("/api/paymongo/verify/:checkoutId", async (req, res) => {
+    try {
+      const { checkoutId } = req.params;
+      
+      const session = await getCheckoutSession(checkoutId);
+      
+      // Check if payment was successful
+      const isPaid = session.payments.some(p => p.status === 'paid');
+      
+      res.json({
+        checkoutId: session.id,
+        status: session.status,
+        isPaid,
+        payments: session.payments
+      });
+    } catch (error: any) {
+      console.error("Paymongo verify error:", error);
+      res.status(500).json({ 
+        message: "Failed to verify payment status" 
+      });
+    }
+  });
+
+  // Webhook endpoint for Paymongo payment notifications
+  app.post("/api/paymongo/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      const payload = req.body.toString();
+      const event = JSON.parse(payload);
+      
+      console.log("Paymongo webhook received:", event.data?.attributes?.type);
+      
+      const eventType = event.data?.attributes?.type;
+      const eventData = event.data?.attributes?.data;
+
+      if (eventType === 'checkout_session.payment.paid' || eventType === 'payment.paid') {
+        // Extract booking reference from metadata or reference number
+        const metadata = eventData?.attributes?.metadata || {};
+        const bookingReference = metadata.booking_reference || eventData?.attributes?.reference_number;
+        const paymentType = metadata.payment_type || 'deposit';
+        
+        if (bookingReference) {
+          const booking = await storage.getBookingByReference(bookingReference);
+          
+          if (booking) {
+            // Update booking payment status
+            const paymentDetails = eventData?.attributes;
+            const paymentMethod = paymentDetails?.source?.type || 'paymongo';
+            const paymentId = eventData?.id;
+            
+            if (paymentType === 'deposit') {
+              await storage.updateBookingPayment(booking.id, {
+                depositPaid: true,
+                depositPaymentMethod: paymentMethod,
+                depositPaymentReference: paymentId,
+                depositPaidAt: new Date(),
+                paymentStatus: 'deposit_paid',
+                status: 'deposit_paid'
+              });
+            } else if (paymentType === 'balance') {
+              await storage.updateBookingPayment(booking.id, {
+                balancePaid: true,
+                balancePaymentMethod: paymentMethod,
+                balancePaymentReference: paymentId,
+                balancePaidAt: new Date(),
+                paymentStatus: 'fully_paid',
+                status: 'confirmed'
+              });
+            } else {
+              // Full payment
+              await storage.updateBookingPayment(booking.id, {
+                depositPaid: true,
+                balancePaid: true,
+                depositPaymentMethod: paymentMethod,
+                depositPaymentReference: paymentId,
+                depositPaidAt: new Date(),
+                balancePaidAt: new Date(),
+                paymentStatus: 'fully_paid',
+                status: 'confirmed'
+              });
+            }
+            
+            console.log(`Booking ${bookingReference} payment updated: ${paymentType}`);
+          }
+        }
+      }
+      
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Webhook processing error:", error);
+      res.status(400).json({ message: "Webhook processing failed" });
+    }
+  });
+
+  // Update booking payment status manually (for admin)
+  app.patch("/api/bookings/:id/payment", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const paymentData = req.body;
+      
+      const booking = await storage.updateBookingPayment(id, paymentData);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Update payment error:", error);
+      res.status(500).json({ message: "Error updating payment status" });
+    }
+  });
+
+  // Twilio SMS Integration Routes
+  
+  // Check if Twilio is configured
+  app.get("/api/sms/status", (req, res) => {
+    res.json({ 
+      configured: isTwilioConfigured()
+    });
+  });
+
+  // Send booking confirmation SMS (automatically called when booking is created)
+  app.post("/api/sms/booking-confirmation", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId } = req.body;
+      
+      if (!bookingId) {
+        return res.status(400).json({ message: "Booking ID is required" });
+      }
+      
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      const result = await sendBookingConfirmation({
+        customerPhone: booking.customer.phone,
+        customerName: booking.customer.name,
+        bookingReference: booking.bookingReference,
+        eventDate: booking.eventDate,
+        eventType: booking.eventType,
+        totalPrice: booking.totalPrice
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("SMS booking confirmation error:", error);
+      res.status(500).json({ message: error.message || "Failed to send SMS" });
+    }
+  });
+
+  // Send booking approved SMS with payment link
+  app.post("/api/sms/booking-approved", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId, paymentLink } = req.body;
+      
+      if (!bookingId) {
+        return res.status(400).json({ message: "Booking ID is required" });
+      }
+      
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      const depositAmount = Math.round(booking.totalPrice * 0.5);
+      
+      const result = await sendBookingApproved({
+        customerPhone: booking.customer.phone,
+        customerName: booking.customer.name,
+        bookingReference: booking.bookingReference,
+        depositAmount,
+        paymentLink
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("SMS booking approved error:", error);
+      res.status(500).json({ message: error.message || "Failed to send SMS" });
+    }
+  });
+
+  // Send deposit received confirmation SMS
+  app.post("/api/sms/deposit-received", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId, amountPaid } = req.body;
+      
+      if (!bookingId) {
+        return res.status(400).json({ message: "Booking ID is required" });
+      }
+      
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      const remainingBalance = booking.balanceAmount || Math.round(booking.totalPrice * 0.5);
+      
+      const result = await sendDepositReceived({
+        customerPhone: booking.customer.phone,
+        customerName: booking.customer.name,
+        bookingReference: booking.bookingReference,
+        amountPaid: amountPaid || Math.round(booking.totalPrice * 0.5),
+        remainingBalance
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("SMS deposit received error:", error);
+      res.status(500).json({ message: error.message || "Failed to send SMS" });
+    }
+  });
+
+  // Send payment reminder SMS
+  app.post("/api/sms/payment-reminder", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId } = req.body;
+      
+      if (!bookingId) {
+        return res.status(400).json({ message: "Booking ID is required" });
+      }
+      
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      const eventDate = new Date(booking.eventDate);
+      const today = new Date();
+      const daysUntilEvent = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      const result = await sendPaymentReminder({
+        customerPhone: booking.customer.phone,
+        customerName: booking.customer.name,
+        bookingReference: booking.bookingReference,
+        balanceAmount: booking.balanceAmount || Math.round(booking.totalPrice * 0.5),
+        eventDate: booking.eventDate,
+        daysUntilEvent
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("SMS payment reminder error:", error);
+      res.status(500).json({ message: error.message || "Failed to send SMS" });
+    }
+  });
+
+  // Send event reminder SMS (day before event)
+  app.post("/api/sms/event-reminder", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId } = req.body;
+      
+      if (!bookingId) {
+        return res.status(400).json({ message: "Booking ID is required" });
+      }
+      
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      const result = await sendEventReminder({
+        customerPhone: booking.customer.phone,
+        customerName: booking.customer.name,
+        bookingReference: booking.bookingReference,
+        eventDate: booking.eventDate,
+        eventTime: booking.eventTime,
+        venueAddress: booking.venueAddress
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("SMS event reminder error:", error);
+      res.status(500).json({ message: error.message || "Failed to send SMS" });
+    }
+  });
+
+  // Send custom SMS message to customer
+  app.post("/api/sms/custom", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId, message } = req.body;
+      
+      if (!bookingId || !message) {
+        return res.status(400).json({ message: "Booking ID and message are required" });
+      }
+      
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      const result = await sendCustomMessage({
+        customerPhone: booking.customer.phone,
+        message
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("SMS custom message error:", error);
+      res.status(500).json({ message: error.message || "Failed to send SMS" });
     }
   });
 

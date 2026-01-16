@@ -49,6 +49,7 @@ export interface IStorage {
   getBookingByReference(reference: string): Promise<BookingWithCustomer | undefined>;
   createBooking(booking: InsertBooking, customer: InsertCustomer): Promise<BookingWithCustomer>;
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
+  updateBookingPayment(id: number, paymentData: Partial<InsertBooking>): Promise<Booking | undefined>;
   
   // Customer operations
   getCustomer(id: number): Promise<Customer | undefined>;
@@ -352,6 +353,15 @@ export class MemStorage implements IStorage {
     booking.status = status;
     this.bookings.set(id, booking);
     return booking;
+  }
+
+  async updateBookingPayment(id: number, paymentData: Partial<InsertBooking>): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (!booking) return undefined;
+
+    const updatedBooking = { ...booking, ...paymentData };
+    this.bookings.set(id, updatedBooking);
+    return updatedBooking;
   }
 
   // Customer operations
@@ -863,6 +873,15 @@ export class DatabaseStorage implements IStorage {
     const [updatedBooking] = await db
       .update(bookings)
       .set({ status })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updatedBooking || undefined;
+  }
+
+  async updateBookingPayment(id: number, paymentData: Partial<InsertBooking>): Promise<Booking | undefined> {
+    const [updatedBooking] = await db
+      .update(bookings)
+      .set(paymentData)
       .where(eq(bookings.id, id))
       .returning();
     return updatedBooking || undefined;
