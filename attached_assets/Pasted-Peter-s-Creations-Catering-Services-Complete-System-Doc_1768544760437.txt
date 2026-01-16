@@ -1,0 +1,177 @@
+Peter’s Creations Catering Services — Complete System Documentation
+________________________________________
+1. System Roles
+1.1 Customer
+•	Select booking date (first step)
+•	Enter personal & contact info
+•	Choose booking type: Standard Package or Custom Quote
+•	Pick package, dishes, and add-ons
+•	Submit booking / request quote
+•	Accept / reject / request revisions on quotes
+•	Pay down payment online after admin approval
+•	Pay remaining balance at event
+•	Receive notifications for each step
+1.2 Admin / Staff
+•	Configure daily capacity calendar (7/day normal, 10/day peak)
+•	Manage packages, dishes, services, add-ons
+•	Review and approve bookings and custom quotes
+•	Monitor capacity and prevent overbooking
+•	Send payment links (down payment)
+•	Verify bank transfers if used
+•	Track status of bookings and payments
+•	Mark events as completed after service
+•	Generate reports
+1.3 System / Automation
+•	Checks availability based on approved bookings
+•	Sends notifications (email/SMS)
+•	Tracks booking and payment status
+•	Handles chatbot responses
+•	Enforces package rules (dish selection, pax limits, capacity)
+1.4 Chatbot
+•	Answers FAQs on packages, dishes, pricing, payment methods, capacity
+•	Guides customer to start booking or submit quote request
+•	Explains approval/payment rules
+•	Does not approve bookings or process payments
+________________________________________
+2. Admin Pre-Set Configuration
+•	Daily capacity (7 normal / 10 peak / closed)
+•	Operating hours, time increments, default duration
+•	Packages (fixed + tiered)
+•	Dishes & package rules
+•	Add-ons / services
+•	Payment methods: GCash, PayMaya, Bank Transfer
+•	Booking policies: manual approval, deposit %, balance on event
+•	Chatbot knowledge base update
+________________________________________
+3. Customer Booking Flow — Standard Package
+Step 1: Choose Booking Type
+•	Standard Package or Custom Quote
+•	Chatbot available for guidance
+Step 2: Select Event Date
+•	Check availability (approved bookings only)
+•	Display slots available / fully booked / closed
+Step 3: Enter Personal Information
+•	Full Name, Email, Mobile Number, Alternate Contact (optional)
+•	Event Venue / Address
+•	Event Type
+•	Preferred Contact Method
+Step 4: Enter Event Details
+•	Time (picker / chips)
+•	Guest Count (slider)
+•	Duration (optional slider)
+Step 5: Select Package
+•	Fixed package → price displayed
+•	Tiered package → select guest tier + mains → price auto-calculated
+Step 6: Dish Selection
+•	Pick required dishes per package
+•	Must complete selection to proceed
+•	Progress indicators show counts
+Step 7: Review & Submit
+•	Review date/time, guest count, package, dishes, add-ons, notes, total
+•	Status: Pending Approval
+•	Slot does not count yet
+•	Notification: “Booking request received, awaiting approval”
+________________________________________
+4. Customer Booking Flow — Custom Quote
+Step 1: Submit Quote Request
+•	Enter date, time, guest count, budget, preferences, notes
+•	Status: Quote Request: New
+•	Slot does not count yet
+Step 2: Admin Builds & Sends Quote
+•	Select menu, add-ons, pricing, deposit
+•	Status: Quote Sent
+•	Customer receives quote link
+Step 3: Customer Responds
+•	Accept → Accepted (Pending Approval)
+•	Request Revision → Revision Requested
+•	Reject → Rejected
+Step 4: Admin Final Approval
+•	Approved → booking counts toward capacity
+•	Payment link sent
+Step 5: Payment & Confirmation
+•	Customer pays deposit → status Deposit Paid
+•	Remaining balance paid at event → status Fully Paid / Completed
+•	Notification: booking confirmed
+________________________________________
+5. Admin Approval Workflow
+•	Review booking / accepted quote
+•	Approve / Decline / Request Changes
+•	Check capacity before approval
+•	Send payment link after approval
+•	Mark event Completed after service
+________________________________________
+6. Payment Module
+•	Down Payment Online (GCash, PayMaya, Bank Transfer)
+•	Balance Payment at event
+•	Deposit secures booking
+•	Balance collected during event
+•	Admin tracks both deposit and balance
+________________________________________
+7. Booking Confirmation
+•	Status transitions: Pending Approval → Approved → Deposit Paid → Fully Paid → Confirmed/Scheduled → Completed
+•	Notifications sent at each stage
+•	Event prep notes generated for staff
+________________________________________
+8. Chatbot Integration
+•	Answers FAQs on packages, dishes, pricing, payment methods, capacity
+•	Guides users to booking / custom quote
+•	Explains approval / payment rules
+•	Does NOT approve bookings or process payments
+________________________________________
+9. Notifications
+Customer
+•	Booking request received
+•	Quote sent
+•	Quote accepted (pending approval)
+•	Booking approved
+•	Deposit received
+•	Booking confirmed
+•	Event day balance reminder
+Admin
+•	New booking request / custom quote
+•	Quote accepted
+•	Bank transfer pending verification
+•	Capacity warnings
+________________________________________
+10. Reporting & Analytics
+•	Bookings per day/week/month
+•	Revenue per package/add-ons/payment method
+•	Peak vs normal day statistics
+•	Dish popularity
+•	Completed vs cancelled bookings
+________________________________________
+11. Database Structure (High-Level)
+•	Customers: personal info, contact
+•	Bookings: event details, package, dishes, add-ons, status
+•	Custom Quotes: budget requests, proposed package, status
+•	Packages: type, price, inclusions, pax rules
+•	Dishes: categories, tags, availability, optional cost
+•	Services / Add-Ons: pricing, quantity
+•	Capacity Calendar: date, type (normal/peak/closed), max slots
+•	Payments: deposit, balance, method, status
+•	Notifications: email/SMS logs
+________________________________________
+12. Edge Cases / Considerations
+•	Refund / partial refund policy
+•	Rescheduling rules
+•	Cancellation rules & deposit enforcement
+•	Maximum additional pax after approval
+•	Dish availability changes after booking
+•	Admin overrides (capacity, date/time)
+•	Multiple events per day handling
+________________________________________
+13. Full Workflow Summary
+1.	Admin pre-configures system
+2.	Customer selects date → availability check
+3.	Customer enters personal & contact info
+4.	Customer enters event details (time, guest count, duration)
+5.	Customer selects booking type (package or custom quote) 6A. Package Flow: select package → pick dishes → submit booking 6B. Custom Quote Flow: submit quote → admin sends quote → customer accepts
+6.	Admin manually approves booking / accepted quote
+7.	Customer pays down payment online
+8.	Customer pays remaining balance on event day
+9.	Booking confirmed → notifications sent
+10.	Event occurs → admin marks Completed
+11.	Reporting & analytics updated
+12.	Chatbot available throughout for guidance
+________________________________________
+End of Document

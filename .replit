@@ -14,14 +14,6 @@ run = ["npm", "run", "start"]
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 39219
-externalPort = 3001
-
-[[ports]]
-localPort = 45973
-externalPort = 3000
-
 [workflows]
 runButton = "Project"
 
@@ -45,3 +37,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_stripe:1.0.0", "perplexity_v0:1.0.0", "styling_shadcn:1.0.0", "javascript_database:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+SUPABASE_DATABASE_URL = "postgresql://postgres:[YOUR-PASSWORD]@db.qwytdoplvwwhedpgokmq.supabase.co:5432/postgres"
