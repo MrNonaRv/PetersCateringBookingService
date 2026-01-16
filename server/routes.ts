@@ -496,6 +496,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(401).json({ message: "Not authenticated" });
   });
 
+  // Forgot password endpoint
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Find user by email
+      const allUsers = await storage.getUsers();
+      const user = allUsers.find((u: { email: string }) => u.email === email);
+      
+      if (user) {
+        // In production, you would:
+        // 1. Generate a password reset token
+        // 2. Store the token with expiration in the database
+        // 3. Send an email with a reset link containing the token
+        // For now, we just log this for demonstration
+        console.log(`Password reset requested for user: ${user.username} (${email})`);
+        
+        // If Twilio SMS is configured, we could also send an SMS notification
+        // For security, we always return the same response regardless of whether
+        // the email exists to prevent email enumeration attacks
+      }
+      
+      // Always return success to prevent email enumeration
+      res.json({ 
+        success: true, 
+        message: "If an account exists with this email, password reset instructions will be sent." 
+      });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Error processing request" });
+    }
+  });
+
   // Recent Events routes
   app.get("/api/recent-events", async (req, res) => {
     try {
@@ -643,6 +680,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create Paymongo checkout session for booking payment
   app.post("/api/paymongo/create-checkout", async (req, res) => {
     try {
+      if (!isPaymongoConfigured()) {
+        return res.status(503).json({ 
+          message: "Online payment is not available. Please contact us for alternative payment options.",
+          code: "PAYMONGO_NOT_CONFIGURED"
+        });
+      }
+
       const { 
         bookingId, 
         paymentType, // 'deposit', 'balance', or 'full'
@@ -723,6 +767,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Verify payment status
   app.get("/api/paymongo/verify/:checkoutId", async (req, res) => {
     try {
+      if (!isPaymongoConfigured()) {
+        return res.status(503).json({ 
+          message: "Payment verification is not available.",
+          code: "PAYMONGO_NOT_CONFIGURED"
+        });
+      }
+
       const { checkoutId } = req.params;
       
       const session = await getCheckoutSession(checkoutId);

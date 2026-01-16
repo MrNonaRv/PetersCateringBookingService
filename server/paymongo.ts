@@ -1,15 +1,35 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 
 const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
 const PAYMONGO_PUBLIC_KEY = process.env.PAYMONGO_PUBLIC_KEY;
 
-const paymongoApi = axios.create({
-  baseURL: 'https://api.paymongo.com/v1',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}`
+let paymongoApi: AxiosInstance | null = null;
+
+function getPaymongoApi(): AxiosInstance {
+  if (!PAYMONGO_SECRET_KEY) {
+    throw new Error('Paymongo is not configured. PAYMONGO_SECRET_KEY is missing.');
   }
-});
+  
+  if (!paymongoApi) {
+    paymongoApi = axios.create({
+      baseURL: 'https://api.paymongo.com/v1',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}`
+      }
+    });
+  }
+  
+  return paymongoApi;
+}
+
+export function isPaymongoConfigured(): boolean {
+  return !!PAYMONGO_SECRET_KEY;
+}
+
+export function getPaymongoPublicKey(): string | null {
+  return PAYMONGO_PUBLIC_KEY || null;
+}
 
 export interface CreateCheckoutSessionParams {
   amount: number; // in centavos (PHP)
@@ -56,7 +76,8 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
   } = params;
 
   try {
-    const response = await paymongoApi.post('/checkout_sessions', {
+    const api = getPaymongoApi();
+    const response = await api.post('/checkout_sessions', {
       data: {
         attributes: {
           send_email_receipt: true,
@@ -114,7 +135,8 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
  */
 export async function getCheckoutSession(checkoutId: string): Promise<CheckoutSession & { payments: PaymentDetails[] }> {
   try {
-    const response = await paymongoApi.get(`/checkout_sessions/${checkoutId}`);
+    const api = getPaymongoApi();
+    const response = await api.get(`/checkout_sessions/${checkoutId}`);
     const data = response.data.data;
     
     const payments: PaymentDetails[] = (data.attributes.payments || []).map((payment: any) => ({
@@ -147,7 +169,8 @@ export async function createPaymentLink(params: {
   remarks?: string;
 }): Promise<{ id: string; url: string; referenceNumber: string }> {
   try {
-    const response = await paymongoApi.post('/links', {
+    const api = getPaymongoApi();
+    const response = await api.post('/links', {
       data: {
         attributes: {
           amount: params.amount,
@@ -193,13 +216,6 @@ export function verifyWebhookSignature(payload: string, signature: string, webho
     .digest('hex');
   
   return expectedSignature === signatureValue;
-}
-
-/**
- * Check if Paymongo is properly configured
- */
-export function isPaymongoConfigured(): boolean {
-  return !!(PAYMONGO_SECRET_KEY && PAYMONGO_PUBLIC_KEY);
 }
 
 export default {

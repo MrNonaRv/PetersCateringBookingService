@@ -38,6 +38,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { Check, Info } from "lucide-react";
 
 // Interface for Services
 interface Service {
@@ -783,9 +784,9 @@ export default function BookingModal({
               </Form>
             </div>
             
-            <div className="bg-primary bg-opacity-10 p-4 rounded-lg mb-4">
+            <div className="bg-primary/10 p-4 rounded-lg mb-4 flex items-start gap-2">
+              <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <p className="text-sm">
-                <i className="fas fa-info-circle mr-2 text-primary"></i> 
                 Your booking request will be reviewed by our team. We will contact you within 24 hours to confirm availability and discuss any details.
               </p>
             </div>
@@ -810,20 +811,20 @@ export default function BookingModal({
                   <div 
                     className={`flex items-center justify-center w-10 h-10 rounded-full font-medium
                       ${isStepComplete(1) 
-                        ? "bg-[#2ecc71] text-white" 
+                        ? "bg-green-500 text-white" 
                         : currentStep === 1 
                           ? "bg-primary text-white" 
                           : "bg-gray-200 text-[#343a40]"
                       }`}
                   >
-                    {isStepComplete(1) ? <i className="fas fa-check"></i> : "1"}
+                    {isStepComplete(1) ? <Check className="h-5 w-5" /> : "1"}
                   </div>
                   <div className={`text-xs font-medium mt-1 ${currentStep === 1 ? "text-primary" : "text-[#343a40]"}`}>Service</div>
                 </div>
                 
                 {/* Line */}
                 <div className="w-full h-1 bg-gray-200 flex-grow mx-2">
-                  <div className="h-1 bg-primary" style={{ width: currentStep > 1 ? "100%" : "0%" }}></div>
+                  <div className="h-1 bg-primary transition-all duration-300" style={{ width: currentStep > 1 ? "100%" : "0%" }}></div>
                 </div>
                 
                 {/* Step 2 */}
@@ -831,20 +832,20 @@ export default function BookingModal({
                   <div 
                     className={`flex items-center justify-center w-10 h-10 rounded-full font-medium
                       ${isStepComplete(2) 
-                        ? "bg-[#2ecc71] text-white" 
+                        ? "bg-green-500 text-white" 
                         : currentStep === 2 
                           ? "bg-primary text-white" 
                           : "bg-gray-200 text-[#343a40]"
                       }`}
                   >
-                    {isStepComplete(2) ? <i className="fas fa-check"></i> : "2"}
+                    {isStepComplete(2) ? <Check className="h-5 w-5" /> : "2"}
                   </div>
                   <div className={`text-xs font-medium mt-1 ${currentStep === 2 ? "text-primary" : "text-[#343a40]"}`}>Date</div>
                 </div>
                 
                 {/* Line */}
                 <div className="w-full h-1 bg-gray-200 flex-grow mx-2">
-                  <div className="h-1 bg-primary" style={{ width: currentStep > 2 ? "100%" : "0%" }}></div>
+                  <div className="h-1 bg-primary transition-all duration-300" style={{ width: currentStep > 2 ? "100%" : "0%" }}></div>
                 </div>
                 
                 {/* Step 3 */}
@@ -852,20 +853,20 @@ export default function BookingModal({
                   <div 
                     className={`flex items-center justify-center w-10 h-10 rounded-full font-medium
                       ${isStepComplete(3) 
-                        ? "bg-[#2ecc71] text-white" 
+                        ? "bg-green-500 text-white" 
                         : currentStep === 3 
                           ? "bg-primary text-white" 
                           : "bg-gray-200 text-[#343a40]"
                       }`}
                   >
-                    {isStepComplete(3) ? <i className="fas fa-check"></i> : "3"}
+                    {isStepComplete(3) ? <Check className="h-5 w-5" /> : "3"}
                   </div>
                   <div className={`text-xs font-medium mt-1 ${currentStep === 3 ? "text-primary" : "text-[#343a40]"}`}>Details</div>
                 </div>
                 
                 {/* Line */}
                 <div className="w-full h-1 bg-gray-200 flex-grow mx-2">
-                  <div className="h-1 bg-primary" style={{ width: currentStep > 3 ? "100%" : "0%" }}></div>
+                  <div className="h-1 bg-primary transition-all duration-300" style={{ width: currentStep > 3 ? "100%" : "0%" }}></div>
                 </div>
                 
                 {/* Step 4 */}
@@ -873,13 +874,13 @@ export default function BookingModal({
                   <div 
                     className={`flex items-center justify-center w-10 h-10 rounded-full font-medium
                       ${isStepComplete(4) 
-                        ? "bg-[#2ecc71] text-white" 
+                        ? "bg-green-500 text-white" 
                         : currentStep === 4 
                           ? "bg-primary text-white" 
                           : "bg-gray-200 text-[#343a40]"
                       }`}
                   >
-                    "4"
+                    {isStepComplete(4) ? <Check className="h-5 w-5" /> : "4"}
                   </div>
                   <div className={`text-xs font-medium mt-1 ${currentStep === 4 ? "text-primary" : "text-[#343a40]"}`}>Confirm</div>
                 </div>
