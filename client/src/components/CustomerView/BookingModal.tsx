@@ -23,24 +23,21 @@ import {
   FormLabel, 
   FormMessage 
 } from "@/components/ui/form";
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Check, Info } from "lucide-react";
+import { Check, Info, Package, FileText, Calendar as CalendarIcon, User, Clock, UtensilsCrossed, ClipboardCheck } from "lucide-react";
 
-// Interface for Services
 interface Service {
   id: number;
   name: string;
@@ -50,7 +47,30 @@ interface Service {
   featured: boolean;
 }
 
-// Interface for Availability
+interface ServicePackage {
+  id: number;
+  serviceId: number;
+  name: string;
+  description: string;
+  pricePerPerson: number;
+  minGuests: number;
+  maxGuests: number | null;
+  features: string[];
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface Dish {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  imageUrl: string | null;
+  additionalCost: number;
+  isAvailable: boolean;
+}
+
 interface Availability {
   id: number;
   date: string;
@@ -58,28 +78,43 @@ interface Availability {
   notes?: string;
 }
 
-// Define form schema for booking
 const bookingFormSchema = z.object({
-  serviceId: z.number().min(1, "Please select a service"),
-  eventDate: z.date({
-    required_error: "Please select a date",
-  }),
+  bookingType: z.enum(["standard", "custom"]),
+  serviceId: z.number().optional(),
+  packageId: z.number().optional(),
+  eventDate: z.date({ required_error: "Please select a date" }),
   eventType: z.string().min(1, "Please select event type"),
   eventTime: z.string().min(1, "Please select event time"),
-  guestCount: z.number().min(10, "Minimum guest count is 10").max(500, "Maximum guest count is 500"),
+  eventDuration: z.number().min(1).max(12).default(4),
+  guestCount: z.number().min(10, "Minimum 10 guests").max(500, "Maximum 500 guests"),
   venueAddress: z.string().min(5, "Please enter the venue address"),
-  menuPreference: z.string().min(1, "Please select a menu preference"),
-  serviceStyle: z.string().min(1, "Please select a service style"),
-  additionalServices: z.string().optional(),
-  specialRequests: z.string().optional(),
-  // Customer details
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Valid email is required"),
   phone: z.string().min(10, "Valid phone number is required"),
-  company: z.string().optional(),
+  alternateContact: z.string().optional(),
+  preferredContactMethod: z.enum(["phone", "email", "sms"]).default("phone"),
+  selectedDishes: z.array(z.number()).default([]),
+  specialRequests: z.string().optional(),
+  budget: z.number().optional(),
   termsAgreed: z.boolean().refine(val => val === true, {
     message: "You must agree to the terms and conditions",
   }),
+}).refine((data) => {
+  if (data.bookingType === "standard" && (!data.serviceId || data.serviceId < 1)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please select a service category",
+  path: ["serviceId"]
+}).refine((data) => {
+  if (data.bookingType === "standard" && !data.packageId) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please select a package",
+  path: ["packageId"]
 });
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
@@ -92,6 +127,42 @@ interface BookingModalProps {
   onBookingSubmitted: (reference: string) => void;
 }
 
+const STEP_CONFIG = {
+  standard: [
+    { id: 1, label: "Type", icon: Package },
+    { id: 2, label: "Date", icon: CalendarIcon },
+    { id: 3, label: "Info", icon: User },
+    { id: 4, label: "Event", icon: Clock },
+    { id: 5, label: "Package", icon: Package },
+    { id: 6, label: "Menu", icon: UtensilsCrossed },
+    { id: 7, label: "Review", icon: ClipboardCheck },
+  ],
+  custom: [
+    { id: 1, label: "Type", icon: Package },
+    { id: 2, label: "Date", icon: CalendarIcon },
+    { id: 3, label: "Info", icon: User },
+    { id: 4, label: "Details", icon: FileText },
+    { id: 5, label: "Review", icon: ClipboardCheck },
+  ]
+};
+
+const TIME_SLOTS = [
+  "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM",
+  "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM"
+];
+
+const EVENT_TYPES = [
+  { value: "wedding", label: "Wedding" },
+  { value: "debut", label: "Debut (18th Birthday)" },
+  { value: "birthday", label: "Birthday Party" },
+  { value: "baptism", label: "Baptism/Christening" },
+  { value: "corporate", label: "Corporate Event" },
+  { value: "anniversary", label: "Anniversary" },
+  { value: "graduation", label: "Graduation" },
+  { value: "holiday", label: "Holiday Party" },
+  { value: "other", label: "Other" },
+];
+
 export default function BookingModal({ 
   isOpen, 
   onClose, 
@@ -100,98 +171,129 @@ export default function BookingModal({
   onBookingSubmitted 
 }: BookingModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [bookingType, setBookingType] = useState<"standard" | "custom">("standard");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch availabilities
-  const { data: availabilities = [] } = useQuery({
-    queryKey: ['/api/availability'],
-    queryFn: async () => {
-      const res = await fetch('/api/availability');
-      if (!res.ok) {
-        throw new Error('Failed to fetch availabilities');
-      }
-      return res.json();
-    },
-    enabled: isOpen
-  });
-
-  // Initialize form
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
+      bookingType: "standard",
       serviceId: selectedServiceId || 0,
-      guestCount: 50,
-      additionalServices: "",
-      specialRequests: "",
+      guestCount: 100,
+      eventDuration: 4,
+      selectedDishes: [],
+      preferredContactMethod: "phone",
       termsAgreed: false
     }
   });
 
-  // Reset form and current step when modal opens or selected service changes
+  const selectedServiceIdValue = form.watch("serviceId");
+  const selectedPackageId = form.watch("packageId");
+  const guestCount = form.watch("guestCount");
+  const selectedDishes = form.watch("selectedDishes") || [];
+
+  const { data: availabilities = [] } = useQuery<Availability[]>({
+    queryKey: ['/api/availability'],
+    enabled: isOpen
+  });
+
+  const { data: packages = [] } = useQuery<ServicePackage[]>({
+    queryKey: ['/api/service-packages', selectedServiceIdValue],
+    queryFn: async () => {
+      if (!selectedServiceIdValue) return [];
+      const res = await fetch(`/api/service-packages?serviceId=${selectedServiceIdValue}`);
+      if (!res.ok) throw new Error('Failed to fetch packages');
+      return res.json();
+    },
+    enabled: !!selectedServiceIdValue && isOpen
+  });
+
+  const { data: dishes = [] } = useQuery<Dish[]>({
+    queryKey: ['/api/dishes'],
+    enabled: isOpen
+  });
+
   useEffect(() => {
     if (isOpen) {
       setCurrentStep(1);
+      setBookingType("standard");
       form.reset({
+        bookingType: "standard",
         serviceId: selectedServiceId || 0,
-        guestCount: 50,
-        additionalServices: "",
-        specialRequests: "",
+        guestCount: 100,
+        eventDuration: 4,
+        selectedDishes: [],
+        preferredContactMethod: "phone",
         termsAgreed: false
       });
     }
   }, [isOpen, selectedServiceId, form]);
 
-  // Get unavailable dates from availabilities
   const unavailableDates = availabilities
     .filter((a: Availability) => !a.isAvailable)
     .map((a: Availability) => new Date(a.date));
 
-  // Create booking mutation
+  const steps = STEP_CONFIG[bookingType];
+  const totalSteps = steps.length;
+
   const createBookingMutation = useMutation({
     mutationFn: async (data: BookingFormValues) => {
-      // Prepare booking data
+      const selectedPackage = packages.find(p => p.id === data.packageId);
+      const totalPrice = selectedPackage 
+        ? selectedPackage.pricePerPerson
+        : (services.find(s => s.id === data.serviceId)?.basePrice || 0) * data.guestCount;
+
+      const selectedDishNames = dishes
+        .filter(d => data.selectedDishes.includes(d.id))
+        .map(d => d.name);
+      
+      const dishesNote = selectedDishNames.length > 0 
+        ? `\n\nSelected Menu Items: ${selectedDishNames.join(", ")}` 
+        : "";
+
+      if (!data.serviceId || !data.packageId) {
+        throw new Error("Service and package selection required for standard booking");
+      }
+
       const booking = {
         serviceId: data.serviceId,
+        packageId: data.packageId,
         eventDate: data.eventDate.toISOString().split('T')[0],
         eventType: data.eventType,
         eventTime: data.eventTime,
+        eventDuration: data.eventDuration,
         guestCount: data.guestCount,
         venueAddress: data.venueAddress,
-        menuPreference: data.menuPreference,
-        serviceStyle: data.serviceStyle,
-        additionalServices: data.additionalServices || "",
-        specialRequests: data.specialRequests || "",
-        // Calculate total price based on base price and guest count
-        totalPrice: (services.find(s => s.id === data.serviceId)?.basePrice || 0) * data.guestCount,
-        status: "pending",
+        menuPreference: "package",
+        serviceStyle: "buffet",
+        additionalServices: "",
+        specialRequests: (data.specialRequests || "") + dishesNote,
+        totalPrice,
+        status: "pending_approval",
         paymentStatus: "pending"
       };
       
-      // Prepare customer data
       const customer = {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        company: data.company || ""
+        company: ""
       };
       
-      // Send booking request
       const res = await apiRequest('POST', '/api/bookings', {
         booking,
-        customer
+        customer,
+        selectedDishes: data.selectedDishes
       });
       
       return res.json();
     },
     onSuccess: (data) => {
-      // Invalidate bookings queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
-      
-      // Call the callback with the booking reference
       onBookingSubmitted(data.bookingReference);
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Booking Failed",
         description: "There was an error creating your booking. Please try again.",
@@ -200,44 +302,72 @@ export default function BookingModal({
     }
   });
 
-  // Handle step navigation
-  const nextStep = () => {
-    // Validate current step
+  const createQuoteMutation = useMutation({
+    mutationFn: async (data: BookingFormValues) => {
+      const quote = {
+        eventDate: data.eventDate.toISOString().split('T')[0],
+        eventTime: data.eventTime,
+        eventType: data.eventType,
+        guestCount: data.guestCount,
+        venueAddress: data.venueAddress,
+        budget: data.budget || 0,
+        preferences: "",
+        specialRequests: data.specialRequests || "",
+      };
+      
+      const customer = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company: ""
+      };
+      
+      const res = await apiRequest('POST', '/api/custom-quotes', { quote, customer });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/custom-quotes'] });
+      onBookingSubmitted(data.quoteReference);
+    },
+    onError: () => {
+      toast({
+        title: "Quote Request Failed",
+        description: "There was an error submitting your quote request. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const nextStep = async () => {
+    let fieldsToValidate: (keyof BookingFormValues)[] = [];
+    
     if (currentStep === 1) {
-      // Validate service selection
-      const serviceId = form.getValues("serviceId");
-      if (!serviceId) {
-        form.setError("serviceId", {
-          type: "manual",
-          message: "Please select a service"
-        });
-        return;
-      }
+      fieldsToValidate = ["bookingType"];
     } else if (currentStep === 2) {
-      // Validate date selection
-      const eventDate = form.getValues("eventDate");
-      if (!eventDate) {
-        form.setError("eventDate", {
-          type: "manual",
-          message: "Please select a date"
-        });
+      fieldsToValidate = ["eventDate"];
+    } else if (currentStep === 3) {
+      fieldsToValidate = ["name", "email", "phone", "venueAddress", "eventType"];
+    } else if (currentStep === 4) {
+      fieldsToValidate = ["eventTime", "guestCount"];
+    } else if (currentStep === 5 && bookingType === "standard") {
+      fieldsToValidate = ["serviceId", "packageId"];
+      const serviceId = form.getValues("serviceId");
+      const packageId = form.getValues("packageId");
+      
+      if (!serviceId || serviceId < 1) {
+        form.setError("serviceId", { message: "Please select a service category" });
         return;
       }
-    } else if (currentStep === 3) {
-      // Validate event details
-      const { eventType, eventTime, guestCount, venueAddress, menuPreference, serviceStyle } = form.getValues();
-      if (!eventType || !eventTime || !guestCount || !venueAddress || !menuPreference || !serviceStyle) {
-        toast({
-          title: "Missing Information",
-          description: "Please fill in all required fields before proceeding.",
-          variant: "destructive"
-        });
+      if (!packageId) {
+        form.setError("packageId", { message: "Please select a package" });
         return;
       }
     }
-    
-    // Move to next step
-    if (currentStep < 4) {
+
+    const isValid = await form.trigger(fieldsToValidate);
+    if (!isValid) return;
+
+    if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -248,66 +378,98 @@ export default function BookingModal({
     }
   };
 
-  // Handle form submission
   const onSubmit = (data: BookingFormValues) => {
-    createBookingMutation.mutate(data);
-  };
-
-  // Handle additional services checkbox changes
-  const handleAdditionalServiceChange = (service: string, checked: boolean) => {
-    const currentServices = form.getValues("additionalServices") || "";
-    const servicesArray = currentServices ? currentServices.split(",").map(s => s.trim()) : [];
-    
-    if (checked && !servicesArray.includes(service)) {
-      servicesArray.push(service);
-    } else if (!checked && servicesArray.includes(service)) {
-      const index = servicesArray.indexOf(service);
-      servicesArray.splice(index, 1);
+    if (bookingType === "custom") {
+      createQuoteMutation.mutate(data);
+    } else {
+      createBookingMutation.mutate(data);
     }
-    
-    form.setValue("additionalServices", servicesArray.join(", "));
   };
 
-  // Helper to determine if a step is complete
-  const isStepComplete = (step: number) => {
-    if (step < currentStep) {
-      return true;
-    }
-    return false;
-  };
-
-  // Format price from cents to Philippine Peso
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toFixed(2)}`;
+    return `₱${(priceInCents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
   };
 
-  // Render booking form based on current step
+  const isStepComplete = (step: number) => step < currentStep;
+
+  const getEligiblePackages = () => {
+    return packages.filter(pkg => {
+      const meetsMin = guestCount >= pkg.minGuests;
+      const meetsMax = !pkg.maxGuests || guestCount <= pkg.maxGuests;
+      return meetsMin && meetsMax && pkg.isActive;
+    });
+  };
+
+  const getDishesByCategory = (category: string) => {
+    return dishes.filter(d => d.category === category && d.isAvailable);
+  };
+
+  const toggleDish = (dishId: number) => {
+    const current = form.getValues("selectedDishes") || [];
+    if (current.includes(dishId)) {
+      form.setValue("selectedDishes", current.filter(id => id !== dishId));
+    } else {
+      form.setValue("selectedDishes", [...current, dishId]);
+    }
+  };
+
+  const getDishSelectionCount = (category: string) => {
+    const categoryDishes = dishes.filter(d => d.category === category);
+    return selectedDishes.filter(id => categoryDishes.some(d => d.id === id)).length;
+  };
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">Select a Catering Service</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {services.map((service) => (
-                <div 
-                  key={service.id}
-                  className={`border rounded-lg p-4 cursor-pointer hover:border-primary ${form.getValues("serviceId") === service.id ? "border-primary" : "border-gray-200"}`}
-                  onClick={() => form.setValue("serviceId", service.id, { shouldValidate: true })}
-                >
-                  <div className="flex items-center">
-                    <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 mr-3 ${form.getValues("serviceId") === service.id ? "bg-primary border-primary" : "border-gray-300"}`} />
+            <h3 className="text-xl font-heading text-primary mb-4">Choose Booking Type</h3>
+            <p className="text-gray-600 mb-6">Select how you'd like to proceed with your catering booking.</p>
+            
+            <RadioGroup
+              value={bookingType}
+              onValueChange={(value: "standard" | "custom") => {
+                setBookingType(value);
+                form.setValue("bookingType", value);
+              }}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
+              <div className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "standard" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}>
+                <RadioGroupItem value="standard" id="standard" className="sr-only" />
+                <Label htmlFor="standard" className="cursor-pointer">
+                  <div className="flex items-start gap-4">
+                    <Package className="h-8 w-8 text-primary flex-shrink-0" />
                     <div>
-                      <h4 className="font-heading font-bold">{service.name}</h4>
-                      <p className="text-sm text-[#343a40]">Starting at {formatPrice(service.basePrice)}/person</p>
+                      <h4 className="font-bold text-lg mb-2">Standard Package</h4>
+                      <p className="text-sm text-gray-600">Choose from our pre-designed packages with fixed pricing. Perfect for weddings, debuts, and celebrations.</p>
+                      <ul className="mt-3 text-sm text-gray-600 space-y-1">
+                        <li>• Browse available packages</li>
+                        <li>• Select your menu items</li>
+                        <li>• Instant price calculation</li>
+                      </ul>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-            {form.formState.errors.serviceId && (
-              <p className="text-red-500 text-sm">{form.formState.errors.serviceId.message}</p>
-            )}
+                </Label>
+              </div>
+              
+              <div className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "custom" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}>
+                <RadioGroupItem value="custom" id="custom" className="sr-only" />
+                <Label htmlFor="custom" className="cursor-pointer">
+                  <div className="flex items-start gap-4">
+                    <FileText className="h-8 w-8 text-secondary flex-shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-lg mb-2">Custom Quote</h4>
+                      <p className="text-sm text-gray-600">Tell us your requirements and budget, and we'll create a personalized proposal for you.</p>
+                      <ul className="mt-3 text-sm text-gray-600 space-y-1">
+                        <li>• Describe your needs</li>
+                        <li>• Set your budget range</li>
+                        <li>• Receive a custom proposal</li>
+                      </ul>
+                    </div>
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
         );
       
@@ -321,7 +483,6 @@ export default function BookingModal({
                 selected={form.getValues("eventDate")}
                 onSelect={(date) => date && form.setValue("eventDate", date, { shouldValidate: true })}
                 disabled={(date: Date) => {
-                  // Disable past dates and unavailable dates
                   return date < new Date(new Date().setHours(0, 0, 0, 0)) || 
                          unavailableDates.some((unavailableDate: Date) => 
                            unavailableDate.getDate() === date.getDate() && 
@@ -333,17 +494,17 @@ export default function BookingModal({
               />
             </div>
             {form.formState.errors.eventDate && (
-              <p className="text-red-500 text-sm">{form.formState.errors.eventDate.message}</p>
+              <p className="text-red-500 text-sm text-center">{form.formState.errors.eventDate.message}</p>
             )}
             
-            <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-start gap-4">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <div className="flex items-center">
                 <div className="w-4 h-4 bg-white border border-gray-200 mr-2"></div>
                 <span className="text-sm">Available</span>
               </div>
               <div className="flex items-center">
-                <div className="w-4 h-4 bg-[#e74c3c] mr-2"></div>
-                <span className="text-sm">Unavailable</span>
+                <div className="w-4 h-4 bg-red-500 mr-2"></div>
+                <span className="text-sm">Fully Booked</span>
               </div>
               <div className="flex items-center">
                 <div className="w-4 h-4 bg-primary mr-2"></div>
@@ -352,7 +513,7 @@ export default function BookingModal({
             </div>
             
             {form.getValues("eventDate") && (
-              <div className="mt-6 bg-[#f8f9fa] p-4 rounded-lg">
+              <div className="mt-6 bg-gray-50 p-4 rounded-lg text-center">
                 <p className="text-sm">Selected Date: <span className="font-medium">
                   {form.getValues("eventDate")?.toLocaleDateString('en-US', { 
                     weekday: 'long', 
@@ -368,557 +529,713 @@ export default function BookingModal({
       
       case 3:
         return (
-          <div>
-            <h3 className="text-xl font-heading text-primary mb-4">Event Details</h3>
+          <div className="space-y-6">
+            <h3 className="text-xl font-heading text-primary mb-4">Personal Information</h3>
             <Form {...form}>
-              <form className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="eventType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Event Type</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select event type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="wedding">Wedding</SelectItem>
-                              <SelectItem value="corporate">Corporate Event</SelectItem>
-                              <SelectItem value="birthday">Birthday Party</SelectItem>
-                              <SelectItem value="anniversary">Anniversary</SelectItem>
-                              <SelectItem value="holiday">Holiday Party</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="eventTime"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Event Time</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select time" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="breakfast">Breakfast (7:00 AM - 10:00 AM)</SelectItem>
-                              <SelectItem value="lunch">Lunch (11:00 AM - 2:00 PM)</SelectItem>
-                              <SelectItem value="dinner">Dinner (5:00 PM - 9:00 PM)</SelectItem>
-                              <SelectItem value="evening">Evening (7:00 PM - 11:00 PM)</SelectItem>
-                              <SelectItem value="custom">Custom Time</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="guestCount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Number of Guests</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={10}
-                              max={500}
-                              placeholder="Enter guest count"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="venueAddress"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Venue Address</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              rows={3}
-                              placeholder="Enter venue address"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="menuPreference"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Menu Preference</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select menu preference" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="standard">Standard Menu</SelectItem>
-                              <SelectItem value="vegetarian">Vegetarian</SelectItem>
-                              <SelectItem value="vegan">Vegan</SelectItem>
-                              <SelectItem value="gluten-free">Gluten-Free</SelectItem>
-                              <SelectItem value="custom">Custom Menu (Additional Details)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="serviceStyle"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Service Style</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select service style" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="buffet">Buffet Style</SelectItem>
-                              <SelectItem value="plated">Plated Service</SelectItem>
-                              <SelectItem value="family">Family Style</SelectItem>
-                              <SelectItem value="stations">Food Stations</SelectItem>
-                              <SelectItem value="cocktail">Cocktail Reception</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div>
-                      <FormLabel>Additional Services</FormLabel>
-                      <div className="space-y-2 mt-2">
-                        <div className="flex items-center">
-                          <Checkbox
-                            id="service-bar"
-                            checked={form.getValues("additionalServices")?.includes("Bar Service")}
-                            onCheckedChange={(checked) => 
-                              handleAdditionalServiceChange("Bar Service", checked as boolean)
-                            }
-                          />
-                          <label htmlFor="service-bar" className="ml-2">Bar Service</label>
-                        </div>
-                        <div className="flex items-center">
-                          <Checkbox
-                            id="service-decor"
-                            checked={form.getValues("additionalServices")?.includes("Décor Setup")}
-                            onCheckedChange={(checked) => 
-                              handleAdditionalServiceChange("Décor Setup", checked as boolean)
-                            }
-                          />
-                          <label htmlFor="service-decor" className="ml-2">Décor Setup</label>
-                        </div>
-                        <div className="flex items-center">
-                          <Checkbox
-                            id="service-rentals"
-                            checked={form.getValues("additionalServices")?.includes("Equipment Rentals")}
-                            onCheckedChange={(checked) => 
-                              handleAdditionalServiceChange("Equipment Rentals", checked as boolean)
-                            }
-                          />
-                          <label htmlFor="service-rentals" className="ml-2">Equipment Rentals</label>
-                        </div>
-                        <div className="flex items-center">
-                          <Checkbox
-                            id="service-staff"
-                            checked={form.getValues("additionalServices")?.includes("Additional Staff")}
-                            onCheckedChange={(checked) => 
-                              handleAdditionalServiceChange("Additional Staff", checked as boolean)
-                            }
-                          />
-                          <label htmlFor="service-staff" className="ml-2">Additional Staff</label>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <FormField
-                      control={form.control}
-                      name="specialRequests"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Special Requests</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              rows={3}
-                              placeholder="Any special requests or dietary restrictions"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              </form>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Juan Dela Cruz" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address *</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="juan@email.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mobile Number *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="09XX XXX XXXX" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="alternateContact"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alternate Contact (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Alternate phone or email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="venueAddress"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Event Venue / Address *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Complete address of event venue" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="eventType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Event Type *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select event type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {EVENT_TYPES.map(type => (
+                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="preferredContactMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preferred Contact Method</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="How should we contact you?" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="phone">Phone Call</SelectItem>
+                          <SelectItem value="sms">SMS/Text</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </Form>
           </div>
         );
       
       case 4:
+        if (bookingType === "custom") {
+          return (
+            <div className="space-y-6">
+              <h3 className="text-xl font-heading text-primary mb-4">Event Details & Budget</h3>
+              <Form {...form}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="eventTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Event Time *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {TIME_SLOTS.map(time => (
+                              <SelectItem key={time} value={time}>{time}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="guestCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expected Guests: {field.value}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={10}
+                            max={500}
+                            step={10}
+                            value={[field.value]}
+                            onValueChange={(value) => field.onChange(value[0])}
+                            className="mt-2"
+                          />
+                        </FormControl>
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>10</span>
+                          <span>500</span>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="budget"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Budget Range (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Enter your budget in PHP" 
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) * 100 || 0)}
+                          />
+                        </FormControl>
+                        <p className="text-xs text-gray-500 mt-1">Help us prepare a quote within your budget</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="specialRequests"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Special Requests & Preferences</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Tell us about your dietary preferences, cuisine style, special requirements, or any specific requests..."
+                            className="min-h-[100px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </Form>
+            </div>
+          );
+        }
+        
         return (
-          <div>
-            <h3 className="text-xl font-heading text-primary mb-4">Booking Summary</h3>
-            
-            <div className="bg-[#f8f9fa] p-6 rounded-lg mb-6">
-              <h4 className="font-heading font-bold text-lg mb-4">Your Catering Details</h4>
-              
+          <div className="space-y-6">
+            <h3 className="text-xl font-heading text-primary mb-4">Event Details</h3>
+            <Form {...form}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="eventTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Event Time *</FormLabel>
+                      <div className="grid grid-cols-5 gap-2 mt-2">
+                        {TIME_SLOTS.map(time => (
+                          <Button
+                            key={time}
+                            type="button"
+                            variant={field.value === time ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => field.onChange(time)}
+                            className="text-xs"
+                          >
+                            {time}
+                          </Button>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="guestCount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of Guests: <span className="font-bold text-primary">{field.value}</span></FormLabel>
+                      <FormControl>
+                        <Slider
+                          min={10}
+                          max={500}
+                          step={10}
+                          value={[field.value]}
+                          onValueChange={(value) => field.onChange(value[0])}
+                          className="mt-4"
+                        />
+                      </FormControl>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>10 guests</span>
+                        <span>500 guests</span>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="eventDuration"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Event Duration: <span className="font-bold text-primary">{field.value} hours</span></FormLabel>
+                      <FormControl>
+                        <Slider
+                          min={2}
+                          max={12}
+                          step={1}
+                          value={[field.value]}
+                          onValueChange={(value) => field.onChange(value[0])}
+                          className="mt-4"
+                        />
+                      </FormControl>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>2 hours</span>
+                        <span>12 hours</span>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </Form>
+          </div>
+        );
+      
+      case 5:
+        if (bookingType === "custom") {
+          return renderReviewStep();
+        }
+        
+        const eligiblePackages = getEligiblePackages();
+        
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-heading text-primary">Select Package</h3>
+              <Badge variant="outline">{guestCount} guests</Badge>
+            </div>
+            
+            <div className="mb-4">
+              <FormField
+                control={form.control}
+                name="serviceId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Category</FormLabel>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(parseInt(value));
+                        form.setValue("packageId", undefined);
+                      }} 
+                      defaultValue={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a service category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {services.map(service => (
+                          <SelectItem key={service.id} value={service.id.toString()}>{service.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            {eligiblePackages.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2">
+                {eligiblePackages.map(pkg => (
+                  <div
+                    key={pkg.id}
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedPackageId === pkg.id ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                    onClick={() => form.setValue("packageId", pkg.id)}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-bold text-lg">{pkg.name}</h4>
+                        <p className="text-sm text-gray-600">{pkg.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-bold text-primary">{formatPrice(pkg.pricePerPerson)}</div>
+                        <div className="text-xs text-gray-500">
+                          {pkg.minGuests}-{pkg.maxGuests || "500+"} guests
+                        </div>
+                      </div>
+                    </div>
+                    {pkg.features && pkg.features.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {pkg.features.slice(0, 5).map((feature, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">{feature}</Badge>
+                        ))}
+                        {pkg.features.length > 5 && (
+                          <Badge variant="outline" className="text-xs">+{pkg.features.length - 5} more</Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                {selectedServiceIdValue ? (
+                  <p>No packages available for {guestCount} guests in this category. Try adjusting your guest count or selecting a different service.</p>
+                ) : (
+                  <p>Please select a service category to see available packages.</p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      
+      case 6:
+        if (bookingType === "standard") {
+          const mainDishes = getDishesByCategory("main");
+          const vegetables = getDishesByCategory("vegetable");
+          const appetizers = getDishesByCategory("appetizer");
+          const desserts = getDishesByCategory("dessert");
+          
+          return (
+            <div className="space-y-6">
+              <h3 className="text-xl font-heading text-primary mb-4">Select Your Menu</h3>
+              
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Badge variant={getDishSelectionCount("main") >= 3 ? "default" : "outline"}>
+                  Mains: {getDishSelectionCount("main")}/3+
+                </Badge>
+                <Badge variant={getDishSelectionCount("vegetable") >= 1 ? "default" : "outline"}>
+                  Vegetables: {getDishSelectionCount("vegetable")}/1+
+                </Badge>
+                <Badge variant={getDishSelectionCount("appetizer") >= 1 ? "default" : "outline"}>
+                  Appetizers: {getDishSelectionCount("appetizer")}/1+
+                </Badge>
+                <Badge variant={getDishSelectionCount("dessert") >= 1 ? "default" : "outline"}>
+                  Desserts: {getDishSelectionCount("dessert")}/1+
+                </Badge>
+              </div>
+              
+              <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2">
                 <div>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#343a40]">Service Selected:</p>
-                    <p className="font-medium">{services.find(s => s.id === form.getValues("serviceId"))?.name}</p>
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#343a40]">Event Date:</p>
-                    <p className="font-medium">
-                      {form.getValues("eventDate")?.toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </p>
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#343a40]">Event Type:</p>
-                    <p className="font-medium">
-                      {form.getValues("eventType") === "wedding" ? "Wedding" : 
-                       form.getValues("eventType") === "corporate" ? "Corporate Event" :
-                       form.getValues("eventType") === "birthday" ? "Birthday Party" :
-                       form.getValues("eventType") === "anniversary" ? "Anniversary" :
-                       form.getValues("eventType") === "holiday" ? "Holiday Party" : "Other"}
-                    </p>
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#343a40]">Event Time:</p>
-                    <p className="font-medium">
-                      {form.getValues("eventTime") === "breakfast" ? "Breakfast (7:00 AM - 10:00 AM)" :
-                       form.getValues("eventTime") === "lunch" ? "Lunch (11:00 AM - 2:00 PM)" :
-                       form.getValues("eventTime") === "dinner" ? "Dinner (5:00 PM - 9:00 PM)" :
-                       form.getValues("eventTime") === "evening" ? "Evening (7:00 PM - 11:00 PM)" : "Custom Time"}
-                    </p>
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#343a40]">Number of Guests:</p>
-                    <p className="font-medium">{form.getValues("guestCount")}</p>
+                  <h4 className="font-bold mb-3 flex items-center gap-2">
+                    <UtensilsCrossed className="h-4 w-4" />
+                    Main Courses <span className="text-sm font-normal text-gray-500">(Select at least 3)</span>
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {mainDishes.map(dish => (
+                      <div
+                        key={dish.id}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                        onClick={() => toggleDish(dish.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={selectedDishes.includes(dish.id)} />
+                          <span className="text-sm font-medium">{dish.name}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
                 
                 <div>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#343a40]">Venue Address:</p>
-                    <p className="font-medium">{form.getValues("venueAddress")}</p>
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#343a40]">Menu Preference:</p>
-                    <p className="font-medium">
-                      {form.getValues("menuPreference") === "standard" ? "Standard Menu" :
-                       form.getValues("menuPreference") === "vegetarian" ? "Vegetarian" :
-                       form.getValues("menuPreference") === "vegan" ? "Vegan" :
-                       form.getValues("menuPreference") === "gluten-free" ? "Gluten-Free" : "Custom Menu"}
-                    </p>
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#343a40]">Service Style:</p>
-                    <p className="font-medium">
-                      {form.getValues("serviceStyle") === "buffet" ? "Buffet Style" :
-                       form.getValues("serviceStyle") === "plated" ? "Plated Service" :
-                       form.getValues("serviceStyle") === "family" ? "Family Style" :
-                       form.getValues("serviceStyle") === "stations" ? "Food Stations" : "Cocktail Reception"}
-                    </p>
-                  </div>
-                  {form.getValues("additionalServices") && (
-                    <div className="mb-4">
-                      <p className="text-sm text-[#343a40]">Additional Services:</p>
-                      <p className="font-medium">{form.getValues("additionalServices")}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {form.getValues("specialRequests") && (
-                <div className="mt-4">
-                  <p className="text-sm text-[#343a40]">Special Requests:</p>
-                  <p className="font-medium">{form.getValues("specialRequests")}</p>
-                </div>
-              )}
-              
-              <div className="mt-4 border-t pt-4">
-                <p className="text-sm text-[#343a40]">Estimated Total:</p>
-                <p className="font-medium text-lg text-primary">
-                  {formatPrice((services.find(s => s.id === form.getValues("serviceId"))?.basePrice || 0) * form.getValues("guestCount"))}
-                </p>
-                <p className="text-xs text-[#343a40]">Final pricing may vary based on menu selection and additional services</p>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <h4 className="font-heading font-bold text-lg mb-4">Contact Information</h4>
-              
-              <Form {...form}>
-                <form className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Full Name *</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email Address *</FormLabel>
-                            <FormControl>
-                              <Input type="email" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div>
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone Number *</FormLabel>
-                            <FormControl>
-                              <Input type="tel" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="company"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Company/Organization (if applicable)</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="termsAgreed"
-                    render={({ field }) => (
-                      <FormItem className="flex items-start space-x-2 space-y-0">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>
-                            I agree to the <a href="#" className="text-primary hover:underline">terms and conditions</a> *
-                          </FormLabel>
-                          <FormMessage />
+                  <h4 className="font-bold mb-3">Vegetables <span className="text-sm font-normal text-gray-500">(Select at least 1)</span></h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {vegetables.map(dish => (
+                      <div
+                        key={dish.id}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                        onClick={() => toggleDish(dish.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={selectedDishes.includes(dish.id)} />
+                          <span className="text-sm font-medium">{dish.name}</span>
                         </div>
-                      </FormItem>
-                    )}
-                  />
-                </form>
-              </Form>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3">Appetizers <span className="text-sm font-normal text-gray-500">(Select at least 1)</span></h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {appetizers.map(dish => (
+                      <div
+                        key={dish.id}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                        onClick={() => toggleDish(dish.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={selectedDishes.includes(dish.id)} />
+                          <span className="text-sm font-medium">{dish.name}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3">Desserts <span className="text-sm font-normal text-gray-500">(Select at least 1)</span></h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {desserts.map(dish => (
+                      <div
+                        key={dish.id}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                        onClick={() => toggleDish(dish.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={selectedDishes.includes(dish.id)} />
+                          <span className="text-sm font-medium">{dish.name}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div className="bg-primary/10 p-4 rounded-lg mb-4 flex items-start gap-2">
-              <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-              <p className="text-sm">
-                Your booking request will be reviewed by our team. We will contact you within 24 hours to confirm availability and discuss any details.
-              </p>
-            </div>
-          </div>
-        );
+          );
+        }
+        return null;
+      
+      case 7:
+        return renderReviewStep();
       
       default:
         return null;
     }
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-4xl p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="text-2xl font-heading font-bold text-primary">Book Your Catering Service</DialogTitle>
-          <DialogDescription>
-            <div className="mt-8 mb-4">
-              <div className="flex items-center w-full">
-                {/* Step 1 */}
-                <div className="relative flex flex-col items-center text-center">
-                  <div 
-                    className={`flex items-center justify-center w-10 h-10 rounded-full font-medium
-                      ${isStepComplete(1) 
-                        ? "bg-green-500 text-white" 
-                        : currentStep === 1 
-                          ? "bg-primary text-white" 
-                          : "bg-gray-200 text-[#343a40]"
-                      }`}
-                  >
-                    {isStepComplete(1) ? <Check className="h-5 w-5" /> : "1"}
-                  </div>
-                  <div className={`text-xs font-medium mt-1 ${currentStep === 1 ? "text-primary" : "text-[#343a40]"}`}>Service</div>
-                </div>
-                
-                {/* Line */}
-                <div className="w-full h-1 bg-gray-200 flex-grow mx-2">
-                  <div className="h-1 bg-primary transition-all duration-300" style={{ width: currentStep > 1 ? "100%" : "0%" }}></div>
-                </div>
-                
-                {/* Step 2 */}
-                <div className="relative flex flex-col items-center text-center">
-                  <div 
-                    className={`flex items-center justify-center w-10 h-10 rounded-full font-medium
-                      ${isStepComplete(2) 
-                        ? "bg-green-500 text-white" 
-                        : currentStep === 2 
-                          ? "bg-primary text-white" 
-                          : "bg-gray-200 text-[#343a40]"
-                      }`}
-                  >
-                    {isStepComplete(2) ? <Check className="h-5 w-5" /> : "2"}
-                  </div>
-                  <div className={`text-xs font-medium mt-1 ${currentStep === 2 ? "text-primary" : "text-[#343a40]"}`}>Date</div>
-                </div>
-                
-                {/* Line */}
-                <div className="w-full h-1 bg-gray-200 flex-grow mx-2">
-                  <div className="h-1 bg-primary transition-all duration-300" style={{ width: currentStep > 2 ? "100%" : "0%" }}></div>
-                </div>
-                
-                {/* Step 3 */}
-                <div className="relative flex flex-col items-center text-center">
-                  <div 
-                    className={`flex items-center justify-center w-10 h-10 rounded-full font-medium
-                      ${isStepComplete(3) 
-                        ? "bg-green-500 text-white" 
-                        : currentStep === 3 
-                          ? "bg-primary text-white" 
-                          : "bg-gray-200 text-[#343a40]"
-                      }`}
-                  >
-                    {isStepComplete(3) ? <Check className="h-5 w-5" /> : "3"}
-                  </div>
-                  <div className={`text-xs font-medium mt-1 ${currentStep === 3 ? "text-primary" : "text-[#343a40]"}`}>Details</div>
-                </div>
-                
-                {/* Line */}
-                <div className="w-full h-1 bg-gray-200 flex-grow mx-2">
-                  <div className="h-1 bg-primary transition-all duration-300" style={{ width: currentStep > 3 ? "100%" : "0%" }}></div>
-                </div>
-                
-                {/* Step 4 */}
-                <div className="relative flex flex-col items-center text-center">
-                  <div 
-                    className={`flex items-center justify-center w-10 h-10 rounded-full font-medium
-                      ${isStepComplete(4) 
-                        ? "bg-green-500 text-white" 
-                        : currentStep === 4 
-                          ? "bg-primary text-white" 
-                          : "bg-gray-200 text-[#343a40]"
-                      }`}
-                  >
-                    {isStepComplete(4) ? <Check className="h-5 w-5" /> : "4"}
-                  </div>
-                  <div className={`text-xs font-medium mt-1 ${currentStep === 4 ? "text-primary" : "text-[#343a40]"}`}>Confirm</div>
+  const renderReviewStep = () => {
+    const selectedPackage = packages.find(p => p.id === selectedPackageId);
+    const selectedService = services.find(s => s.id === selectedServiceIdValue);
+    const totalPrice = selectedPackage 
+      ? selectedPackage.pricePerPerson 
+      : (selectedService?.basePrice || 0) * guestCount;
+    
+    const selectedDishNames = dishes
+      .filter(d => selectedDishes.includes(d.id))
+      .map(d => d.name);
+
+    return (
+      <div className="space-y-6">
+        <h3 className="text-xl font-heading text-primary mb-4">Review Your {bookingType === "custom" ? "Quote Request" : "Booking"}</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-bold text-sm text-gray-500 mb-2">EVENT DETAILS</h4>
+              <div className="space-y-2 text-sm">
+                <p><span className="text-gray-500">Date:</span> {form.getValues("eventDate")?.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <p><span className="text-gray-500">Time:</span> {form.getValues("eventTime")}</p>
+                <p><span className="text-gray-500">Type:</span> {EVENT_TYPES.find(t => t.value === form.getValues("eventType"))?.label}</p>
+                <p><span className="text-gray-500">Guests:</span> {guestCount}</p>
+                <p><span className="text-gray-500">Duration:</span> {form.getValues("eventDuration")} hours</p>
+                <p><span className="text-gray-500">Venue:</span> {form.getValues("venueAddress")}</p>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-bold text-sm text-gray-500 mb-2">CONTACT INFORMATION</h4>
+              <div className="space-y-2 text-sm">
+                <p><span className="text-gray-500">Name:</span> {form.getValues("name")}</p>
+                <p><span className="text-gray-500">Email:</span> {form.getValues("email")}</p>
+                <p><span className="text-gray-500">Phone:</span> {form.getValues("phone")}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {bookingType === "standard" && selectedPackage && (
+              <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
+                <h4 className="font-bold text-sm text-gray-500 mb-2">SELECTED PACKAGE</h4>
+                <p className="font-bold text-lg">{selectedPackage.name}</p>
+                <p className="text-2xl font-bold text-primary mt-2">{formatPrice(selectedPackage.pricePerPerson)}</p>
+              </div>
+            )}
+            
+            {bookingType === "standard" && selectedDishNames.length > 0 && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-bold text-sm text-gray-500 mb-2">SELECTED MENU ({selectedDishNames.length} items)</h4>
+                <div className="flex flex-wrap gap-1">
+                  {selectedDishNames.map((name, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-xs">{name}</Badge>
+                  ))}
                 </div>
               </div>
+            )}
+            
+            {bookingType === "custom" && form.getValues("budget") && (
+              <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-lg">
+                <h4 className="font-bold text-sm text-gray-500 mb-2">YOUR BUDGET</h4>
+                <p className="text-2xl font-bold text-secondary">{formatPrice(form.getValues("budget") || 0)}</p>
+              </div>
+            )}
+            
+            {form.getValues("specialRequests") && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-bold text-sm text-gray-500 mb-2">SPECIAL REQUESTS</h4>
+                <p className="text-sm">{form.getValues("specialRequests")}</p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="bg-primary/10 p-4 rounded-lg flex items-start gap-2">
+          <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-medium">What happens next?</p>
+            <p className="text-gray-600 mt-1">
+              {bookingType === "custom" 
+                ? "Your quote request will be reviewed by our team. We'll prepare a custom proposal and contact you within 24-48 hours."
+                : "Your booking request will be reviewed by our team. Once approved, you'll receive payment instructions for the deposit to secure your date."}
+            </p>
+          </div>
+        </div>
+        
+        <FormField
+          control={form.control}
+          name="termsAgreed"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel className="cursor-pointer">
+                  I agree to the <a href="#" className="text-primary hover:underline">terms and conditions</a> *
+                </FormLabel>
+                <FormMessage />
+              </div>
+            </FormItem>
+          )}
+        />
+      </div>
+    );
+  };
+
+  const renderStepIndicator = () => {
+    return (
+      <div className="flex items-center w-full overflow-x-auto pb-2">
+        {steps.map((step, index) => (
+          <div key={step.id} className="flex items-center">
+            <div className="relative flex flex-col items-center text-center min-w-[60px]">
+              <div 
+                className={`flex items-center justify-center w-10 h-10 rounded-full font-medium transition-all
+                  ${isStepComplete(step.id) 
+                    ? "bg-green-500 text-white" 
+                    : currentStep === step.id 
+                      ? "bg-primary text-white" 
+                      : "bg-gray-200 text-gray-500"
+                  }`}
+              >
+                {isStepComplete(step.id) ? <Check className="h-5 w-5" /> : step.id}
+              </div>
+              <div className={`text-xs font-medium mt-1 ${currentStep === step.id ? "text-primary" : "text-gray-500"}`}>
+                {step.label}
+              </div>
+            </div>
+            
+            {index < steps.length - 1 && (
+              <div className="w-8 md:w-12 h-1 bg-gray-200 mx-1">
+                <div 
+                  className="h-1 bg-primary transition-all duration-300" 
+                  style={{ width: currentStep > step.id ? "100%" : "0%" }}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const isSubmitStep = currentStep === totalSteps;
+  const isPending = createBookingMutation.isPending || createQuoteMutation.isPending;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-4xl p-0 overflow-hidden max-h-[90vh]">
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-2xl font-heading font-bold text-primary">
+            {bookingType === "custom" ? "Request a Custom Quote" : "Book Your Catering Service"}
+          </DialogTitle>
+          <DialogDescription>
+            <div className="mt-6 mb-4">
+              {renderStepIndicator()}
             </div>
           </DialogDescription>
         </DialogHeader>
         
-        <div className="p-6 max-h-[70vh] overflow-y-auto">
+        <div className="p-6 overflow-y-auto" style={{ maxHeight: "calc(90vh - 200px)" }}>
           {renderStepContent()}
         </div>
         
-        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-2">
-          {currentStep > 1 && (
-            <Button 
-              variant="outline" 
-              onClick={prevStep}
-            >
-              Previous
-            </Button>
-          )}
+        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+          <div>
+            {currentStep > 1 && (
+              <Button variant="outline" onClick={prevStep}>
+                Previous
+              </Button>
+            )}
+          </div>
           
-          {currentStep < 4 ? (
-            <Button 
-              onClick={nextStep}
-              className="bg-primary"
-            >
-              Next Step
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
             </Button>
-          ) : (
-            <Button 
-              onClick={form.handleSubmit(onSubmit)}
-              className="bg-primary"
-              disabled={createBookingMutation.isPending}
-            >
-              {createBookingMutation.isPending ? "Submitting..." : "Submit Booking"}
-            </Button>
-          )}
+            
+            {isSubmitStep ? (
+              <Button 
+                onClick={form.handleSubmit(onSubmit)}
+                className="bg-primary"
+                disabled={isPending}
+              >
+                {isPending ? "Submitting..." : bookingType === "custom" ? "Submit Quote Request" : "Submit Booking"}
+              </Button>
+            ) : (
+              <Button onClick={nextStep} className="bg-primary">
+                Next Step
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

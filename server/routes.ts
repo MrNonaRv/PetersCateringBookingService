@@ -120,11 +120,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dishes routes
+  app.get("/api/dishes", async (req, res) => {
+    try {
+      const { category } = req.query;
+      if (category && typeof category === 'string') {
+        const dishes = await storage.getDishesByCategory(category);
+        res.json(dishes);
+      } else {
+        const dishes = await storage.getDishes();
+        res.json(dishes);
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching dishes" });
+    }
+  });
+
   // Service Packages routes
   app.get("/api/service-packages", async (req, res) => {
     try {
-      const packages = await storage.getServicePackages();
-      res.json(packages);
+      const { serviceId } = req.query;
+      if (serviceId && typeof serviceId === 'string') {
+        const packages = await storage.getServicePackagesByService(parseInt(serviceId));
+        res.json(packages);
+      } else {
+        const packages = await storage.getServicePackages();
+        res.json(packages);
+      }
     } catch (error) {
       res.status(500).json({ message: "Error fetching service packages" });
     }
@@ -406,10 +428,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/bookings", async (req, res) => {
     try {
-      const { booking, customer } = req.body;
+      const { booking, customer, selectedDishes } = req.body;
       
       console.log("Received booking data:", booking);
       console.log("Received customer data:", customer);
+      console.log("Received selected dishes:", selectedDishes);
       
       // Generate a unique booking reference
       const bookingReference = `PCB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
@@ -421,11 +444,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId: 0, // This will be overridden by storage layer
         totalPrice: booking.totalPrice || 0,
         paymentStatus: booking.paymentStatus || "pending",
-        status: booking.status || "pending",
+        status: booking.status || "pending_approval",
         additionalServices: booking.additionalServices || "",
         specialRequests: booking.specialRequests || "",
         paymentMethod: booking.paymentMethod || null,
-        paymentReference: booking.paymentReference || null
+        paymentReference: booking.paymentReference || null,
+        menuPreference: booking.menuPreference || "package",
+        serviceStyle: booking.serviceStyle || "buffet"
       };
       
       console.log("Prepared booking data:", bookingWithDefaults);
@@ -442,7 +467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bookingData = insertBookingSchema.parse(bookingWithDefaults);
       const customerData = insertCustomerSchema.parse(customerWithDefaults);
       
-      const createdBooking = await storage.createBooking(bookingData, customerData);
+      const createdBooking = await storage.createBooking(bookingData, customerData, selectedDishes);
       res.status(201).json(createdBooking);
     } catch (error) {
       console.error("Booking creation error:", error);
@@ -462,7 +487,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const { status } = req.body;
       
-      if (!status || !["pending", "confirmed", "cancelled", "completed"].includes(status)) {
+      const validStatuses = [
+        "pending", 
+        "pending_approval", 
+        "approved", 
+        "deposit_paid", 
+        "fully_paid", 
+        "confirmed", 
+        "scheduled",
+        "completed", 
+        "cancelled"
+      ];
+      
+      if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
       

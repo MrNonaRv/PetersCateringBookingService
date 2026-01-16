@@ -79,3 +79,18 @@ The frontend is built with **React 18** and **TypeScript**, utilizing a componen
 - **React Router (Wouter)**: Lightweight routing solution
 - **date-fns**: Date manipulation utilities for booking functionality
 - **React Helmet**: Dynamic head tag management for SEO
+
+## Recent Changes (January 2026)
+
+### Booking Flow Improvements
+- **Two Booking Flows**: Standard Package (7 steps) and Custom Quote (5 steps)
+- **Conditional Validation**: serviceId and packageId required only for standard bookings
+- **Step-level Validation**: Service and package selection validated at step 5 before proceeding
+- **Selected Dishes Persistence**: Customer dish selections now saved to `booking_dishes` table
+
+### Status Workflow
+Booking statuses: `pending_approval` → `approved` → `deposit_paid` → `fully_paid` → `confirmed` → `completed` (with `cancelled` option)
+
+### Data Notes
+- **Package Pricing**: The `pricePerPerson` field in `service_packages` table stores total package price (not per-person) for fixed-price packages like "Diamond Wedding ₱235,000"
+- **Currency**: All prices displayed in Philippine Peso (₱) with centavos stored in database

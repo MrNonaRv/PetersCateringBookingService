@@ -1,0 +1,68 @@
+Customer Booking Flow — Standard Package
+Step 1: Choose Booking Type
+•	Standard Package or Custom Quote
+•	Chatbot available for guidance
+Step 2: Select Event Date
+•	Check availability (approved bookings only)
+•	Display slots available / fully booked / closed
+Step 3: Enter Personal Information
+•	Full Name, Email, Mobile Number, Alternate Contact (optional)
+•	Event Venue / Address
+•	Event Type
+•	Preferred Contact Method
+Step 4: Enter Event Details
+•	Time (picker / chips)
+•	Guest Count (slider)
+•	Duration (optional slider)
+Step 5: Select Package
+•	Fixed package → price displayed
+•	Tiered package → select guest tier + mains → price auto-calculated
+Step 6: Dish Selection
+•	Pick required dishes per package
+•	Must complete selection to proceed
+•	Progress indicators show counts
+Step 7: Review & Submit
+•	Review date/time, guest count, package, dishes, add-ons, notes, total
+•	Status: Pending Approval
+•	Slot does not count yet
+•	Notification: “Booking request received, awaiting approval”
+________________________________________
+4. Customer Booking Flow — Custom Quote
+Step 1: Submit Quote Request
+•	Enter date, time, guest count, budget, preferences, notes
+•	Status: Quote Request: New
+•	Slot does not count yet
+Step 2: Admin Builds & Sends Quote
+•	Select menu, add-ons, pricing, deposit
+•	Status: Quote Sent
+•	Customer receives quote link
+Step 3: Customer Responds
+•	Accept → Accepted (Pending Approval)
+•	Request Revision → Revision Requested
+•	Reject → Rejected
+Step 4: Admin Final Approval
+•	Approved → booking counts toward capacity
+•	Payment link sent
+Step 5: Payment & Confirmation
+•	Customer pays deposit → status Deposit Paid
+•	Remaining balance paid at event → status Fully Paid / Completed
+•	Notification: booking confirmed
+________________________________________
+5. Admin Approval Workflow
+•	Review booking / accepted quote
+•	Approve / Decline / Request Changes
+•	Check capacity before approval
+•	Send payment link after approval
+•	Mark event Completed after service
+________________________________________
+6. Payment Module
+•	Down Payment Online (GCash, PayMaya, Bank Transfer)
+•	Balance Payment at event
+•	Deposit secures booking
+•	Balance collected during event
+•	Admin tracks both deposit and balance
+________________________________________
+7. Booking Confirmation
+•	Status transitions: Pending Approval → Approved → Deposit Paid → Fully Paid → Confirmed/Scheduled → Completed
+•	Notifications sent at each stage
+•	Event prep notes generated for staff

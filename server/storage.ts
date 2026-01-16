@@ -4,6 +4,7 @@ import {
   servicePackages, type ServicePackage, type InsertServicePackage,
   availability, type Availability, type InsertAvailability,
   bookings, type Booking, type InsertBooking,
+  bookingDishes,
   customers, type Customer, type InsertCustomer,
   recentEvents, type RecentEvent, type InsertRecentEvent,
   galleryImages, type GalleryImage, type InsertGalleryImage,
@@ -48,7 +49,7 @@ export interface IStorage {
   getBookings(): Promise<BookingWithCustomer[]>;
   getBooking(id: number): Promise<BookingWithCustomer | undefined>;
   getBookingByReference(reference: string): Promise<BookingWithCustomer | undefined>;
-  createBooking(booking: InsertBooking, customer: InsertCustomer): Promise<BookingWithCustomer>;
+  createBooking(booking: InsertBooking, customer: InsertCustomer, selectedDishes?: number[]): Promise<BookingWithCustomer>;
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
   updateBookingPayment(id: number, paymentData: Partial<InsertBooking>): Promise<Booking | undefined>;
   
@@ -298,7 +299,7 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async createBooking(insertBooking: InsertBooking, insertCustomer: InsertCustomer): Promise<BookingWithCustomer> {
+  async createBooking(insertBooking: InsertBooking, insertCustomer: InsertCustomer, selectedDishes?: number[]): Promise<BookingWithCustomer> {
     // Create customer first
     const customerId = this.currentIds.customer++;
     const customer: Customer = { 
@@ -341,6 +342,8 @@ export class MemStorage implements IStorage {
     };
     
     this.bookings.set(bookingId, booking);
+    
+    // Note: selectedDishes not persisted in MemStorage (would need bookingDishes map)
     
     const service = this.services.get(booking.serviceId) as Service;
     
@@ -829,7 +832,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createBooking(insertBooking: InsertBooking, insertCustomer: InsertCustomer): Promise<BookingWithCustomer> {
+  async createBooking(insertBooking: InsertBooking, insertCustomer: InsertCustomer, selectedDishes?: number[]): Promise<BookingWithCustomer> {
     // First check if a customer with this email already exists
     let customer: Customer;
     const [existingCustomer] = await db
@@ -864,6 +867,16 @@ export class DatabaseStorage implements IStorage {
       .insert(bookings)
       .values(bookingWithCustomerId)
       .returning();
+    
+    // Save selected dishes if provided
+    if (selectedDishes && selectedDishes.length > 0) {
+      const dishInserts = selectedDishes.map(dishId => ({
+        bookingId: booking.id,
+        dishId: dishId,
+        quantity: 1
+      }));
+      await db.insert(bookingDishes).values(dishInserts);
+    }
     
     // Get service data
     const [service] = await db
