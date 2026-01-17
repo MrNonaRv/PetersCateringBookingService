@@ -37,3 +37,7 @@ integrations = ["javascript_stripe:1.0.0", "perplexity_v0:1.0.0", "styling_shadc
 [userenv]
 
 [userenv.shared]
+
+[[ports]]
+localPort = 5000
+externalPort = 80

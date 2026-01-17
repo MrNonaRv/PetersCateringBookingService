@@ -1,27 +1,27 @@
 import { useState, useEffect } from "react";
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
 } from "@/components/ui/select";
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,7 +36,17 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Check, Info, Package, FileText, Calendar as CalendarIcon, User, Clock, UtensilsCrossed, ClipboardCheck } from "lucide-react";
+import {
+  Check,
+  Info,
+  Package,
+  FileText,
+  Calendar as CalendarIcon,
+  User,
+  Clock,
+  UtensilsCrossed,
+  ClipboardCheck,
+} from "lucide-react";
 
 interface Service {
   id: number;
@@ -78,44 +88,59 @@ interface Availability {
   notes?: string;
 }
 
-const bookingFormSchema = z.object({
-  bookingType: z.enum(["standard", "custom"]),
-  serviceId: z.number().optional(),
-  packageId: z.number().optional(),
-  eventDate: z.date({ required_error: "Please select a date" }),
-  eventType: z.string().min(1, "Please select event type"),
-  eventTime: z.string().min(1, "Please select event time"),
-  eventDuration: z.number().min(1).max(12).default(4),
-  guestCount: z.number().min(10, "Minimum 10 guests").max(500, "Maximum 500 guests"),
-  venueAddress: z.string().min(5, "Please enter the venue address"),
-  name: z.string().min(2, "Name is required"),
-  email: z.string().email("Valid email is required"),
-  phone: z.string().min(10, "Valid phone number is required"),
-  alternateContact: z.string().optional(),
-  preferredContactMethod: z.enum(["phone", "email", "sms"]).default("phone"),
-  selectedDishes: z.array(z.number()).default([]),
-  specialRequests: z.string().optional(),
-  budget: z.number().optional(),
-  termsAgreed: z.boolean().refine(val => val === true, {
-    message: "You must agree to the terms and conditions",
-  }),
-}).refine((data) => {
-  if (data.bookingType === "standard" && (!data.serviceId || data.serviceId < 1)) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Please select a service category",
-  path: ["serviceId"]
-}).refine((data) => {
-  if (data.bookingType === "standard" && !data.packageId) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Please select a package",
-  path: ["packageId"]
-});
+const bookingFormSchema = z
+  .object({
+    bookingType: z.enum(["standard", "custom"]),
+    serviceId: z.number().optional(),
+    packageId: z.number().optional(),
+    eventDate: z.date({ required_error: "Please select a date" }),
+    eventType: z.string().min(1, "Please select event type"),
+    eventTime: z.string().min(1, "Please select event time"),
+    eventDuration: z.number().min(1).max(12).default(4),
+    guestCount: z
+      .number()
+      .min(10, "Minimum 10 guests")
+      .max(500, "Maximum 500 guests"),
+    venueAddress: z.string().min(5, "Please enter the venue address"),
+    name: z.string().min(2, "Name is required"),
+    email: z.string().email("Valid email is required"),
+    phone: z.string().min(10, "Valid phone number is required"),
+    alternateContact: z.string().optional(),
+    preferredContactMethod: z.enum(["phone", "email", "sms"]).default("phone"),
+    selectedDishes: z.array(z.number()).default([]),
+    specialRequests: z.string().optional(),
+    budget: z.number().optional(),
+    termsAgreed: z.boolean().refine((val) => val === true, {
+      message: "You must agree to the terms and conditions",
+    }),
+  })
+  .refine(
+    (data) => {
+      if (
+        data.bookingType === "standard" &&
+        (!data.serviceId || data.serviceId < 1)
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Please select a service category",
+      path: ["serviceId"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.bookingType === "standard" && !data.packageId) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Please select a package",
+      path: ["packageId"],
+    },
+  );
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
@@ -143,12 +168,20 @@ const STEP_CONFIG = {
     { id: 3, label: "Info", icon: User },
     { id: 4, label: "Details", icon: FileText },
     { id: 5, label: "Review", icon: ClipboardCheck },
-  ]
+  ],
 };
 
 const TIME_SLOTS = [
-  "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM",
-  "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM"
+  "10:00 AM",
+  "11:00 AM",
+  "12:00 PM",
+  "1:00 PM",
+  "2:00 PM",
+  "3:00 PM",
+  "4:00 PM",
+  "5:00 PM",
+  "6:00 PM",
+  "7:00 PM",
 ];
 
 const EVENT_TYPES = [
@@ -163,15 +196,17 @@ const EVENT_TYPES = [
   { value: "other", label: "Other" },
 ];
 
-export default function BookingModal({ 
-  isOpen, 
-  onClose, 
-  services, 
+export default function BookingModal({
+  isOpen,
+  onClose,
+  services,
   selectedServiceId,
-  onBookingSubmitted 
+  onBookingSubmitted,
 }: BookingModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [bookingType, setBookingType] = useState<"standard" | "custom">("standard");
+  const [bookingType, setBookingType] = useState<"standard" | "custom">(
+    "standard",
+  );
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -184,8 +219,8 @@ export default function BookingModal({
       eventDuration: 4,
       selectedDishes: [],
       preferredContactMethod: "phone",
-      termsAgreed: false
-    }
+      termsAgreed: false,
+    },
   });
 
   const selectedServiceIdValue = form.watch("serviceId");
@@ -194,24 +229,26 @@ export default function BookingModal({
   const selectedDishes = form.watch("selectedDishes") || [];
 
   const { data: availabilities = [] } = useQuery<Availability[]>({
-    queryKey: ['/api/availability'],
-    enabled: isOpen
+    queryKey: ["/api/availability"],
+    enabled: isOpen,
   });
 
   const { data: packages = [] } = useQuery<ServicePackage[]>({
-    queryKey: ['/api/service-packages', selectedServiceIdValue],
+    queryKey: ["/api/service-packages", selectedServiceIdValue],
     queryFn: async () => {
       if (!selectedServiceIdValue) return [];
-      const res = await fetch(`/api/service-packages?serviceId=${selectedServiceIdValue}`);
-      if (!res.ok) throw new Error('Failed to fetch packages');
+      const res = await fetch(
+        `/api/service-packages?serviceId=${selectedServiceIdValue}`,
+      );
+      if (!res.ok) throw new Error("Failed to fetch packages");
       return res.json();
     },
-    enabled: !!selectedServiceIdValue && isOpen
+    enabled: !!selectedServiceIdValue && isOpen,
   });
 
   const { data: dishes = [] } = useQuery<Dish[]>({
-    queryKey: ['/api/dishes'],
-    enabled: isOpen
+    queryKey: ["/api/dishes"],
+    enabled: isOpen,
   });
 
   useEffect(() => {
@@ -225,7 +262,7 @@ export default function BookingModal({
         eventDuration: 4,
         selectedDishes: [],
         preferredContactMethod: "phone",
-        termsAgreed: false
+        termsAgreed: false,
       });
     }
   }, [isOpen, selectedServiceId, form]);
@@ -239,27 +276,31 @@ export default function BookingModal({
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: BookingFormValues) => {
-      const selectedPackage = packages.find(p => p.id === data.packageId);
-      const totalPrice = selectedPackage 
+      const selectedPackage = packages.find((p) => p.id === data.packageId);
+      const totalPrice = selectedPackage
         ? selectedPackage.pricePerPerson
-        : (services.find(s => s.id === data.serviceId)?.basePrice || 0) * data.guestCount;
+        : (services.find((s) => s.id === data.serviceId)?.basePrice || 0) *
+          data.guestCount;
 
       const selectedDishNames = dishes
-        .filter(d => data.selectedDishes.includes(d.id))
-        .map(d => d.name);
-      
-      const dishesNote = selectedDishNames.length > 0 
-        ? `\n\nSelected Menu Items: ${selectedDishNames.join(", ")}` 
-        : "";
+        .filter((d) => data.selectedDishes.includes(d.id))
+        .map((d) => d.name);
+
+      const dishesNote =
+        selectedDishNames.length > 0
+          ? `\n\nSelected Menu Items: ${selectedDishNames.join(", ")}`
+          : "";
 
       if (!data.serviceId || !data.packageId) {
-        throw new Error("Service and package selection required for standard booking");
+        throw new Error(
+          "Service and package selection required for standard booking",
+        );
       }
 
       const booking = {
         serviceId: data.serviceId,
         packageId: data.packageId,
-        eventDate: data.eventDate.toISOString().split('T')[0],
+        eventDate: data.eventDate.toISOString().split("T")[0],
         eventType: data.eventType,
         eventTime: data.eventTime,
         eventDuration: data.eventDuration,
@@ -271,41 +312,42 @@ export default function BookingModal({
         specialRequests: (data.specialRequests || "") + dishesNote,
         totalPrice,
         status: "pending_approval",
-        paymentStatus: "pending"
+        paymentStatus: "pending",
       };
-      
+
       const customer = {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        company: ""
+        company: "",
       };
-      
-      const res = await apiRequest('POST', '/api/bookings', {
+
+      const res = await apiRequest("POST", "/api/bookings", {
         booking,
         customer,
-        selectedDishes: data.selectedDishes
+        selectedDishes: data.selectedDishes,
       });
-      
+
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       onBookingSubmitted(data.bookingReference);
     },
     onError: () => {
       toast({
         title: "Booking Failed",
-        description: "There was an error creating your booking. Please try again.",
-        variant: "destructive"
+        description:
+          "There was an error creating your booking. Please try again.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const createQuoteMutation = useMutation({
     mutationFn: async (data: BookingFormValues) => {
       const quote = {
-        eventDate: data.eventDate.toISOString().split('T')[0],
+        eventDate: data.eventDate.toISOString().split("T")[0],
         eventTime: data.eventTime,
         eventType: data.eventType,
         guestCount: data.guestCount,
@@ -314,48 +356,60 @@ export default function BookingModal({
         preferences: "",
         specialRequests: data.specialRequests || "",
       };
-      
+
       const customer = {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        company: ""
+        company: "",
       };
-      
-      const res = await apiRequest('POST', '/api/custom-quotes', { quote, customer });
+
+      const res = await apiRequest("POST", "/api/custom-quotes", {
+        quote,
+        customer,
+      });
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/custom-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/custom-quotes"] });
       onBookingSubmitted(data.quoteReference);
     },
     onError: () => {
       toast({
         title: "Quote Request Failed",
-        description: "There was an error submitting your quote request. Please try again.",
-        variant: "destructive"
+        description:
+          "There was an error submitting your quote request. Please try again.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof BookingFormValues)[] = [];
-    
+
     if (currentStep === 1) {
       fieldsToValidate = ["bookingType"];
     } else if (currentStep === 2) {
       fieldsToValidate = ["eventDate"];
     } else if (currentStep === 3) {
-      fieldsToValidate = ["name", "email", "phone", "venueAddress", "eventType"];
+      fieldsToValidate = [
+        "name",
+        "email",
+        "phone",
+        "venueAddress",
+        "eventType",
+      ];
     } else if (currentStep === 4) {
       fieldsToValidate = ["eventTime", "guestCount"];
     } else if (currentStep === 5 && bookingType === "standard") {
       fieldsToValidate = ["serviceId", "packageId"];
       const serviceId = form.getValues("serviceId");
       const packageId = form.getValues("packageId");
-      
+
       if (!serviceId || serviceId < 1) {
-        form.setError("serviceId", { message: "Please select a service category" });
+        form.setError("serviceId", {
+          message: "Please select a service category",
+        });
         return;
       }
       if (!packageId) {
@@ -387,13 +441,13 @@ export default function BookingModal({
   };
 
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+    return `₱${(priceInCents / 100).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
   };
 
   const isStepComplete = (step: number) => step < currentStep;
 
   const getEligiblePackages = () => {
-    return packages.filter(pkg => {
+    return packages.filter((pkg) => {
       const meetsMin = guestCount >= pkg.minGuests;
       const meetsMax = !pkg.maxGuests || guestCount <= pkg.maxGuests;
       return meetsMin && meetsMax && pkg.isActive;
@@ -401,21 +455,26 @@ export default function BookingModal({
   };
 
   const getDishesByCategory = (category: string) => {
-    return dishes.filter(d => d.category === category && d.isAvailable);
+    return dishes.filter((d) => d.category === category && d.isAvailable);
   };
 
   const toggleDish = (dishId: number) => {
     const current = form.getValues("selectedDishes") || [];
     if (current.includes(dishId)) {
-      form.setValue("selectedDishes", current.filter(id => id !== dishId));
+      form.setValue(
+        "selectedDishes",
+        current.filter((id) => id !== dishId),
+      );
     } else {
       form.setValue("selectedDishes", [...current, dishId]);
     }
   };
 
   const getDishSelectionCount = (category: string) => {
-    const categoryDishes = dishes.filter(d => d.category === category);
-    return selectedDishes.filter(id => categoryDishes.some(d => d.id === id)).length;
+    const categoryDishes = dishes.filter((d) => d.category === category);
+    return selectedDishes.filter((id) =>
+      categoryDishes.some((d) => d.id === id),
+    ).length;
   };
 
   const renderStepContent = () => {
@@ -423,9 +482,13 @@ export default function BookingModal({
       case 1:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">Choose Booking Type</h3>
-            <p className="text-gray-600 mb-6">Select how you'd like to proceed with your catering booking.</p>
-            
+            <h3 className="text-xl font-heading text-primary mb-4">
+              Choose Booking Type
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Select how you'd like to proceed with your catering booking.
+            </p>
+
             <RadioGroup
               value={bookingType}
               onValueChange={(value: "standard" | "custom") => {
@@ -434,14 +497,25 @@ export default function BookingModal({
               }}
               className="grid grid-cols-1 md:grid-cols-2 gap-4"
             >
-              <div className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "standard" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}>
-                <RadioGroupItem value="standard" id="standard" className="sr-only" />
+              <div
+                className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "standard" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+              >
+                <RadioGroupItem
+                  value="standard"
+                  id="standard"
+                  className="sr-only"
+                />
                 <Label htmlFor="standard" className="cursor-pointer">
                   <div className="flex items-start gap-4">
                     <Package className="h-8 w-8 text-primary flex-shrink-0" />
                     <div>
-                      <h4 className="font-bold text-lg mb-2">Standard Package</h4>
-                      <p className="text-sm text-gray-600">Choose from our pre-designed packages with fixed pricing. Perfect for weddings, debuts, and celebrations.</p>
+                      <h4 className="font-bold text-lg mb-2">
+                        Standard Package
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        Choose from our pre-designed packages with fixed
+                        pricing. Perfect for weddings, debuts, and celebrations.
+                      </p>
                       <ul className="mt-3 text-sm text-gray-600 space-y-1">
                         <li>• Browse available packages</li>
                         <li>• Select your menu items</li>
@@ -451,15 +525,24 @@ export default function BookingModal({
                   </div>
                 </Label>
               </div>
-              
-              <div className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "custom" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}>
-                <RadioGroupItem value="custom" id="custom" className="sr-only" />
+
+              <div
+                className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "custom" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+              >
+                <RadioGroupItem
+                  value="custom"
+                  id="custom"
+                  className="sr-only"
+                />
                 <Label htmlFor="custom" className="cursor-pointer">
                   <div className="flex items-start gap-4">
                     <FileText className="h-8 w-8 text-secondary flex-shrink-0" />
                     <div>
                       <h4 className="font-bold text-lg mb-2">Custom Quote</h4>
-                      <p className="text-sm text-gray-600">Tell us your requirements and budget, and we'll create a personalized proposal for you.</p>
+                      <p className="text-sm text-gray-600">
+                        Tell us your requirements and budget, and we'll create a
+                        personalized proposal for you.
+                      </p>
                       <ul className="mt-3 text-sm text-gray-600 space-y-1">
                         <li>• Describe your needs</li>
                         <li>• Set your budget range</li>
@@ -472,31 +555,41 @@ export default function BookingModal({
             </RadioGroup>
           </div>
         );
-      
+
       case 2:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">Select Event Date</h3>
+            <h3 className="text-xl font-heading text-primary mb-4">
+              Select Event Date
+            </h3>
             <div className="flex flex-col items-center">
               <Calendar
                 mode="single"
                 selected={form.getValues("eventDate")}
-                onSelect={(date) => date && form.setValue("eventDate", date, { shouldValidate: true })}
+                onSelect={(date) =>
+                  date &&
+                  form.setValue("eventDate", date, { shouldValidate: true })
+                }
                 disabled={(date: Date) => {
-                  return date < new Date(new Date().setHours(0, 0, 0, 0)) || 
-                         unavailableDates.some((unavailableDate: Date) => 
-                           unavailableDate.getDate() === date.getDate() && 
-                           unavailableDate.getMonth() === date.getMonth() && 
-                           unavailableDate.getFullYear() === date.getFullYear()
-                         );
+                  return (
+                    date < new Date(new Date().setHours(0, 0, 0, 0)) ||
+                    unavailableDates.some(
+                      (unavailableDate: Date) =>
+                        unavailableDate.getDate() === date.getDate() &&
+                        unavailableDate.getMonth() === date.getMonth() &&
+                        unavailableDate.getFullYear() === date.getFullYear(),
+                    )
+                  );
                 }}
                 className="rounded-md border"
               />
             </div>
             {form.formState.errors.eventDate && (
-              <p className="text-red-500 text-sm text-center">{form.formState.errors.eventDate.message}</p>
+              <p className="text-red-500 text-sm text-center">
+                {form.formState.errors.eventDate.message}
+              </p>
             )}
-            
+
             <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <div className="flex items-center">
                 <div className="w-4 h-4 bg-white border border-gray-200 mr-2"></div>
@@ -511,26 +604,31 @@ export default function BookingModal({
                 <span className="text-sm">Selected</span>
               </div>
             </div>
-            
+
             {form.getValues("eventDate") && (
               <div className="mt-6 bg-gray-50 p-4 rounded-lg text-center">
-                <p className="text-sm">Selected Date: <span className="font-medium">
-                  {form.getValues("eventDate")?.toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </span></p>
+                <p className="text-sm">
+                  Selected Date:{" "}
+                  <span className="font-medium">
+                    {form.getValues("eventDate")?.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </span>
+                </p>
               </div>
             )}
           </div>
         );
-      
+
       case 3:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">Personal Information</h3>
+            <h3 className="text-xl font-heading text-primary mb-4">
+              Personal Information
+            </h3>
             <Form {...form}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
@@ -546,7 +644,7 @@ export default function BookingModal({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="email"
@@ -554,13 +652,17 @@ export default function BookingModal({
                     <FormItem>
                       <FormLabel>Email Address *</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="juan@email.com" {...field} />
+                        <Input
+                          type="email"
+                          placeholder="juan@email.com"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="phone"
@@ -574,7 +676,7 @@ export default function BookingModal({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="alternateContact"
@@ -582,13 +684,16 @@ export default function BookingModal({
                     <FormItem>
                       <FormLabel>Alternate Contact (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="Alternate phone or email" {...field} />
+                        <Input
+                          placeholder="Alternate phone or email"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="venueAddress"
@@ -596,28 +701,36 @@ export default function BookingModal({
                     <FormItem className="md:col-span-2">
                       <FormLabel>Event Venue / Address *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Complete address of event venue" {...field} />
+                        <Input
+                          placeholder="Complete address of event venue"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="eventType"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Event Type *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select event type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {EVENT_TYPES.map(type => (
-                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                          {EVENT_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -625,14 +738,17 @@ export default function BookingModal({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="preferredContactMethod"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Preferred Contact Method</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="How should we contact you?" />
@@ -652,12 +768,14 @@ export default function BookingModal({
             </Form>
           </div>
         );
-      
+
       case 4:
         if (bookingType === "custom") {
           return (
             <div className="space-y-6">
-              <h3 className="text-xl font-heading text-primary mb-4">Event Details & Budget</h3>
+              <h3 className="text-xl font-heading text-primary mb-4">
+                Event Details & Budget
+              </h3>
               <Form {...form}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
@@ -666,15 +784,20 @@ export default function BookingModal({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Event Time *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select time" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {TIME_SLOTS.map(time => (
-                              <SelectItem key={time} value={time}>{time}</SelectItem>
+                            {TIME_SLOTS.map((time) => (
+                              <SelectItem key={time} value={time}>
+                                {time}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -682,7 +805,7 @@ export default function BookingModal({
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="guestCount"
@@ -707,7 +830,7 @@ export default function BookingModal({
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="budget"
@@ -715,19 +838,25 @@ export default function BookingModal({
                       <FormItem className="md:col-span-2">
                         <FormLabel>Budget Range (Optional)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="Enter your budget in PHP" 
+                          <Input
+                            type="number"
+                            placeholder="Enter your budget in PHP"
                             {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) * 100 || 0)}
+                            onChange={(e) =>
+                              field.onChange(
+                                parseInt(e.target.value) * 100 || 0,
+                              )
+                            }
                           />
                         </FormControl>
-                        <p className="text-xs text-gray-500 mt-1">Help us prepare a quote within your budget</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Help us prepare a quote within your budget
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="specialRequests"
@@ -735,7 +864,7 @@ export default function BookingModal({
                       <FormItem className="md:col-span-2">
                         <FormLabel>Special Requests & Preferences</FormLabel>
                         <FormControl>
-                          <Textarea 
+                          <Textarea
                             placeholder="Tell us about your dietary preferences, cuisine style, special requirements, or any specific requests..."
                             className="min-h-[100px]"
                             {...field}
@@ -750,10 +879,12 @@ export default function BookingModal({
             </div>
           );
         }
-        
+
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">Event Details</h3>
+            <h3 className="text-xl font-heading text-primary mb-4">
+              Event Details
+            </h3>
             <Form {...form}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
@@ -763,11 +894,13 @@ export default function BookingModal({
                     <FormItem>
                       <FormLabel>Event Time *</FormLabel>
                       <div className="grid grid-cols-5 gap-2 mt-2">
-                        {TIME_SLOTS.map(time => (
+                        {TIME_SLOTS.map((time) => (
                           <Button
                             key={time}
                             type="button"
-                            variant={field.value === time ? "default" : "outline"}
+                            variant={
+                              field.value === time ? "default" : "outline"
+                            }
                             size="sm"
                             onClick={() => field.onChange(time)}
                             className="text-xs"
@@ -780,13 +913,18 @@ export default function BookingModal({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="guestCount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Number of Guests: <span className="font-bold text-primary">{field.value}</span></FormLabel>
+                      <FormLabel>
+                        Number of Guests:{" "}
+                        <span className="font-bold text-primary">
+                          {field.value}
+                        </span>
+                      </FormLabel>
                       <FormControl>
                         <Slider
                           min={10}
@@ -805,13 +943,18 @@ export default function BookingModal({
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="eventDuration"
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Event Duration: <span className="font-bold text-primary">{field.value} hours</span></FormLabel>
+                      <FormLabel>
+                        Event Duration:{" "}
+                        <span className="font-bold text-primary">
+                          {field.value} hours
+                        </span>
+                      </FormLabel>
                       <FormControl>
                         <Slider
                           min={2}
@@ -834,21 +977,23 @@ export default function BookingModal({
             </Form>
           </div>
         );
-      
+
       case 5:
         if (bookingType === "custom") {
           return renderReviewStep();
         }
-        
+
         const eligiblePackages = getEligiblePackages();
-        
+
         return (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-heading text-primary">Select Package</h3>
+              <h3 className="text-xl font-heading text-primary">
+                Select Package
+              </h3>
               <Badge variant="outline">{guestCount} guests</Badge>
             </div>
-            
+
             <div className="mb-4">
               <FormField
                 control={form.control}
@@ -856,11 +1001,11 @@ export default function BookingModal({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Service Category</FormLabel>
-                    <Select 
+                    <Select
                       onValueChange={(value) => {
                         field.onChange(parseInt(value));
                         form.setValue("packageId", undefined);
-                      }} 
+                      }}
                       defaultValue={field.value?.toString()}
                     >
                       <FormControl>
@@ -869,8 +1014,13 @@ export default function BookingModal({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {services.map(service => (
-                          <SelectItem key={service.id} value={service.id.toString()}>{service.name}</SelectItem>
+                        {services.map((service) => (
+                          <SelectItem
+                            key={service.id}
+                            value={service.id.toString()}
+                          >
+                            {service.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -879,10 +1029,10 @@ export default function BookingModal({
                 )}
               />
             </div>
-            
+
             {eligiblePackages.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2">
-                {eligiblePackages.map(pkg => (
+                {eligiblePackages.map((pkg) => (
                   <div
                     key={pkg.id}
                     className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedPackageId === pkg.id ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
@@ -891,10 +1041,14 @@ export default function BookingModal({
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h4 className="font-bold text-lg">{pkg.name}</h4>
-                        <p className="text-sm text-gray-600">{pkg.description}</p>
+                        <p className="text-sm text-gray-600">
+                          {pkg.description}
+                        </p>
                       </div>
                       <div className="text-right">
-                        <div className="text-xl font-bold text-primary">{formatPrice(pkg.pricePerPerson)}</div>
+                        <div className="text-xl font-bold text-primary">
+                          {formatPrice(pkg.pricePerPerson)}
+                        </div>
                         <div className="text-xs text-gray-500">
                           {pkg.minGuests}-{pkg.maxGuests || "500+"} guests
                         </div>
@@ -903,10 +1057,18 @@ export default function BookingModal({
                     {pkg.features && pkg.features.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1">
                         {pkg.features.slice(0, 5).map((feature, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">{feature}</Badge>
+                          <Badge
+                            key={idx}
+                            variant="secondary"
+                            className="text-xs"
+                          >
+                            {feature}
+                          </Badge>
                         ))}
                         {pkg.features.length > 5 && (
-                          <Badge variant="outline" className="text-xs">+{pkg.features.length - 5} more</Badge>
+                          <Badge variant="outline" className="text-xs">
+                            +{pkg.features.length - 5} more
+                          </Badge>
                         )}
                       </div>
                     )}
@@ -916,111 +1078,175 @@ export default function BookingModal({
             ) : (
               <div className="text-center py-8 text-gray-500">
                 {selectedServiceIdValue ? (
-                  <p>No packages available for {guestCount} guests in this category. Try adjusting your guest count or selecting a different service.</p>
+                  <p>
+                    No packages available for {guestCount} guests in this
+                    category. Try adjusting your guest count or selecting a
+                    different service.
+                  </p>
                 ) : (
-                  <p>Please select a service category to see available packages.</p>
+                  <p>
+                    Please select a service category to see available packages.
+                  </p>
                 )}
               </div>
             )}
           </div>
         );
-      
+
       case 6:
         if (bookingType === "standard") {
           const mainDishes = getDishesByCategory("main");
           const vegetables = getDishesByCategory("vegetable");
           const appetizers = getDishesByCategory("appetizer");
           const desserts = getDishesByCategory("dessert");
-          
+
           return (
             <div className="space-y-6">
-              <h3 className="text-xl font-heading text-primary mb-4">Select Your Menu</h3>
-              
+              <h3 className="text-xl font-heading text-primary mb-4">
+                Select Your Menu
+              </h3>
+
               <div className="flex flex-wrap gap-2 mb-4">
-                <Badge variant={getDishSelectionCount("main") >= 3 ? "default" : "outline"}>
+                <Badge
+                  variant={
+                    getDishSelectionCount("main") >= 3 ? "default" : "outline"
+                  }
+                >
                   Mains: {getDishSelectionCount("main")}/3+
                 </Badge>
-                <Badge variant={getDishSelectionCount("vegetable") >= 1 ? "default" : "outline"}>
+                <Badge
+                  variant={
+                    getDishSelectionCount("vegetable") >= 1
+                      ? "default"
+                      : "outline"
+                  }
+                >
                   Vegetables: {getDishSelectionCount("vegetable")}/1+
                 </Badge>
-                <Badge variant={getDishSelectionCount("appetizer") >= 1 ? "default" : "outline"}>
+                <Badge
+                  variant={
+                    getDishSelectionCount("appetizer") >= 1
+                      ? "default"
+                      : "outline"
+                  }
+                >
                   Appetizers: {getDishSelectionCount("appetizer")}/1+
                 </Badge>
-                <Badge variant={getDishSelectionCount("dessert") >= 1 ? "default" : "outline"}>
+                <Badge
+                  variant={
+                    getDishSelectionCount("dessert") >= 1
+                      ? "default"
+                      : "outline"
+                  }
+                >
                   Desserts: {getDishSelectionCount("dessert")}/1+
                 </Badge>
               </div>
-              
+
               <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2">
                 <div>
                   <h4 className="font-bold mb-3 flex items-center gap-2">
                     <UtensilsCrossed className="h-4 w-4" />
-                    Main Courses <span className="text-sm font-normal text-gray-500">(Select at least 3)</span>
+                    Main Courses{" "}
+                    <span className="text-sm font-normal text-gray-500">
+                      (Select at least 3)
+                    </span>
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {mainDishes.map(dish => (
+                    {mainDishes.map((dish) => (
                       <div
                         key={dish.id}
                         className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
                         onClick={() => toggleDish(dish.id)}
                       >
                         <div className="flex items-center gap-2">
-                          <Checkbox checked={selectedDishes.includes(dish.id)} />
-                          <span className="text-sm font-medium">{dish.name}</span>
+                          <Checkbox
+                            checked={selectedDishes.includes(dish.id)}
+                          />
+                          <span className="text-sm font-medium">
+                            {dish.name}
+                          </span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-                
+
                 <div>
-                  <h4 className="font-bold mb-3">Vegetables <span className="text-sm font-normal text-gray-500">(Select at least 1)</span></h4>
+                  <h4 className="font-bold mb-3">
+                    Vegetables{" "}
+                    <span className="text-sm font-normal text-gray-500">
+                      (Select at least 1)
+                    </span>
+                  </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {vegetables.map(dish => (
+                    {vegetables.map((dish) => (
                       <div
                         key={dish.id}
                         className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
                         onClick={() => toggleDish(dish.id)}
                       >
                         <div className="flex items-center gap-2">
-                          <Checkbox checked={selectedDishes.includes(dish.id)} />
-                          <span className="text-sm font-medium">{dish.name}</span>
+                          <Checkbox
+                            checked={selectedDishes.includes(dish.id)}
+                          />
+                          <span className="text-sm font-medium">
+                            {dish.name}
+                          </span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-                
+
                 <div>
-                  <h4 className="font-bold mb-3">Appetizers <span className="text-sm font-normal text-gray-500">(Select at least 1)</span></h4>
+                  <h4 className="font-bold mb-3">
+                    Appetizers{" "}
+                    <span className="text-sm font-normal text-gray-500">
+                      (Select at least 1)
+                    </span>
+                  </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {appetizers.map(dish => (
+                    {appetizers.map((dish) => (
                       <div
                         key={dish.id}
                         className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
                         onClick={() => toggleDish(dish.id)}
                       >
                         <div className="flex items-center gap-2">
-                          <Checkbox checked={selectedDishes.includes(dish.id)} />
-                          <span className="text-sm font-medium">{dish.name}</span>
+                          <Checkbox
+                            checked={selectedDishes.includes(dish.id)}
+                          />
+                          <span className="text-sm font-medium">
+                            {dish.name}
+                          </span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-                
+
                 <div>
-                  <h4 className="font-bold mb-3">Desserts <span className="text-sm font-normal text-gray-500">(Select at least 1)</span></h4>
+                  <h4 className="font-bold mb-3">
+                    Desserts{" "}
+                    <span className="text-sm font-normal text-gray-500">
+                      (Select at least 1)
+                    </span>
+                  </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {desserts.map(dish => (
+                    {desserts.map((dish) => (
                       <div
                         key={dish.id}
                         className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
                         onClick={() => toggleDish(dish.id)}
                       >
                         <div className="flex items-center gap-2">
-                          <Checkbox checked={selectedDishes.includes(dish.id)} />
-                          <span className="text-sm font-medium">{dish.name}</span>
+                          <Checkbox
+                            checked={selectedDishes.includes(dish.id)}
+                          />
+                          <span className="text-sm font-medium">
+                            {dish.name}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -1031,102 +1257,161 @@ export default function BookingModal({
           );
         }
         return null;
-      
+
       case 7:
         return renderReviewStep();
-      
+
       default:
         return null;
     }
   };
 
   const renderReviewStep = () => {
-    const selectedPackage = packages.find(p => p.id === selectedPackageId);
-    const selectedService = services.find(s => s.id === selectedServiceIdValue);
-    const totalPrice = selectedPackage 
-      ? selectedPackage.pricePerPerson 
+    const selectedPackage = packages.find((p) => p.id === selectedPackageId);
+    const selectedService = services.find(
+      (s) => s.id === selectedServiceIdValue,
+    );
+    const totalPrice = selectedPackage
+      ? selectedPackage.pricePerPerson
       : (selectedService?.basePrice || 0) * guestCount;
-    
+
     const selectedDishNames = dishes
-      .filter(d => selectedDishes.includes(d.id))
-      .map(d => d.name);
+      .filter((d) => selectedDishes.includes(d.id))
+      .map((d) => d.name);
 
     return (
       <div className="space-y-6">
-        <h3 className="text-xl font-heading text-primary mb-4">Review Your {bookingType === "custom" ? "Quote Request" : "Booking"}</h3>
-        
+        <h3 className="text-xl font-heading text-primary mb-4">
+          Review Your {bookingType === "custom" ? "Quote Request" : "Booking"}
+        </h3>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-bold text-sm text-gray-500 mb-2">EVENT DETAILS</h4>
+              <h4 className="font-bold text-sm text-gray-500 mb-2">
+                EVENT DETAILS
+              </h4>
               <div className="space-y-2 text-sm">
-                <p><span className="text-gray-500">Date:</span> {form.getValues("eventDate")?.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                <p><span className="text-gray-500">Time:</span> {form.getValues("eventTime")}</p>
-                <p><span className="text-gray-500">Type:</span> {EVENT_TYPES.find(t => t.value === form.getValues("eventType"))?.label}</p>
-                <p><span className="text-gray-500">Guests:</span> {guestCount}</p>
-                <p><span className="text-gray-500">Duration:</span> {form.getValues("eventDuration")} hours</p>
-                <p><span className="text-gray-500">Venue:</span> {form.getValues("venueAddress")}</p>
+                <p>
+                  <span className="text-gray-500">Date:</span>{" "}
+                  {form
+                    .getValues("eventDate")
+                    ?.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                </p>
+                <p>
+                  <span className="text-gray-500">Time:</span>{" "}
+                  {form.getValues("eventTime")}
+                </p>
+                <p>
+                  <span className="text-gray-500">Type:</span>{" "}
+                  {
+                    EVENT_TYPES.find(
+                      (t) => t.value === form.getValues("eventType"),
+                    )?.label
+                  }
+                </p>
+                <p>
+                  <span className="text-gray-500">Guests:</span> {guestCount}
+                </p>
+                <p>
+                  <span className="text-gray-500">Duration:</span>{" "}
+                  {form.getValues("eventDuration")} hours
+                </p>
+                <p>
+                  <span className="text-gray-500">Venue:</span>{" "}
+                  {form.getValues("venueAddress")}
+                </p>
               </div>
             </div>
-            
+
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-bold text-sm text-gray-500 mb-2">CONTACT INFORMATION</h4>
+              <h4 className="font-bold text-sm text-gray-500 mb-2">
+                CONTACT INFORMATION
+              </h4>
               <div className="space-y-2 text-sm">
-                <p><span className="text-gray-500">Name:</span> {form.getValues("name")}</p>
-                <p><span className="text-gray-500">Email:</span> {form.getValues("email")}</p>
-                <p><span className="text-gray-500">Phone:</span> {form.getValues("phone")}</p>
+                <p>
+                  <span className="text-gray-500">Name:</span>{" "}
+                  {form.getValues("name")}
+                </p>
+                <p>
+                  <span className="text-gray-500">Email:</span>{" "}
+                  {form.getValues("email")}
+                </p>
+                <p>
+                  <span className="text-gray-500">Phone:</span>{" "}
+                  {form.getValues("phone")}
+                </p>
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-4">
             {bookingType === "standard" && selectedPackage && (
               <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">SELECTED PACKAGE</h4>
+                <h4 className="font-bold text-sm text-gray-500 mb-2">
+                  SELECTED PACKAGE
+                </h4>
                 <p className="font-bold text-lg">{selectedPackage.name}</p>
-                <p className="text-2xl font-bold text-primary mt-2">{formatPrice(selectedPackage.pricePerPerson)}</p>
+                <p className="text-2xl font-bold text-primary mt-2">
+                  {formatPrice(selectedPackage.pricePerPerson)}
+                </p>
               </div>
             )}
-            
+
             {bookingType === "standard" && selectedDishNames.length > 0 && (
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">SELECTED MENU ({selectedDishNames.length} items)</h4>
+                <h4 className="font-bold text-sm text-gray-500 mb-2">
+                  SELECTED MENU ({selectedDishNames.length} items)
+                </h4>
                 <div className="flex flex-wrap gap-1">
                   {selectedDishNames.map((name, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">{name}</Badge>
+                    <Badge key={idx} variant="secondary" className="text-xs">
+                      {name}
+                    </Badge>
                   ))}
                 </div>
               </div>
             )}
-            
+
             {bookingType === "custom" && form.getValues("budget") && (
               <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">YOUR BUDGET</h4>
-                <p className="text-2xl font-bold text-secondary">{formatPrice(form.getValues("budget") || 0)}</p>
+                <h4 className="font-bold text-sm text-gray-500 mb-2">
+                  YOUR BUDGET
+                </h4>
+                <p className="text-2xl font-bold text-secondary">
+                  {formatPrice(form.getValues("budget") || 0)}
+                </p>
               </div>
             )}
-            
+
             {form.getValues("specialRequests") && (
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">SPECIAL REQUESTS</h4>
+                <h4 className="font-bold text-sm text-gray-500 mb-2">
+                  SPECIAL REQUESTS
+                </h4>
                 <p className="text-sm">{form.getValues("specialRequests")}</p>
               </div>
             )}
           </div>
         </div>
-        
+
         <div className="bg-primary/10 p-4 rounded-lg flex items-start gap-2">
           <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-medium">What happens next?</p>
             <p className="text-gray-600 mt-1">
-              {bookingType === "custom" 
+              {bookingType === "custom"
                 ? "Your quote request will be reviewed by our team. We'll prepare a custom proposal and contact you within 24-48 hours."
                 : "Your booking request will be reviewed by our team. Once approved, you'll receive payment instructions for the deposit to secure your date."}
             </p>
           </div>
         </div>
-        
+
         <FormField
           control={form.control}
           name="termsAgreed"
@@ -1140,7 +1425,11 @@ export default function BookingModal({
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel className="cursor-pointer">
-                  I agree to the <a href="#" className="text-primary hover:underline">terms and conditions</a> *
+                  I agree to the{" "}
+                  <a href="#" className="text-primary hover:underline">
+                    terms and conditions
+                  </a>{" "}
+                  *
                 </FormLabel>
                 <FormMessage />
               </div>
@@ -1157,26 +1446,33 @@ export default function BookingModal({
         {steps.map((step, index) => (
           <div key={step.id} className="flex items-center">
             <div className="relative flex flex-col items-center text-center min-w-[60px]">
-              <div 
+              <div
                 className={`flex items-center justify-center w-10 h-10 rounded-full font-medium transition-all
-                  ${isStepComplete(step.id) 
-                    ? "bg-green-500 text-white" 
-                    : currentStep === step.id 
-                      ? "bg-primary text-white" 
-                      : "bg-gray-200 text-gray-500"
+                  ${
+                    isStepComplete(step.id)
+                      ? "bg-green-500 text-white"
+                      : currentStep === step.id
+                        ? "bg-primary text-white"
+                        : "bg-gray-200 text-gray-500"
                   }`}
               >
-                {isStepComplete(step.id) ? <Check className="h-5 w-5" /> : step.id}
+                {isStepComplete(step.id) ? (
+                  <Check className="h-5 w-5" />
+                ) : (
+                  step.id
+                )}
               </div>
-              <div className={`text-xs font-medium mt-1 ${currentStep === step.id ? "text-primary" : "text-gray-500"}`}>
+              <div
+                className={`text-xs font-medium mt-1 ${currentStep === step.id ? "text-primary" : "text-gray-500"}`}
+              >
                 {step.label}
               </div>
             </div>
-            
+
             {index < steps.length - 1 && (
               <div className="w-8 md:w-12 h-1 bg-gray-200 mx-1">
-                <div 
-                  className="h-1 bg-primary transition-all duration-300" 
+                <div
+                  className="h-1 bg-primary transition-all duration-300"
                   style={{ width: currentStep > step.id ? "100%" : "0%" }}
                 />
               </div>
@@ -1188,50 +1484,64 @@ export default function BookingModal({
   };
 
   const isSubmitStep = currentStep === totalSteps;
-  const isPending = createBookingMutation.isPending || createQuoteMutation.isPending;
+  const isPending =
+    createBookingMutation.isPending || createQuoteMutation.isPending;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-4xl p-0 overflow-hidden max-h-[90vh]">
+      <DialogContent className="grid grid-rows-[auto_1fr_auto] w-[95vw] max-w-[95vw] sm:w-full sm:max-w-4xl h-[95vh] sm:h-[90vh] p-0 overflow-hidden sm:rounded-lg">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-2xl font-heading font-bold text-primary">
-            {bookingType === "custom" ? "Request a Custom Quote" : "Book Your Catering Service"}
+            {bookingType === "custom"
+              ? "Request a Custom Quote"
+              : "Book Your Catering Service"}
           </DialogTitle>
           <DialogDescription>
-            <div className="mt-6 mb-4">
-              {renderStepIndicator()}
-            </div>
+            <div className="mt-6 mb-4">{renderStepIndicator()}</div>
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: "calc(90vh - 200px)" }}>
-          {renderStepContent()}
-        </div>
-        
-        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+
+        <div className="p-6 overflow-y-auto">{renderStepContent()}</div>
+
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 flex flex-col gap-3 sm:flex-row sm:justify-between items-stretch sm:items-center">
           <div>
             {currentStep > 1 && (
-              <Button variant="outline" onClick={prevStep}>
+              <Button
+                variant="outline"
+                onClick={prevStep}
+                className="w-full sm:w-auto"
+              >
                 Previous
               </Button>
             )}
           </div>
-          
+
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose}>
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            
+
             {isSubmitStep ? (
-              <Button 
+              <Button
                 onClick={form.handleSubmit(onSubmit)}
-                className="bg-primary"
+                className="bg-primary w-full sm:w-auto"
                 disabled={isPending}
               >
-                {isPending ? "Submitting..." : bookingType === "custom" ? "Submit Quote Request" : "Submit Booking"}
+                {isPending
+                  ? "Submitting..."
+                  : bookingType === "custom"
+                    ? "Submit Quote Request"
+                    : "Submit Booking"}
               </Button>
             ) : (
-              <Button onClick={nextStep} className="bg-primary">
+              <Button
+                onClick={nextStep}
+                className="bg-primary w-full sm:w-auto"
+              >
                 Next Step
               </Button>
             )}
