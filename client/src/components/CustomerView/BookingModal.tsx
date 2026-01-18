@@ -478,226 +478,653 @@ export default function BookingModal({
   };
 
   const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">
-              Choose Booking Type
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Select how you'd like to proceed with your catering booking.
-            </p>
+    return (
+      <Form {...form}>
+        {(() => {
+          switch (currentStep) {
+            case 1:
+              return (
+                <div className="space-y-6">
+                  <h3 className="text-xl font-heading text-primary mb-4">
+                    Choose Booking Type
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Select how you'd like to proceed with your catering booking.
+                  </p>
 
-            <RadioGroup
-              value={bookingType}
-              onValueChange={(value: "standard" | "custom") => {
-                setBookingType(value);
-                form.setValue("bookingType", value);
-              }}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-            >
-              <div
-                className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "standard" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
-              >
-                <RadioGroupItem
-                  value="standard"
-                  id="standard"
-                  className="sr-only"
-                />
-                <Label htmlFor="standard" className="cursor-pointer">
-                  <div className="flex items-start gap-4">
-                    <Package className="h-8 w-8 text-primary flex-shrink-0" />
-                    <div>
-                      <h4 className="font-bold text-lg mb-2">
-                        Standard Package
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        Choose from our pre-designed packages with fixed
-                        pricing. Perfect for weddings, debuts, and celebrations.
-                      </p>
-                      <ul className="mt-3 text-sm text-gray-600 space-y-1">
-                        <li>• Browse available packages</li>
-                        <li>• Select your menu items</li>
-                        <li>• Instant price calculation</li>
-                      </ul>
+                  <RadioGroup
+                    value={bookingType}
+                    onValueChange={(value: "standard" | "custom") => {
+                      setBookingType(value);
+                      form.setValue("bookingType", value);
+                    }}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  >
+                    <div
+                      className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "standard" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                    >
+                      <RadioGroupItem
+                        value="standard"
+                        id="standard"
+                        className="sr-only"
+                      />
+                      <Label htmlFor="standard" className="cursor-pointer">
+                        <div className="flex items-start gap-4">
+                          <Package className="h-8 w-8 text-primary flex-shrink-0" />
+                          <div>
+                            <h4 className="font-bold text-lg mb-2">
+                              Standard Package
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              Choose from our pre-designed packages with fixed
+                              pricing. Perfect for weddings, debuts, and celebrations.
+                            </p>
+                            <ul className="mt-3 text-sm text-gray-600 space-y-1">
+                              <li>• Browse available packages</li>
+                              <li>• Select your menu items</li>
+                              <li>• Instant price calculation</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </Label>
+                    </div>
+
+                    <div
+                      className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "custom" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                    >
+                      <RadioGroupItem
+                        value="custom"
+                        id="custom"
+                        className="sr-only"
+                      />
+                      <Label htmlFor="custom" className="cursor-pointer">
+                        <div className="flex items-start gap-4">
+                          <FileText className="h-8 w-8 text-secondary flex-shrink-0" />
+                          <div>
+                            <h4 className="font-bold text-lg mb-2">Custom Quote</h4>
+                            <p className="text-sm text-gray-600">
+                              Tell us your requirements and budget, and we'll create a
+                              personalized proposal for you.
+                            </p>
+                            <ul className="mt-3 text-sm text-gray-600 space-y-1">
+                              <li>• Describe your needs</li>
+                              <li>• Set your budget range</li>
+                              <li>• Receive a custom proposal</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              );
+
+            case 2:
+              return (
+                <div className="space-y-6">
+                  <h3 className="text-xl font-heading text-primary mb-4">
+                    Select Event Date
+                  </h3>
+                  <div className="flex flex-col items-center">
+                    <FormField
+                      control={form.control}
+                      name="eventDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col items-center">
+                          <FormControl>
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date: Date) => {
+                                return (
+                                  date < new Date(new Date().setHours(0, 0, 0, 0)) ||
+                                  unavailableDates.some(
+                                    (unavailableDate: Date) =>
+                                      unavailableDate.getDate() === date.getDate() &&
+                                      unavailableDate.getMonth() === date.getMonth() &&
+                                      unavailableDate.getFullYear() === date.getFullYear(),
+                                  )
+                                );
+                              }}
+                              className="rounded-md border"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-white border border-gray-200 mr-2"></div>
+                      <span className="text-sm">Available</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-red-500 mr-2"></div>
+                      <span className="text-sm">Fully Booked</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-primary mr-2"></div>
+                      <span className="text-sm">Selected</span>
                     </div>
                   </div>
-                </Label>
-              </div>
 
-              <div
-                className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${bookingType === "custom" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
-              >
-                <RadioGroupItem
-                  value="custom"
-                  id="custom"
-                  className="sr-only"
-                />
-                <Label htmlFor="custom" className="cursor-pointer">
-                  <div className="flex items-start gap-4">
-                    <FileText className="h-8 w-8 text-secondary flex-shrink-0" />
-                    <div>
-                      <h4 className="font-bold text-lg mb-2">Custom Quote</h4>
-                      <p className="text-sm text-gray-600">
-                        Tell us your requirements and budget, and we'll create a
-                        personalized proposal for you.
+                  {form.getValues("eventDate") && (
+                    <div className="mt-6 bg-gray-50 p-4 rounded-lg text-center">
+                      <p className="text-sm">
+                        Selected Date:{" "}
+                        <span className="font-medium">
+                          {form.getValues("eventDate")?.toLocaleDateString("en-US", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </span>
                       </p>
-                      <ul className="mt-3 text-sm text-gray-600 space-y-1">
-                        <li>• Describe your needs</li>
-                        <li>• Set your budget range</li>
-                        <li>• Receive a custom proposal</li>
-                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+
+            case 3:
+              return (
+                <div className="space-y-6">
+                  <h3 className="text-xl font-heading text-primary mb-4">
+                    Personal Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Juan Dela Cruz" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Address *</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="juan@email.com"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mobile Number *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="09XX XXX XXXX" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="alternateContact"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Alternate Contact (Optional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Alternate phone or email"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              );
+
+            case 4:
+              return (
+                <div className="space-y-6">
+                  <h3 className="text-xl font-heading text-primary mb-4">
+                    Event Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="eventType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Event Type *</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select event type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {EVENT_TYPES.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="eventTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Event Time *</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select event time" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {TIME_SLOTS.map((slot) => (
+                                <SelectItem key={slot} value={slot}>
+                                  {slot}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="venueAddress"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Venue Address *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="House No., Street, Barangay, City"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="guestCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Guest Count: {field.value}</FormLabel>
+                          <FormControl>
+                            <Slider
+                              min={10}
+                              max={500}
+                              step={5}
+                              value={[field.value]}
+                              onValueChange={(value) => field.onChange(value[0])}
+                              className="mt-4"
+                            />
+                          </FormControl>
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>10 guests</span>
+                            <span>500 guests</span>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="eventDuration"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Duration: {field.value} hours</FormLabel>
+                          <FormControl>
+                            <Slider
+                              min={2}
+                              max={12}
+                              step={1}
+                              value={[field.value]}
+                              onValueChange={(value) => field.onChange(value[0])}
+                              className="mt-4"
+                            />
+                          </FormControl>
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>2 hours</span>
+                            <span>12 hours</span>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              );
+
+            case 5:
+              if (bookingType === "custom") {
+                return renderReviewStep();
+              }
+
+              const eligiblePackages = getEligiblePackages();
+
+              return (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-heading text-primary">
+                      Select Package
+                    </h3>
+                    <Badge variant="outline">{guestCount} guests</Badge>
+                  </div>
+
+                  <div className="mb-4">
+                    <FormField
+                      control={form.control}
+                      name="serviceId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Service Category</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(parseInt(value));
+                              form.setValue("packageId", undefined);
+                            }}
+                            defaultValue={field.value?.toString()}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a service category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {services.map((service) => (
+                                <SelectItem
+                                  key={service.id}
+                                  value={service.id.toString()}
+                                >
+                                  {service.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {eligiblePackages.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2">
+                      {eligiblePackages.map((pkg) => (
+                        <div
+                          key={pkg.id}
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedPackageId === pkg.id ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                          onClick={() => form.setValue("packageId", pkg.id)}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-bold text-lg">{pkg.name}</h4>
+                              <p className="text-sm text-gray-600">
+                                {pkg.description}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xl font-bold text-primary">
+                                {formatPrice(pkg.pricePerPerson)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {pkg.minGuests}-{pkg.maxGuests || "500+"} guests
+                              </div>
+                            </div>
+                          </div>
+                          {pkg.features && pkg.features.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-1">
+                              {pkg.features.slice(0, 5).map((feature, idx) => (
+                                <Badge
+                                  key={idx}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {feature}
+                                </Badge>
+                              ))}
+                              {pkg.features.length > 5 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{pkg.features.length - 5} more
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      {selectedServiceIdValue ? (
+                        <p>
+                          No packages available for {guestCount} guests in this
+                          category. Try adjusting your guest count or selecting a
+                          different service.
+                        </p>
+                      ) : (
+                        <p>
+                          Please select a service category to see available packages.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+
+            case 6:
+              if (bookingType === "standard") {
+                const mainDishes = getDishesByCategory("main");
+                const vegetables = getDishesByCategory("vegetable");
+                const appetizers = getDishesByCategory("appetizer");
+                const desserts = getDishesByCategory("dessert");
+
+                return (
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-heading text-primary mb-4">
+                      Select Your Menu
+                    </h3>
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <Badge
+                        variant={
+                          getDishSelectionCount("main") >= 3 ? "default" : "outline"
+                        }
+                      >
+                        Mains: {getDishSelectionCount("main")}/3+
+                      </Badge>
+                      <Badge
+                        variant={
+                          getDishSelectionCount("vegetable") >= 1
+                            ? "default"
+                            : "outline"
+                        }
+                      >
+                        Vegetables: {getDishSelectionCount("vegetable")}/1+
+                      </Badge>
+                      <Badge
+                        variant={
+                          getDishSelectionCount("appetizer") >= 1
+                            ? "default"
+                            : "outline"
+                        }
+                      >
+                        Appetizers: {getDishSelectionCount("appetizer")}/1+
+                      </Badge>
+                      <Badge
+                        variant={
+                          getDishSelectionCount("dessert") >= 1
+                            ? "default"
+                            : "outline"
+                        }
+                      >
+                        Desserts: {getDishSelectionCount("dessert")}/1+
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2">
+                      <div>
+                        <h4 className="font-bold mb-3 flex items-center gap-2">
+                          <UtensilsCrossed className="h-4 w-4" />
+                          Main Courses{" "}
+                          <span className="text-sm font-normal text-gray-500">
+                            (Select at least 3)
+                          </span>
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {mainDishes.map((dish) => (
+                            <div
+                              key={dish.id}
+                              className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                              onClick={() => toggleDish(dish.id)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={selectedDishes.includes(dish.id)}
+                                />
+                                <span className="text-sm font-medium">
+                                  {dish.name}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold mb-3">
+                          Vegetables{" "}
+                          <span className="text-sm font-normal text-gray-500">
+                            (Select at least 1)
+                          </span>
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {vegetables.map((dish) => (
+                            <div
+                              key={dish.id}
+                              className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                              onClick={() => toggleDish(dish.id)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={selectedDishes.includes(dish.id)}
+                                />
+                                <span className="text-sm font-medium">
+                                  {dish.name}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold mb-3">
+                          Appetizers{" "}
+                          <span className="text-sm font-normal text-gray-500">
+                            (Select at least 1)
+                          </span>
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {appetizers.map((dish) => (
+                            <div
+                              key={dish.id}
+                              className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                              onClick={() => toggleDish(dish.id)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={selectedDishes.includes(dish.id)}
+                                />
+                                <span className="text-sm font-medium">
+                                  {dish.name}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold mb-3">
+                          Desserts{" "}
+                          <span className="text-sm font-normal text-gray-500">
+                            (Select at least 1)
+                          </span>
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {desserts.map((dish) => (
+                            <div
+                              key={dish.id}
+                              className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                              onClick={() => toggleDish(dish.id)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={selectedDishes.includes(dish.id)}
+                                />
+                                <span className="text-sm font-medium">
+                                  {dish.name}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-        );
+                );
+              }
+              return null;
 
-      case 2:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">
-              Select Event Date
-            </h3>
-            <Form {...form}>
-              <div className="flex flex-col items-center">
-                <FormField
-                  control={form.control}
-                  name="eventDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col items-center">
-                      <FormControl>
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date: Date) => {
-                            return (
-                              date < new Date(new Date().setHours(0, 0, 0, 0)) ||
-                              unavailableDates.some(
-                                (unavailableDate: Date) =>
-                                  unavailableDate.getDate() === date.getDate() &&
-                                  unavailableDate.getMonth() === date.getMonth() &&
-                                  unavailableDate.getFullYear() === date.getFullYear(),
-                              )
-                            );
-                          }}
-                          className="rounded-md border"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </Form>
+            case 7:
+              return renderReviewStep();
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-white border border-gray-200 mr-2"></div>
-                <span className="text-sm">Available</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-red-500 mr-2"></div>
-                <span className="text-sm">Fully Booked</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-primary mr-2"></div>
-                <span className="text-sm">Selected</span>
-              </div>
-            </div>
-
-            {form.getValues("eventDate") && (
-              <div className="mt-6 bg-gray-50 p-4 rounded-lg text-center">
-                <p className="text-sm">
-                  Selected Date:{" "}
-                  <span className="font-medium">
-                    {form.getValues("eventDate")?.toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                </p>
-              </div>
-            )}
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">
-              Personal Information
-            </h3>
-            <Form {...form}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Juan Dela Cruz" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="juan@email.com"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mobile Number *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="09XX XXX XXXX" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="alternateContact"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Alternate Contact (Optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Alternate phone or email"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            default:
+              return null;
+          }
+        })()}
+      </Form>
+    );
+  };
 
                 <FormField
                   control={form.control}
