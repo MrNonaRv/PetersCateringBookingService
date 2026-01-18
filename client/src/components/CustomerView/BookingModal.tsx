@@ -562,33 +562,38 @@ export default function BookingModal({
             <h3 className="text-xl font-heading text-primary mb-4">
               Select Event Date
             </h3>
-            <div className="flex flex-col items-center">
-              <Calendar
-                mode="single"
-                selected={form.getValues("eventDate")}
-                onSelect={(date) =>
-                  date &&
-                  form.setValue("eventDate", date, { shouldValidate: true })
-                }
-                disabled={(date: Date) => {
-                  return (
-                    date < new Date(new Date().setHours(0, 0, 0, 0)) ||
-                    unavailableDates.some(
-                      (unavailableDate: Date) =>
-                        unavailableDate.getDate() === date.getDate() &&
-                        unavailableDate.getMonth() === date.getMonth() &&
-                        unavailableDate.getFullYear() === date.getFullYear(),
-                    )
-                  );
-                }}
-                className="rounded-md border"
-              />
-            </div>
-            {form.formState.errors.eventDate && (
-              <p className="text-red-500 text-sm text-center">
-                {form.formState.errors.eventDate.message}
-              </p>
-            )}
+            <Form {...form}>
+              <div className="flex flex-col items-center">
+                <FormField
+                  control={form.control}
+                  name="eventDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col items-center">
+                      <FormControl>
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date: Date) => {
+                            return (
+                              date < new Date(new Date().setHours(0, 0, 0, 0)) ||
+                              unavailableDates.some(
+                                (unavailableDate: Date) =>
+                                  unavailableDate.getDate() === date.getDate() &&
+                                  unavailableDate.getMonth() === date.getMonth() &&
+                                  unavailableDate.getFullYear() === date.getFullYear(),
+                              )
+                            );
+                          }}
+                          className="rounded-md border"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </Form>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <div className="flex items-center">

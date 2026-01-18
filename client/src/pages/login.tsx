@@ -187,46 +187,48 @@ export default function Login() {
                 }
               </DialogDescription>
             </DialogHeader>
-            
+
             {!resetEmailSent ? (
               <Form {...forgotPasswordForm}>
-                <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
-                  <FormField
-                    control={forgotPasswordForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="email" 
-                            placeholder="admin@peterscreation.com" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="flex gap-3">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={handleCloseForgotPassword}
-                      className="flex-1"
-                    >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Back to Login
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      className="flex-1 bg-primary"
-                      disabled={forgotPasswordMutation.isPending}
-                    >
-                      {forgotPasswordMutation.isPending ? "Sending..." : "Send Reset Link"}
-                    </Button>
-                  </div>
-                </form>
+                <div className="p-1">
+                  <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+                    <FormField
+                      control={forgotPasswordForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Address</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="email" 
+                              placeholder="admin@peterscreation.com" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex gap-3">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={handleCloseForgotPassword}
+                        className="flex-1"
+                      >
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Login
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        className="flex-1 bg-primary"
+                        disabled={forgotPasswordMutation.isPending}
+                      >
+                        {forgotPasswordMutation.isPending ? "Sending..." : "Send Reset Link"}
+                      </Button>
+                    </div>
+                  </form>
+                </div>
               </Form>
             ) : (
               <div className="space-y-4">
