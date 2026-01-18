@@ -236,6 +236,8 @@ export default function BookingModal({
   const { data: availabilities = [] } = useQuery<Availability[]>({
     queryKey: ["/api/availability"],
     enabled: isOpen,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const { data: packages = [] } = useQuery<ServicePackage[]>({
@@ -837,8 +839,13 @@ export default function BookingModal({
                       <Input 
                         placeholder="Juan Dela Cruz" 
                         {...field} 
-                        value={field.value || ""} 
-                        onChange={(e) => field.onChange(e.target.value)}
+                        value={typeof field.value === 'string' ? field.value : ""} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (typeof val === 'string') {
+                            field.onChange(val);
+                          }
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
