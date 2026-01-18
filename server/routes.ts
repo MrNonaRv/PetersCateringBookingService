@@ -136,6 +136,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/dishes", isAuthenticated, async (req, res) => {
+    try {
+      const dishData = insertDishSchema.parse(req.body);
+      const dish = await storage.createDish(dishData);
+      res.status(201).json(dish);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid dish data" });
+    }
+  });
+
+  app.patch("/api/dishes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const dishData = insertDishSchema.partial().parse(req.body);
+      const dish = await storage.updateDish(id, dishData);
+      if (!dish) {
+        return res.status(404).json({ message: "Dish not found" });
+      }
+      res.json(dish);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid dish data" });
+    }
+  });
+
+  app.delete("/api/dishes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteDish(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Dish not found" });
+      }
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting dish" });
+    }
+  });
+
   // Service Packages routes
   app.get("/api/service-packages", async (req, res) => {
     try {

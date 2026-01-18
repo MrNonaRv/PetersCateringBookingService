@@ -466,7 +466,18 @@ export default function BookingModal({
   };
 
   const getDishesByCategory = (category: string) => {
-    return dishes.filter((d) => d.category === category && d.isAvailable);
+    const categoryMapping: Record<string, string> = {
+      "Pork": "pork",
+      "Chicken": "chicken",
+      "Beef": "beef",
+      "Fish": "fish",
+      "Appetizers": "appetizer",
+      "Dessert": "dessert",
+      "Standard Inclusions": "standard_inclusion",
+      "Amenities": "amenity"
+    };
+    const dbCategory = categoryMapping[category] || category.toLowerCase();
+    return dishes.filter((d) => d.category === dbCategory && d.isAvailable);
   };
 
   const toggleDish = (dishId: number) => {
