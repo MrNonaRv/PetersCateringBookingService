@@ -837,7 +837,8 @@ export default function BookingModal({
                       <Input 
                         placeholder="Juan Dela Cruz" 
                         {...field} 
-                        value={typeof field.value === 'string' ? field.value : ""} 
+                        value={field.value || ""} 
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -856,7 +857,8 @@ export default function BookingModal({
                         type="email"
                         placeholder="juan@email.com"
                         {...field}
-                        value={typeof field.value === 'string' ? field.value : ""}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -874,7 +876,8 @@ export default function BookingModal({
                       <Input 
                         placeholder="09XX XXX XXXX" 
                         {...field} 
-                        value={typeof field.value === 'string' ? field.value : ""}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -892,7 +895,8 @@ export default function BookingModal({
                       <Input
                         placeholder="Alternate phone or email"
                         {...field}
-                        value={typeof field.value === 'string' ? field.value : ""}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
