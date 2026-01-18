@@ -834,7 +834,11 @@ export default function BookingModal({
                   <FormItem>
                     <FormLabel>Full Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Juan Dela Cruz" {...field} />
+                      <Input 
+                        placeholder="Juan Dela Cruz" 
+                        {...field} 
+                        value={typeof field.value === 'string' ? field.value : ""} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -852,6 +856,7 @@ export default function BookingModal({
                         type="email"
                         placeholder="juan@email.com"
                         {...field}
+                        value={typeof field.value === 'string' ? field.value : ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -866,7 +871,11 @@ export default function BookingModal({
                   <FormItem>
                     <FormLabel>Mobile Number *</FormLabel>
                     <FormControl>
-                      <Input placeholder="09XX XXX XXXX" {...field} />
+                      <Input 
+                        placeholder="09XX XXX XXXX" 
+                        {...field} 
+                        value={typeof field.value === 'string' ? field.value : ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -883,6 +892,7 @@ export default function BookingModal({
                       <Input
                         placeholder="Alternate phone or email"
                         {...field}
+                        value={typeof field.value === 'string' ? field.value : ""}
                       />
                     </FormControl>
                     <FormMessage />
