@@ -476,6 +476,19 @@ export default function BookingModal({
     ).length;
   };
 
+  useEffect(() => {
+    if (isOpen && currentStep === 5 && !selectedServiceIdValue) {
+      const eventType = form.getValues("eventType");
+      const matchedService = services.find(s => 
+        s.name.toLowerCase().includes(eventType.toLowerCase()) || 
+        eventType.toLowerCase().includes(s.name.toLowerCase())
+      );
+      if (matchedService) {
+        form.setValue("serviceId", matchedService.id);
+      }
+    }
+  }, [currentStep, isOpen, services, form, selectedServiceIdValue]);
+
   const renderReviewStep = () => {
     const selectedPackage = packages.find((p) => p.id === selectedPackageId);
     const selectedService = services.find(
@@ -1068,37 +1081,32 @@ export default function BookingModal({
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h4 className="font-bold text-lg">{pkg.name}</h4>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 mb-2">
                           {pkg.description}
                         </p>
+                        {pkg.features && pkg.features.length > 0 && (
+                          <ul className="space-y-1 mt-2">
+                            {pkg.features.map((feature, idx) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                                <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                <span>{feature}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex-shrink-0 ml-4">
                         <div className="text-xl font-bold text-primary">
                           {formatPrice(pkg.pricePerPerson)}
                         </div>
                         <div className="text-xs text-gray-500">
+                          per person
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
                           {pkg.minGuests}-{pkg.maxGuests || "500+"} guests
                         </div>
                       </div>
                     </div>
-                    {pkg.features && pkg.features.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        {pkg.features.slice(0, 5).map((feature, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {feature}
-                          </Badge>
-                        ))}
-                        {pkg.features.length > 5 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{pkg.features.length - 5} more
-                          </Badge>
-                        )}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
