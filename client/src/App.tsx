@@ -13,6 +13,7 @@ import AdminServicePackages from "@/pages/admin/service-packages";
 import AdminGallery from "@/pages/admin/gallery";
 import AdminCustomers from "@/pages/admin/customers";
 import AdminRecentEvents from "@/pages/admin/recent-events";
+import AdminMenu from "@/pages/admin/menu";
 import Login from "@/pages/login";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/providers/ProtectedRoute";
@@ -69,6 +70,11 @@ function App() {
             <Route path="/admin/recent-events" component={() => 
               <ProtectedRoute>
                 <AdminRecentEvents />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/menu" component={() => 
+              <ProtectedRoute>
+                <AdminMenu />
               </ProtectedRoute>
             } />
             <Route component={NotFound} />

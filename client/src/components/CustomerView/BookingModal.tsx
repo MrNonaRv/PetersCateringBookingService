@@ -403,13 +403,15 @@ export default function BookingModal({
     } else if (currentStep === 2) {
       fieldsToValidate = ["eventDate"];
     } else if (currentStep === 3) {
-      fieldsToValidate = [
-        "name",
-        "email",
-        "phone",
-      ];
+      fieldsToValidate = ["name", "email", "phone"];
     } else if (currentStep === 4) {
-      fieldsToValidate = ["eventType", "eventTime", "venueAddress", "guestCount", "eventDuration"];
+      fieldsToValidate = [
+        "eventType",
+        "eventTime",
+        "venueAddress",
+        "guestCount",
+        "eventDuration",
+      ];
     } else if (currentStep === 5 && bookingType === "standard") {
       fieldsToValidate = ["serviceId", "packageId"];
       const serviceId = form.getValues("serviceId");
@@ -489,9 +491,10 @@ export default function BookingModal({
   useEffect(() => {
     if (isOpen && currentStep === 5 && !selectedServiceIdValue) {
       const eventType = form.getValues("eventType");
-      const matchedService = services.find(s => 
-        s.name.toLowerCase().includes(eventType.toLowerCase()) || 
-        eventType.toLowerCase().includes(s.name.toLowerCase())
+      const matchedService = services.find(
+        (s) =>
+          s.name.toLowerCase().includes(eventType.toLowerCase()) ||
+          eventType.toLowerCase().includes(s.name.toLowerCase()),
       );
       if (matchedService) {
         form.setValue("serviceId", matchedService.id);
@@ -527,14 +530,12 @@ export default function BookingModal({
               <div className="space-y-2 text-sm">
                 <p>
                   <span className="text-gray-500">Date:</span>{" "}
-                  {form
-                    .getValues("eventDate")
-                    ?.toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                  {form.getValues("eventDate")?.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
                 </p>
                 <p>
                   <span className="text-gray-500">Time:</span>{" "}
@@ -569,7 +570,9 @@ export default function BookingModal({
               <div className="space-y-2 text-sm">
                 <p>
                   <span className="text-gray-500">Name:</span>{" "}
-                  {form.getValues("name")}
+                  <span className="whitespace-pre-wrap break-words">
+                    {form.getValues("name")}
+                  </span>
                 </p>
                 <p>
                   <span className="text-gray-500">Email:</span>{" "}
@@ -775,8 +778,10 @@ export default function BookingModal({
                             unavailableDates.some(
                               (unavailableDate: Date) =>
                                 unavailableDate.getDate() === date.getDate() &&
-                                unavailableDate.getMonth() === date.getMonth() &&
-                                unavailableDate.getFullYear() === date.getFullYear(),
+                                unavailableDate.getMonth() ===
+                                  date.getMonth() &&
+                                unavailableDate.getFullYear() ===
+                                  date.getFullYear(),
                             )
                           );
                         }}
@@ -823,30 +828,25 @@ export default function BookingModal({
         );
 
       case 3:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-heading text-primary mb-4">
-              Personal Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Juan Dela Cruz" 
-                        {...field} 
-                        value={typeof field.value === 'string' ? field.value : ""} 
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (typeof val === 'string') {
-                            field.onChange(val);
-                          }
-                        }}
-                      />
+      return (
+        <div className="space-y-6" key="step-personal-info"> {/* Add unique key here */}
+          <h3 className="text-xl font-heading text-primary mb-4">
+            Personal Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="name" // Ensure this name is exactly "name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      key="full-name-input" // Add a specific key to this input
+                      placeholder="Juan Dela Cruz" 
+                      {...field} 
+                      value={field.value || ""} 
+                    />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -865,7 +865,6 @@ export default function BookingModal({
                         placeholder="juan@email.com"
                         {...field}
                         value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -880,11 +879,10 @@ export default function BookingModal({
                   <FormItem>
                     <FormLabel>Mobile Number *</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="09XX XXX XXXX" 
-                        {...field} 
+                      <Input
+                        placeholder="09XX XXX XXXX"
+                        {...field}
                         value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -903,7 +901,6 @@ export default function BookingModal({
                         placeholder="Alternate phone or email"
                         {...field}
                         value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1116,7 +1113,10 @@ export default function BookingModal({
                         {pkg.features && pkg.features.length > 0 && (
                           <ul className="space-y-1 mt-2">
                             {pkg.features.map((feature, idx) => (
-                              <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                              <li
+                                key={idx}
+                                className="flex items-start gap-2 text-sm text-gray-700"
+                              >
                                 <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                                 <span>{feature}</span>
                               </li>
@@ -1128,9 +1128,7 @@ export default function BookingModal({
                         <div className="text-xl font-bold text-primary">
                           {formatPrice(pkg.pricePerPerson)}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          per person
-                        </div>
+                        <div className="text-xs text-gray-500">per person</div>
                         <div className="text-xs text-gray-400 mt-1">
                           {pkg.minGuests}-{pkg.maxGuests || "500+"} guests
                         </div>
@@ -1274,7 +1272,7 @@ export default function BookingModal({
                     {appetizers.map((dish) => (
                       <div
                         key={dish.id}
-                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover-gray-300"}`}
                         onClick={() => toggleDish(dish.id)}
                       >
                         <div className="flex items-center gap-2">
@@ -1301,7 +1299,7 @@ export default function BookingModal({
                     {desserts.map((dish) => (
                       <div
                         key={dish.id}
-                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover-gray-300"}`}
                         onClick={() => toggleDish(dish.id)}
                       >
                         <div className="flex items-center gap-2">
@@ -1392,9 +1390,7 @@ export default function BookingModal({
         </DialogHeader>
 
         <div className="p-6 overflow-y-auto">
-          <Form {...form}>
-            {renderStepContent()}
-          </Form>
+          <Form {...form}>{renderStepContent()}</Form>
         </div>
 
         <div className="bg-gray-50 px-4 sm:px-6 py-4 flex flex-col gap-3 sm:flex-row sm:justify-between items-stretch sm:items-center">

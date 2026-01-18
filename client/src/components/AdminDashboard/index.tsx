@@ -11,6 +11,7 @@ import ServicePackageManagement from "./ServicePackageManagement";
 import GalleryManagement from "./GalleryManagement";
 import CustomersManagement from "./CustomersManagement";
 import { RecentEventsManagement } from "./RecentEventsManagement";
+import AdminMenu from "@/pages/admin/menu";
 
 interface AdminDashboardProps {
   currentPage: string;
@@ -81,7 +82,10 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
       
       case "recent-events":
         return <RecentEventsManagement />;
-      
+
+      case "menu":
+        return <AdminMenu />;
+
       default:
         return <div>404 - Page not found</div>;
     }
