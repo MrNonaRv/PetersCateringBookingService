@@ -221,6 +221,10 @@ export default function BookingModal({
       selectedDishes: [],
       preferredContactMethod: "phone",
       termsAgreed: false,
+      name: "",
+      email: "",
+      phone: "",
+      alternateContact: "",
     },
   });
 
