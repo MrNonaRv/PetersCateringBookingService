@@ -467,14 +467,14 @@ export default function BookingModal({
 
   const getDishesByCategory = (category: string) => {
     const categoryMapping: Record<string, string> = {
-      "Pork": "pork",
-      "Chicken": "chicken",
-      "Beef": "beef",
-      "Fish": "fish",
-      "Appetizers": "appetizer",
+      "Pork Menu": "pork",
+      "Chicken Menu": "chicken",
+      "Beef Menu": "beef",
+      "Fish Menu": "fish",
+      "Appetizers (Pasta/Vegetables)": "appetizer",
       "Dessert": "dessert",
       "Standard Inclusions": "standard_inclusion",
-      "Amenities": "amenity"
+      "Freebies (Amenities)": "amenity"
     };
     const dbCategory = categoryMapping[category] || category.toLowerCase();
     return dishes.filter((d) => d.category === dbCategory && d.isAvailable);
@@ -492,8 +492,19 @@ export default function BookingModal({
     }
   };
 
-  const getDishSelectionCount = (category: string) => {
-    const categoryDishes = dishes.filter((d) => d.category === category);
+  const getDishSelectionCount = (categoryLabel: string) => {
+    const categoryMapping: Record<string, string> = {
+      "Pork Menu": "pork",
+      "Chicken Menu": "chicken",
+      "Beef Menu": "beef",
+      "Fish Menu": "fish",
+      "Appetizers (Pasta/Vegetables)": "appetizer",
+      "Dessert": "dessert",
+      "Standard Inclusions": "standard_inclusion",
+      "Freebies (Amenities)": "amenity"
+    };
+    const dbCategory = categoryMapping[categoryLabel] || categoryLabel.toLowerCase();
+    const categoryDishes = dishes.filter((d) => d.category === dbCategory);
     return selectedDishes.filter((id) =>
       categoryDishes.some((d) => d.id === id),
     ).length;
@@ -1182,10 +1193,25 @@ export default function BookingModal({
 
       case 6:
         if (bookingType === "standard") {
-          const mainDishes = getDishesByCategory("main");
-          const vegetables = getDishesByCategory("vegetable");
-          const appetizers = getDishesByCategory("appetizer");
-          const desserts = getDishesByCategory("dessert");
+          const porkDishes = getDishesByCategory("Pork Menu");
+          const chickenDishes = getDishesByCategory("Chicken Menu");
+          const beefDishes = getDishesByCategory("Beef Menu");
+          const fishDishes = getDishesByCategory("Fish Menu");
+          const appetizerDishes = getDishesByCategory("Appetizers (Pasta/Vegetables)");
+          const dessertDishes = getDishesByCategory("Dessert");
+          const inclusionDishes = getDishesByCategory("Standard Inclusions");
+          const amenityDishes = getDishesByCategory("Freebies (Amenities)");
+
+          const categories = [
+            { label: "Pork Menu", dishes: porkDishes, min: 1 },
+            { label: "Chicken Menu", dishes: chickenDishes, min: 1 },
+            { label: "Beef Menu", dishes: beefDishes, min: 1 },
+            { label: "Fish Menu", dishes: fishDishes, min: 1 },
+            { label: "Appetizers (Pasta/Vegetables)", dishes: appetizerDishes, min: 1 },
+            { label: "Dessert", dishes: dessertDishes, min: 1 },
+            { label: "Standard Inclusions", dishes: inclusionDishes, min: 0 },
+            { label: "Freebies (Amenities)", dishes: amenityDishes, min: 0 },
+          ];
 
           return (
             <div className="space-y-6">
@@ -1194,151 +1220,55 @@ export default function BookingModal({
               </h3>
 
               <div className="flex flex-wrap gap-2 mb-4">
-                <Badge
-                  variant={
-                    getDishSelectionCount("main") >= 3 ? "default" : "outline"
-                  }
-                >
-                  Mains: {getDishSelectionCount("main")}/3+
-                </Badge>
-                <Badge
-                  variant={
-                    getDishSelectionCount("vegetable") >= 1
-                      ? "default"
-                      : "outline"
-                  }
-                >
-                  Vegetables: {getDishSelectionCount("vegetable")}/1+
-                </Badge>
-                <Badge
-                  variant={
-                    getDishSelectionCount("appetizer") >= 1
-                      ? "default"
-                      : "outline"
-                  }
-                >
-                  Appetizers: {getDishSelectionCount("appetizer")}/1+
-                </Badge>
-                <Badge
-                  variant={
-                    getDishSelectionCount("dessert") >= 1
-                      ? "default"
-                      : "outline"
-                  }
-                >
-                  Desserts: {getDishSelectionCount("dessert")}/1+
-                </Badge>
+                {categories.map((cat) => (
+                  <Badge
+                    key={cat.label}
+                    variant={
+                      getDishSelectionCount(cat.label) >= cat.min ? "default" : "outline"
+                    }
+                  >
+                    {cat.label.split(' ')[0]}: {getDishSelectionCount(cat.label)}/{cat.min}+
+                  </Badge>
+                ))}
               </div>
 
-              <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2">
-                <div>
-                  <h4 className="font-bold mb-3 flex items-center gap-2">
-                    <UtensilsCrossed className="h-4 w-4" />
-                    Main Courses{" "}
-                    <span className="text-sm font-normal text-gray-500">
-                      (Select at least 3)
-                    </span>
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {mainDishes.map((dish) => (
-                      <div
-                        key={dish.id}
-                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
-                        onClick={() => toggleDish(dish.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={selectedDishes.includes(dish.id)}
-                          />
-                          <span className="text-sm font-medium">
-                            {dish.name}
-                          </span>
+              <div className="space-y-8 max-h-[500px] overflow-y-auto pr-2">
+                {categories.map((cat) => cat.dishes.length > 0 && (
+                  <div key={cat.label}>
+                    <h4 className="font-bold mb-3 flex items-center gap-2">
+                      <UtensilsCrossed className="h-4 w-4" />
+                      {cat.label}
+                      {cat.min > 0 && (
+                        <span className="text-sm font-normal text-gray-500">
+                          (Select at least {cat.min})
+                        </span>
+                      )}
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {cat.dishes.map((dish) => (
+                        <div
+                          key={dish.id}
+                          className={cn(
+                            "border rounded-lg p-3 cursor-pointer transition-all",
+                            selectedDishes.includes(dish.id) 
+                              ? "border-primary bg-primary/5" 
+                              : "border-gray-200 hover:border-gray-300"
+                          )}
+                          onClick={() => toggleDish(dish.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={selectedDishes.includes(dish.id)}
+                            />
+                            <span className="text-sm font-medium">
+                              {dish.name}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <h4 className="font-bold mb-3">
-                    Vegetables{" "}
-                    <span className="text-sm font-normal text-gray-500">
-                      (Select at least 1)
-                    </span>
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {vegetables.map((dish) => (
-                      <div
-                        key={dish.id}
-                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}
-                        onClick={() => toggleDish(dish.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={selectedDishes.includes(dish.id)}
-                          />
-                          <span className="text-sm font-medium">
-                            {dish.name}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-bold mb-3">
-                    Appetizers{" "}
-                    <span className="text-sm font-normal text-gray-500">
-                      (Select at least 1)
-                    </span>
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {appetizers.map((dish) => (
-                      <div
-                        key={dish.id}
-                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover-gray-300"}`}
-                        onClick={() => toggleDish(dish.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={selectedDishes.includes(dish.id)}
-                          />
-                          <span className="text-sm font-medium">
-                            {dish.name}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-bold mb-3">
-                    Desserts{" "}
-                    <span className="text-sm font-normal text-gray-500">
-                      (Select at least 1)
-                    </span>
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {desserts.map((dish) => (
-                      <div
-                        key={dish.id}
-                        className={`border rounded-lg p-3 cursor-pointer transition-all ${selectedDishes.includes(dish.id) ? "border-primary bg-primary/5" : "border-gray-200 hover-gray-300"}`}
-                        onClick={() => toggleDish(dish.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={selectedDishes.includes(dish.id)}
-                          />
-                          <span className="text-sm font-medium">
-                            {dish.name}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           );
