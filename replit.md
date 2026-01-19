@@ -100,15 +100,16 @@ Booking statuses: `pending_approval` → `approved` → `deposit_paid` → `full
 - **Package Pricing**: The `pricePerPerson` field in `service_packages` table stores total package price (not per-person) for fixed-price packages like "Diamond Wedding ₱235,000"
 - **Currency**: All prices displayed in Philippine Peso (₱) with centavos stored in database
 
-### SMS Notifications (Twilio)
-- **Integration**: Uses Twilio SDK for SMS notifications (not using Replit integration - credentials stored as secrets)
-- **Required Secrets**: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
+### SMS Notifications (iProgSMS)
+- **Integration**: Uses iProgSMS API for SMS notifications (Philippine SMS gateway, ₱1 per SMS)
+- **Required Secrets**: IPROGSMS_API_TOKEN
+- **API Endpoint**: https://www.iprogsms.com/api/v1/sms_messages
 - **Features**:
   - Send booking approval SMS with payment details (GCash, PayMaya, Bank Transfer links)
   - Send payment reminders to customers
   - Send custom messages from admin dashboard
 - **Admin UI**: SMS button in BookingsTable allows admins to approve bookings and send payment links in one action
-- **Phone Format**: Automatically formats Philippine mobile numbers (09XX → +639XX)
+- **Phone Format**: Automatically formats Philippine mobile numbers to 09XX format for iProgSMS
 
 ### Payment Settings
 - **Admin Settings Page**: `/admin/settings` for configuring payment accounts

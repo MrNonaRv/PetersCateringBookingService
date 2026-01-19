@@ -23,14 +23,14 @@ import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
 import { createCheckoutSession, getCheckoutSession, isPaymongoConfigured } from "./paymongo";
 import { 
-  isTwilioConfigured, 
+  isSMSConfigured, 
   sendBookingConfirmation, 
   sendBookingApproved, 
   sendDepositReceived,
   sendPaymentReminder,
   sendEventReminder,
   sendCustomMessage 
-} from "./twilio";
+} from "./sms";
 
 const MemorySessionStore = MemoryStore(session);
 
@@ -1145,12 +1145,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Twilio SMS Integration Routes
+  // SMS Integration Routes (iProgSMS)
   
-  // Check if Twilio is configured
+  // Check if SMS is configured
   app.get("/api/sms/status", (req, res) => {
     res.json({ 
-      configured: isTwilioConfigured()
+      configured: isSMSConfigured()
     });
   });
 
