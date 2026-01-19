@@ -138,9 +138,6 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
     
     try {
       if (smsType === 'approve') {
-        // Update status to approved first
-        await apiRequest('PATCH', `/api/bookings/${selectedBooking.id}/status`, { status: 'approved' });
-        
         // Calculate deposit amount (50% of total)
         const depositAmount = Math.round(selectedBooking.totalPrice * 0.5);
         
@@ -150,8 +147,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           fullPaymentLink = `Pay via ${paymentMethod.toUpperCase()}`;
         }
         
-        // Send approval SMS with payment info
-        await apiRequest('POST', '/api/sms/booking-approved', {
+        // Send approval SMS first - if this fails, we don't update status
+        const smsResult = await apiRequest('POST', '/api/sms/booking-approved', {
           bookingId: selectedBooking.id,
           customerPhone: selectedBooking.customer.phone,
           customerName: selectedBooking.customer.name,
@@ -160,6 +157,14 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           paymentLink: fullPaymentLink,
           paymentMethod
         });
+        
+        const smsData = await smsResult.json();
+        if (!smsData.success) {
+          throw new Error(smsData.error || 'Failed to send SMS');
+        }
+        
+        // Only update status to approved after SMS succeeds
+        await apiRequest('PATCH', `/api/bookings/${selectedBooking.id}/status`, { status: 'approved' });
         
         toast({
           title: "Booking Approved",
@@ -560,6 +565,26 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
 
           {selectedBooking && (
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Message Type</Label>
+                <Select value={smsType} onValueChange={(val) => setSmsType(val as 'approve' | 'reminder' | 'custom')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="approve" disabled={selectedBooking.status !== 'pending_approval'}>
+                      Approve & Send Payment Details
+                    </SelectItem>
+                    <SelectItem value="reminder">
+                      Send Payment Reminder
+                    </SelectItem>
+                    <SelectItem value="custom">
+                      Custom Message
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {smsType === 'approve' && (
                 <>
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
