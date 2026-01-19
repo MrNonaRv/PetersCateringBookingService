@@ -22,7 +22,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
   
   return (
     <div className={cn(
-      "bg-primary text-white shadow-lg transition-all duration-300 ease-in-out h-screen",
+      "bg-primary text-white shadow-lg transition-all duration-300 ease-in-out h-screen sticky top-0",
       collapsed ? "w-16" : "w-64"
     )}>
       <div className="p-4 border-b border-white border-opacity-20">

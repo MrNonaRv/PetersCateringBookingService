@@ -9,7 +9,8 @@ import {
   insertBookingSchema, 
   insertCustomerSchema,
   insertRecentEventSchema,
-  insertGalleryImageSchema
+  insertGalleryImageSchema,
+  insertDishSchema
 } from "@shared/schema";
 import multer from "multer";
 import path from "path";
