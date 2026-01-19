@@ -784,17 +784,32 @@ export class DatabaseStorage implements IStorage {
           .from(customers)
           .where(eq(customers.id, booking.customerId));
         
-        // Get service data
-        const [service] = await db
-          .select()
-          .from(services)
-          .where(eq(services.id, booking.serviceId));
+        // Get service data (handle null serviceId for custom quotes)
+        let service = null;
+        if (booking.serviceId) {
+          const [serviceData] = await db
+            .select()
+            .from(services)
+            .where(eq(services.id, booking.serviceId));
+          service = serviceData;
+        }
+        
+        // Get package data
+        let packageData = null;
+        if (booking.packageId) {
+          const [pkg] = await db
+            .select()
+            .from(servicePackages)
+            .where(eq(servicePackages.id, booking.packageId));
+          packageData = pkg;
+        }
         
         // Combine the data
         return {
           ...booking,
           customer,
-          service
+          service,
+          package: packageData
         };
       })
     );
@@ -816,16 +831,31 @@ export class DatabaseStorage implements IStorage {
       .from(customers)
       .where(eq(customers.id, booking.customerId));
     
-    // Get service data
-    const [service] = await db
-      .select()
-      .from(services)
-      .where(eq(services.id, booking.serviceId));
+    // Get service data (handle null serviceId for custom quotes)
+    let service = null;
+    if (booking.serviceId) {
+      const [serviceData] = await db
+        .select()
+        .from(services)
+        .where(eq(services.id, booking.serviceId));
+      service = serviceData;
+    }
+    
+    // Get package data
+    let packageData = null;
+    if (booking.packageId) {
+      const [pkg] = await db
+        .select()
+        .from(servicePackages)
+        .where(eq(servicePackages.id, booking.packageId));
+      packageData = pkg;
+    }
     
     return {
       ...booking,
       customer,
-      service
+      service,
+      package: packageData
     };
   }
 
@@ -843,16 +873,31 @@ export class DatabaseStorage implements IStorage {
       .from(customers)
       .where(eq(customers.id, booking.customerId));
     
-    // Get service data
-    const [service] = await db
-      .select()
-      .from(services)
-      .where(eq(services.id, booking.serviceId));
+    // Get service data (handle null serviceId for custom quotes)
+    let service = null;
+    if (booking.serviceId) {
+      const [serviceData] = await db
+        .select()
+        .from(services)
+        .where(eq(services.id, booking.serviceId));
+      service = serviceData;
+    }
+    
+    // Get package data
+    let packageData = null;
+    if (booking.packageId) {
+      const [pkg] = await db
+        .select()
+        .from(servicePackages)
+        .where(eq(servicePackages.id, booking.packageId));
+      packageData = pkg;
+    }
     
     return {
       ...booking,
       customer,
-      service
+      service,
+      package: packageData
     };
   }
 

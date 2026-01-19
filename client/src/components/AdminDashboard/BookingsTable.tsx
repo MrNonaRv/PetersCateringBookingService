@@ -258,9 +258,10 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
             <TableRow>
               <TableHead>Booking ID</TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead>Service</TableHead>
+              <TableHead>Service / Package</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Guests</TableHead>
+              <TableHead>Total</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -283,6 +284,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
@@ -305,13 +307,21 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {booking.service.name}
+                    <div>
+                      <div className="font-medium">{booking.service?.name || 'Custom Quote'}</div>
+                      {booking.package && (
+                        <div className="text-sm text-gray-500">{booking.package.name}</div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {formatDate(booking.eventDate)}
                   </TableCell>
                   <TableCell>
                     {booking.guestCount}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {formatPrice(booking.totalPrice)}
                   </TableCell>
                   <TableCell>
                     <Badge className={
@@ -411,8 +421,13 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                 <h3 className="text-lg font-medium mb-4">Booking Information</h3>
                 <div className="space-y-2">
                   <div>
-                    <span className="font-medium">Service:</span> {selectedBooking.service.name}
+                    <span className="font-medium">Service:</span> {selectedBooking.service?.name || 'Custom Quote'}
                   </div>
+                  {selectedBooking.package && (
+                    <div>
+                      <span className="font-medium">Package:</span> {selectedBooking.package.name}
+                    </div>
+                  )}
                   <div>
                     <span className="font-medium">Date:</span> {formatDate(selectedBooking.eventDate)}
                   </div>

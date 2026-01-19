@@ -434,7 +434,8 @@ export const bookingAddOnsRelations = relations(bookingAddOns, ({ one }) => ({
 // Combined booking with customer data
 export type BookingWithCustomer = Booking & {
   customer: Customer;
-  service: Service;
+  service: Service | null;
+  package?: ServicePackage | null;
 };
 
 // Combined quote with customer data
