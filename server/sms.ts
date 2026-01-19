@@ -19,6 +19,8 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
 
   try {
     const formattedNumber = formatPhoneNumber(to);
+    console.log('Sending SMS to:', formattedNumber, 'Original:', to);
+    console.log('Message:', message);
 
     const response = await fetch(IPROGSMS_API_URL, {
       method: 'POST',
