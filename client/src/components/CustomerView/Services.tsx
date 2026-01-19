@@ -10,7 +10,17 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import Autoplay from "embla-carousel-autoplay";
+import { Check, Info, Package } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 interface Service {
   id: number;
@@ -18,6 +28,16 @@ interface Service {
   description: string;
   imageUrl: string;
   basePrice: number;
+}
+
+interface ServicePackage {
+  id: number;
+  serviceId: number;
+  name: string;
+  description: string;
+  pricePerPerson: number;
+  minGuests: number;
+  features: string[];
 }
 
 interface ServicesProps {
@@ -30,20 +50,27 @@ export default function Services({ services, isLoading, onSelectService }: Servi
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   const [count, setCount] = useState(0);
+  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
 
-  // Format price from cents to Philippine Peso
+  const { data: packages = [], isLoading: isLoadingPackages } = useQuery<ServicePackage[]>({
+    queryKey: ["/api/service-packages", selectedServiceId],
+    queryFn: async () => {
+      if (!selectedServiceId) return [];
+      const res = await fetch(`/api/service-packages?serviceId=${selectedServiceId}`);
+      if (!res.ok) throw new Error("Failed to fetch packages");
+      return res.json();
+    },
+    enabled: !!selectedServiceId,
+  });
+
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toFixed(2)}`;
+    return `₱${(priceInCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   useEffect(() => {
-    if (!api) {
-      return;
-    }
-
+    if (!api) return;
     setCount(api.scrollSnapList().length);
     setCurrent(api.selectedScrollSnap() + 1);
-
     api.on("select", () => {
       setCurrent(api.selectedScrollSnap() + 1);
     });
@@ -66,7 +93,7 @@ export default function Services({ services, isLoading, onSelectService }: Servi
         <p className="text-[#343a40] mb-4 line-clamp-3">{service.description}</p>
         <div className="flex justify-center">
           <Button 
-            onClick={() => onSelectService(service.id)}
+            onClick={() => setSelectedServiceId(service.id)}
             className="bg-primary hover:bg-secondary text-white font-accent text-sm transition-all duration-300 transform hover:scale-105 hover:shadow-lg w-full"
           >
             View Packages & Pricing
@@ -76,6 +103,8 @@ export default function Services({ services, isLoading, onSelectService }: Servi
     </div>
   );
 
+  const selectedService = services.find(s => s.id === selectedServiceId);
+
   return (
     <section id="services" className="py-16 container mx-auto px-4">
       <div className="text-center mb-12">
@@ -84,7 +113,6 @@ export default function Services({ services, isLoading, onSelectService }: Servi
       </div>
 
       {isLoading ? (
-        // Loading skeleton carousel
         <div className="relative">
           <Carousel className="w-full" setApi={setApi}>
             <CarouselContent>
@@ -107,7 +135,6 @@ export default function Services({ services, isLoading, onSelectService }: Servi
           </Carousel>
         </div>
       ) : (
-        // Interactive services carousel
         <div className="relative">
           <Carousel
             className="w-full"
@@ -137,7 +164,6 @@ export default function Services({ services, isLoading, onSelectService }: Servi
             <CarouselNext className="right-4 bg-white/90 hover:bg-white border-primary/20 hover:border-primary text-primary hover:text-secondary transition-all duration-300" />
           </Carousel>
 
-          {/* Carousel Indicators */}
           <div className="flex justify-center mt-8 space-x-2">
             {Array.from({ length: count }, (_, index) => (
               <button
@@ -152,17 +178,89 @@ export default function Services({ services, isLoading, onSelectService }: Servi
               />
             ))}
           </div>
-
-          {/* Progress indicator */}
-          <div className="flex justify-center mt-4">
-            <div className="flex items-center space-x-2 text-sm text-[#343a40]">
-              <span className="font-accent">{current}</span>
-              <span>/</span>
-              <span className="font-accent">{count}</span>
-            </div>
-          </div>
         </div>
       )}
+
+      <Dialog open={!!selectedServiceId} onOpenChange={(open) => !open && setSelectedServiceId(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-heading text-primary">
+              {selectedService?.name} Packages
+            </DialogTitle>
+            <DialogDescription>
+              Explore our available packages and pricing for {selectedService?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingPackages ? (
+            <div className="space-y-4 py-8">
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : packages.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              {packages.map((pkg) => (
+                <Card key={pkg.id} className="overflow-hidden border-2 border-gray-100 hover:border-primary/20 transition-all">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="text-xl font-bold text-primary">{pkg.name}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{pkg.description}</p>
+                      </div>
+                      <Badge variant="secondary" className="bg-primary/10 text-primary font-bold">
+                        {formatPrice(pkg.pricePerPerson)}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-3 mb-6">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <Info className="h-3 w-3" /> Includes:
+                      </p>
+                      <ul className="grid grid-cols-1 gap-2">
+                        {pkg.features.map((feature, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                            <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                      <div className="text-xs text-gray-500">
+                        Min. {pkg.minGuests} guests
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          setSelectedServiceId(null);
+                          onSelectService(selectedServiceId!);
+                        }}
+                        className="bg-secondary hover:bg-opacity-90 text-white text-xs px-4"
+                      >
+                        Book This Package
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="py-12 text-center bg-gray-50 rounded-xl border border-dashed">
+              <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No specific packages found for this service.</p>
+              <Button 
+                onClick={() => {
+                  setSelectedServiceId(null);
+                  onSelectService(selectedServiceId!);
+                }}
+                className="mt-4"
+              >
+                Request Custom Quote
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
