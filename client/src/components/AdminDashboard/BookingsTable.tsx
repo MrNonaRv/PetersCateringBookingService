@@ -20,7 +20,17 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Eye, Edit, Trash, ChevronLeft, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Eye, Edit, ChevronLeft, ChevronRight, MessageSquare, Send, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface BookingsTableProps {
@@ -32,6 +42,12 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
+  const [smsType, setSmsType] = useState<'approve' | 'reminder' | 'custom'>('approve');
+  const [paymentMethod, setPaymentMethod] = useState('gcash');
+  const [paymentLink, setPaymentLink] = useState('');
+  const [customMessage, setCustomMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
   
   const pageSize = limit || 10;
@@ -101,6 +117,105 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
         description: "Failed to update booking status",
         variant: "destructive"
       });
+    }
+  };
+
+  // Open SMS dialog
+  const openSmsDialog = (booking: any, type: 'approve' | 'reminder' | 'custom') => {
+    setSelectedBooking(booking);
+    setSmsType(type);
+    setPaymentMethod('gcash');
+    setPaymentLink('');
+    setCustomMessage('');
+    setIsSmsDialogOpen(true);
+  };
+
+  // Send SMS notification
+  const sendSmsNotification = async () => {
+    if (!selectedBooking) return;
+    
+    setIsSending(true);
+    
+    try {
+      if (smsType === 'approve') {
+        // Update status to approved first
+        await apiRequest('PATCH', `/api/bookings/${selectedBooking.id}/status`, { status: 'approved' });
+        
+        // Calculate deposit amount (50% of total)
+        const depositAmount = Math.round(selectedBooking.totalPrice * 0.5);
+        
+        // Build payment link message
+        let fullPaymentLink = paymentLink;
+        if (!fullPaymentLink && paymentMethod !== 'cash') {
+          fullPaymentLink = `Pay via ${paymentMethod.toUpperCase()}`;
+        }
+        
+        // Send approval SMS with payment info
+        await apiRequest('POST', '/api/sms/booking-approved', {
+          bookingId: selectedBooking.id,
+          customerPhone: selectedBooking.customer.phone,
+          customerName: selectedBooking.customer.name,
+          bookingReference: selectedBooking.bookingReference,
+          depositAmount,
+          paymentLink: fullPaymentLink,
+          paymentMethod
+        });
+        
+        toast({
+          title: "Booking Approved",
+          description: "SMS notification with payment details sent to customer",
+        });
+      } else if (smsType === 'reminder') {
+        const eventDate = new Date(selectedBooking.eventDate);
+        const today = new Date();
+        const daysUntil = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        await apiRequest('POST', '/api/sms/payment-reminder', {
+          bookingId: selectedBooking.id,
+          customerPhone: selectedBooking.customer.phone,
+          customerName: selectedBooking.customer.name,
+          bookingReference: selectedBooking.bookingReference,
+          balanceAmount: selectedBooking.balanceAmount || (selectedBooking.totalPrice - (selectedBooking.depositAmount || 0)),
+          eventDate: selectedBooking.eventDate,
+          daysUntilEvent: daysUntil
+        });
+        
+        toast({
+          title: "Reminder Sent",
+          description: "Payment reminder SMS sent to customer",
+        });
+      } else if (smsType === 'custom') {
+        if (!customMessage.trim()) {
+          toast({
+            title: "Error",
+            description: "Please enter a message to send",
+            variant: "destructive"
+          });
+          setIsSending(false);
+          return;
+        }
+        
+        await apiRequest('POST', '/api/sms/custom', {
+          customerPhone: selectedBooking.customer.phone,
+          message: customMessage
+        });
+        
+        toast({
+          title: "Message Sent",
+          description: "Custom SMS sent to customer",
+        });
+      }
+      
+      refetch();
+      setIsSmsDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "SMS Failed",
+        description: error.message || "Failed to send SMS notification",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSending(false);
     }
   };
   
@@ -177,12 +292,21 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="space-x-2">
-                    <Button variant="ghost" size="icon" onClick={() => viewBooking(booking)}>
+                  <TableCell className="space-x-1">
+                    <Button variant="ghost" size="icon" onClick={() => viewBooking(booking)} title="View Details">
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => editBooking(booking)}>
+                    <Button variant="ghost" size="icon" onClick={() => editBooking(booking)} title="Edit Status">
                       <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => openSmsDialog(booking, booking.status === 'pending_approval' ? 'approve' : 'custom')}
+                      title="Send SMS"
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    >
+                      <MessageSquare className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -412,6 +536,135 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SMS Notification Dialog */}
+      <Dialog open={isSmsDialogOpen} onOpenChange={setIsSmsDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-green-600" />
+              {smsType === 'approve' ? 'Approve & Send Payment Details' : 
+               smsType === 'reminder' ? 'Send Payment Reminder' : 'Send Custom Message'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedBooking && (
+                <>
+                  Send SMS to {selectedBooking.customer?.name} ({selectedBooking.customer?.phone})
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBooking && (
+            <div className="space-y-4">
+              {smsType === 'approve' && (
+                <>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-medium text-green-800 mb-2">Booking Details</h4>
+                    <div className="text-sm text-green-700 space-y-1">
+                      <p>Reference: {selectedBooking.bookingReference}</p>
+                      <p>Total Price: ₱{(selectedBooking.totalPrice / 100).toLocaleString()}</p>
+                      <p>Deposit (50%): ₱{(selectedBooking.totalPrice / 200).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Payment Method</Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gcash">GCash</SelectItem>
+                        <SelectItem value="paymaya">PayMaya</SelectItem>
+                        <SelectItem value="bank_transfer">Bank Transfer (BDO/BPI)</SelectItem>
+                        <SelectItem value="cash">Cash on Event Day</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {paymentMethod !== 'cash' && (
+                    <div className="space-y-2">
+                      <Label>Payment Link / Account Number (Optional)</Label>
+                      <Input
+                        placeholder={
+                          paymentMethod === 'gcash' ? 'e.g., https://gcash.com/pay/yourname or 09XX XXX XXXX' :
+                          paymentMethod === 'paymaya' ? 'e.g., https://paymaya.me/yourname or 09XX XXX XXXX' :
+                          'e.g., BDO Account: 1234-5678-9012'
+                        }
+                        value={paymentLink}
+                        onChange={(e) => setPaymentLink(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500">
+                        This will be included in the SMS sent to the customer
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-800 mb-2">Preview Message</h4>
+                    <p className="text-sm text-blue-700">
+                      Good news, {selectedBooking.customer?.name}! Your booking ({selectedBooking.bookingReference}) has been approved! 
+                      Please pay the deposit of ₱{(selectedBooking.totalPrice / 200).toLocaleString()} to confirm your reservation.
+                      {paymentLink ? ` Pay online: ${paymentLink}` : paymentMethod !== 'cash' ? ` Pay via ${paymentMethod.toUpperCase()}` : ' Payment accepted on event day.'}
+                      {' '}- Peter's Creation Catering
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {smsType === 'reminder' && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-medium text-orange-800 mb-2">Reminder Message Preview</h4>
+                  <p className="text-sm text-orange-700">
+                    Hi {selectedBooking.customer?.name}! Friendly reminder: Your catering event is on {new Date(selectedBooking.eventDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}. 
+                    Outstanding balance: ₱{((selectedBooking.balanceAmount || (selectedBooking.totalPrice - (selectedBooking.depositAmount || 0))) / 100).toLocaleString()}. 
+                    Please settle before the event. Ref: {selectedBooking.bookingReference} - Peter's Creation Catering
+                  </p>
+                </div>
+              )}
+
+              {smsType === 'custom' && (
+                <div className="space-y-2">
+                  <Label>Custom Message</Label>
+                  <Textarea
+                    placeholder="Enter your message here..."
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    rows={4}
+                  />
+                  <p className="text-xs text-gray-500">
+                    {customMessage.length}/160 characters (SMS limit)
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsSmsDialogOpen(false)} disabled={isSending}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={sendSmsNotification} 
+              disabled={isSending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  {smsType === 'approve' ? 'Approve & Send SMS' : 'Send SMS'}
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
