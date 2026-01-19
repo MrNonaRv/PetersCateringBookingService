@@ -267,7 +267,6 @@ export default function BookingModal({
         bookingType: "standard",
         serviceId: selectedServiceId || 0,
         guestCount: 100,
-        eventDuration: 4,
         selectedDishes: [],
         preferredContactMethod: "phone",
         termsAgreed: false,
@@ -1121,30 +1120,6 @@ export default function BookingModal({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="eventDuration"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Duration: {field.value} hours</FormLabel>
-                    <FormControl>
-                      <Slider
-                        min={2}
-                        max={12}
-                        step={1}
-                        value={[field.value]}
-                        onValueChange={(value) => field.onChange(value[0])}
-                        className="mt-4"
-                      />
-                    </FormControl>
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>2 hours</span>
-                      <span>12 hours</span>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
           </div>
         );
