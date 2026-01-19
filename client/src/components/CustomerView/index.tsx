@@ -77,12 +77,6 @@ export default function CustomerView() {
         onSelectService={(serviceId) => openBookingModal(serviceId)} 
       />
       
-      <BudgetInquiry 
-        services={services || []}
-        onSelectService={(serviceId) => openBookingModal(serviceId)}
-        onCustomInquiry={() => openBookingModal()}
-      />
-      
       <About />
       <RecentEvents />
       <Gallery />

@@ -18,7 +18,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -52,6 +51,7 @@ const MENU_CATEGORIES = [
 
 export default function AdminDishes() {
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false); // Controlled Dialog state
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -81,16 +81,8 @@ export default function AdminDishes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/dishes"] });
       toast({ title: "Success", description: "Dish created successfully" });
-      form.reset({
-        name: "",
-        description: "",
-        category: "pork",
-        tags: [],
-        imageUrl: "",
-        additionalCost: 0,
-        isAvailable: true,
-        sortOrder: 0,
-      });
+      setIsDialogOpen(false); // Close dialog on success
+      form.reset();
     },
   });
 
@@ -102,6 +94,7 @@ export default function AdminDishes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/dishes"] });
       toast({ title: "Success", description: "Dish updated successfully" });
+      setIsDialogOpen(false); // Close dialog on success
       setEditingDish(null);
     },
   });
@@ -116,6 +109,29 @@ export default function AdminDishes() {
     },
   });
 
+  // Helper to open dialog for NEW dish
+  const handleAddNew = () => {
+    setEditingDish(null);
+    form.reset({
+      name: "",
+      description: "",
+      category: "pork",
+      tags: [],
+      imageUrl: "",
+      additionalCost: 0,
+      isAvailable: true,
+      sortOrder: 0,
+    });
+    setIsDialogOpen(true);
+  };
+
+  // Helper to open dialog for EDITING dish
+  const handleEdit = (dish: Dish) => {
+    setEditingDish(dish);
+    form.reset(dish);
+    setIsDialogOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center p-8">
@@ -128,114 +144,95 @@ export default function AdminDishes() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-heading font-bold text-primary">Menu Management</h1>
-        <div className="flex gap-2">
-          <Dialog onOpenChange={(open) => {
-            if (!open) {
-              setEditingDish(null);
-              form.reset({
-                name: "",
-                description: "",
-                category: "pork",
-                tags: [],
-                imageUrl: "",
-                additionalCost: 0,
-                isAvailable: true,
-                sortOrder: 0,
-              });
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Menu Item
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingDish ? "Edit Menu Item" : "Add New Menu Item"}
-                </DialogTitle>
-              </DialogHeader>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit((data) => {
-                    if (editingDish) {
-                      updateMutation.mutate({ id: editingDish.id, data });
-                    } else {
-                      createMutation.mutate(data);
-                    }
-                  })}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter dish name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {MENU_CATEGORIES.map((cat) => (
-                              <SelectItem key={cat.value} value={cat.value}>
-                                {cat.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter brief description" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full bg-primary"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                  >
-                    {createMutation.isPending || updateMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    {editingDish ? "Update Menu Item" : "Create Menu Item"}
-                  </Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
+        <Button onClick={handleAddNew} className="bg-primary hover:bg-primary/90">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Menu Item
+        </Button>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingDish ? "Edit Menu Item" : "Add New Menu Item"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit((data) => {
+                if (editingDish) {
+                  updateMutation.mutate({ id: editingDish.id, data });
+                } else {
+                  createMutation.mutate(data);
+                }
+              })}
+              className="space-y-4"
+            >
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter dish name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {MENU_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter description" {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full bg-primary"
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {(createMutation.isPending || updateMutation.isPending) && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
+                {editingDish ? "Update Menu Item" : "Create Menu Item"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {MENU_CATEGORIES.map((category) => {
         const categoryDishes = dishes?.filter((d) => d.category === category.value) || [];
@@ -265,10 +262,7 @@ export default function AdminDishes() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-primary"
-                        onClick={() => {
-                          setEditingDish(dish);
-                          form.reset(dish);
-                        }}
+                        onClick={() => handleEdit(dish)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
