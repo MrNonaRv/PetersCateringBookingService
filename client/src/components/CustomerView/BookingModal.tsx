@@ -519,7 +519,7 @@ export default function BookingModal({
       (s) => s.id === selectedServiceIdValue,
     );
     const totalPrice = selectedPackage
-      ? selectedPackage.pricePerPerson
+      ? selectedPackage.pricePerPerson * guestCount
       : (selectedService?.basePrice || 0) * guestCount;
 
     const selectedDishNames = dishes
@@ -658,6 +658,20 @@ export default function BookingModal({
             </p>
           </div>
         </div>
+
+        {bookingType === "standard" && (
+          <div className="border-t pt-4 mt-6">
+            <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
+              <div>
+                <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Estimated Total Price</p>
+                <p className="text-xs text-gray-400">Final price will be confirmed upon review</p>
+              </div>
+              <p className="text-3xl font-bold text-primary">
+                {formatPrice(totalPrice)}
+              </p>
+            </div>
+          </div>
+        )}
 
         <FormField
           control={form.control}
