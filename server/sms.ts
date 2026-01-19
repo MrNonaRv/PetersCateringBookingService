@@ -69,7 +69,7 @@ export async function sendBookingConfirmation(params: {
   eventType: string;
   totalPrice: number;
 }): Promise<SMSResult> {
-  const message = `Hi ${params.customerName}! Your catering booking request (${params.bookingReference}) has been received. Event: ${params.eventType} on ${params.eventDate}. Total: PHP ${(params.totalPrice / 100).toLocaleString()}. We'll contact you shortly to confirm. - Peter's Creation Catering`;
+  const message = `Hi ${params.customerName}! Your catering request ${params.bookingReference} for ${params.eventType} on ${params.eventDate} has been received. We will call you shortly. - Peters Creation Catering`;
 
   return sendSMS(params.customerPhone, message);
 }
@@ -81,13 +81,7 @@ export async function sendBookingApproved(params: {
   depositAmount: number;
   paymentLink?: string;
 }): Promise<SMSResult> {
-  let message = `Good news, ${params.customerName}! Your booking (${params.bookingReference}) has been approved! Please pay the deposit of PHP ${(params.depositAmount / 100).toLocaleString()} to confirm your reservation.`;
-
-  if (params.paymentLink) {
-    message += ` Pay online: ${params.paymentLink}`;
-  }
-
-  message += ` - Peter's Creation Catering`;
+  const message = `Hi ${params.customerName}! Great news - your catering reservation ${params.bookingReference} is approved. We will call you to discuss the next steps. - Peters Creation Catering`;
 
   return sendSMS(params.customerPhone, message);
 }
@@ -99,7 +93,7 @@ export async function sendDepositReceived(params: {
   amountPaid: number;
   remainingBalance: number;
 }): Promise<SMSResult> {
-  const message = `Thank you, ${params.customerName}! We've received your deposit of PHP ${(params.amountPaid / 100).toLocaleString()} for booking ${params.bookingReference}. Remaining balance: PHP ${(params.remainingBalance / 100).toLocaleString()}. Your event is now confirmed! - Peter's Creation Catering`;
+  const message = `Hi ${params.customerName}! Thank you, we received your reservation fee for ${params.bookingReference}. Your event is now scheduled. We will be in touch! - Peters Creation Catering`;
 
   return sendSMS(params.customerPhone, message);
 }
@@ -112,7 +106,7 @@ export async function sendPaymentReminder(params: {
   eventDate: string;
   daysUntilEvent: number;
 }): Promise<SMSResult> {
-  const message = `Hi ${params.customerName}! Friendly reminder: Your catering event is on ${params.eventDate} (${params.daysUntilEvent} days away). Outstanding balance: PHP ${(params.balanceAmount / 100).toLocaleString()}. Please settle before the event. Ref: ${params.bookingReference} - Peter's Creation Catering`;
+  const message = `Hi ${params.customerName}! Reminder: Your catering event ${params.bookingReference} is on ${params.eventDate}. Please call us if you have any questions. - Peters Creation Catering`;
 
   return sendSMS(params.customerPhone, message);
 }
@@ -125,7 +119,7 @@ export async function sendEventReminder(params: {
   eventTime: string;
   venueAddress: string;
 }): Promise<SMSResult> {
-  const message = `Hi ${params.customerName}! Reminder: Your catering event is tomorrow (${params.eventDate}) at ${params.eventTime}. Venue: ${params.venueAddress}. We look forward to serving you! Ref: ${params.bookingReference} - Peter's Creation Catering`;
+  const message = `Hi ${params.customerName}! Reminder: Your catering event is tomorrow at ${params.eventTime}. We look forward to serving you! Ref: ${params.bookingReference} - Peters Creation Catering`;
 
   return sendSMS(params.customerPhone, message);
 }
@@ -135,7 +129,7 @@ export async function sendBookingCancelled(params: {
   customerName: string;
   bookingReference: string;
 }): Promise<SMSResult> {
-  const message = `Hi ${params.customerName}, your booking (${params.bookingReference}) has been cancelled as requested. If you have any questions or would like to rebook, please contact us. - Peter's Creation Catering`;
+  const message = `Hi ${params.customerName}, your reservation ${params.bookingReference} has been cancelled. Please contact us if you have questions or want to rebook. - Peters Creation Catering`;
 
   return sendSMS(params.customerPhone, message);
 }
