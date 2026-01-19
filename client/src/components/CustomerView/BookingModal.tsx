@@ -110,6 +110,7 @@ const bookingFormSchema = z
     preferredContactMethod: z.enum(["phone", "email", "sms"]).default("phone"),
     selectedDishes: z.array(z.number()).default([]),
     specialRequests: z.string().optional(),
+    theme: z.string().optional(),
     budget: z.number().optional(),
     termsAgreed: z.boolean().refine((val) => val === true, {
       message: "You must agree to the terms and conditions",
@@ -365,6 +366,7 @@ export default function BookingModal({
         guestCount: data.guestCount,
         venueAddress: data.venueAddress,
         budget: data.budget || 0,
+        theme: data.theme || "",
         preferences: "",
         specialRequests: data.specialRequests || "",
       };
@@ -634,6 +636,15 @@ export default function BookingModal({
                     </Badge>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {bookingType === "custom" && form.getValues("theme") && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-bold text-sm text-gray-500 mb-2">
+                  EVENT THEME
+                </h4>
+                <p className="text-sm">{form.getValues("theme")}</p>
               </div>
             )}
 
@@ -1027,6 +1038,43 @@ export default function BookingModal({
                   </FormItem>
                 )}
               />
+
+              {bookingType === "custom" && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="theme"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Event Theme</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Enchanted Forest, Modern Minimalist" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="budget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estimated Budget (₱)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Enter your budget" 
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
 
               <FormField
                 control={form.control}
