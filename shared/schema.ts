@@ -193,6 +193,17 @@ export const recentEvents = pgTable("recent_events", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Payment account settings
+export const paymentSettings = pgTable("payment_settings", {
+  id: serial("id").primaryKey(),
+  paymentMethod: text("payment_method").notNull().unique(), // gcash, paymaya, bank_bdo, bank_bpi, etc.
+  accountName: text("account_name").notNull(),
+  accountNumber: text("account_number").notNull(),
+  isActive: boolean("is_active").default(true),
+  instructions: text("instructions"), // Additional payment instructions
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Gallery images for Peter's creations
 export const galleryImages = pgTable("gallery_images", {
   id: serial("id").primaryKey(),
@@ -282,6 +293,11 @@ export const insertBookingAddOnSchema = createInsertSchema(bookingAddOns).omit({
   id: true,
 });
 
+export const insertPaymentSettingSchema = createInsertSchema(paymentSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -327,6 +343,9 @@ export type BookingDish = typeof bookingDishes.$inferSelect;
 
 export type InsertBookingAddOn = z.infer<typeof insertBookingAddOnSchema>;
 export type BookingAddOn = typeof bookingAddOns.$inferSelect;
+
+export type InsertPaymentSetting = z.infer<typeof insertPaymentSettingSchema>;
+export type PaymentSetting = typeof paymentSettings.$inferSelect;
 
 // Define relations
 export const usersRelations = relations(users, ({ many }) => ({

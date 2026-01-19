@@ -10,7 +10,8 @@ import {
   insertCustomerSchema,
   insertRecentEventSchema,
   insertGalleryImageSchema,
-  insertDishSchema
+  insertDishSchema,
+  insertPaymentSettingSchema
 } from "@shared/schema";
 import multer from "multer";
 import path from "path";
@@ -981,6 +982,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Update payment error:", error);
       res.status(500).json({ message: "Error updating payment status" });
+    }
+  });
+
+  // Payment Settings Routes (all routes require authentication for security)
+  app.get("/api/payment-settings", isAuthenticated, async (req, res) => {
+    try {
+      const settings = await storage.getPaymentSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching payment settings:", error);
+      res.status(500).json({ message: "Error fetching payment settings" });
+    }
+  });
+
+  app.get("/api/payment-settings/:method", isAuthenticated, async (req, res) => {
+    try {
+      const setting = await storage.getPaymentSetting(req.params.method);
+      if (!setting) {
+        return res.status(404).json({ message: "Payment setting not found" });
+      }
+      res.json(setting);
+    } catch (error) {
+      console.error("Error fetching payment setting:", error);
+      res.status(500).json({ message: "Error fetching payment setting" });
+    }
+  });
+
+  app.post("/api/payment-settings", isAuthenticated, async (req, res) => {
+    try {
+      const settingData = insertPaymentSettingSchema.parse(req.body);
+      const setting = await storage.upsertPaymentSetting(settingData);
+      res.status(201).json(setting);
+    } catch (error: any) {
+      console.error("Error creating payment setting:", error);
+      res.status(400).json({ message: error.message || "Invalid payment setting data" });
+    }
+  });
+
+  app.put("/api/payment-settings/:method", isAuthenticated, async (req, res) => {
+    try {
+      const settingData = { ...req.body, paymentMethod: req.params.method };
+      const setting = await storage.upsertPaymentSetting(settingData);
+      res.json(setting);
+    } catch (error: any) {
+      console.error("Error updating payment setting:", error);
+      res.status(400).json({ message: error.message || "Invalid payment setting data" });
+    }
+  });
+
+  app.delete("/api/payment-settings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deletePaymentSetting(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Payment setting not found" });
+      }
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting payment setting:", error);
+      res.status(500).json({ message: "Error deleting payment setting" });
     }
   });
 

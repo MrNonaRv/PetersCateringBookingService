@@ -14,6 +14,7 @@ import AdminGallery from "@/pages/admin/gallery";
 import AdminCustomers from "@/pages/admin/customers";
 import AdminRecentEvents from "@/pages/admin/recent-events";
 import AdminMenu from "@/pages/admin/menu";
+import AdminSettings from "@/pages/admin/settings";
 import Login from "@/pages/login";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/providers/ProtectedRoute";
@@ -75,6 +76,11 @@ function App() {
             <Route path="/admin/menu" component={() => 
               <ProtectedRoute>
                 <AdminMenu />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/settings" component={() => 
+              <ProtectedRoute>
+                <AdminSettings />
               </ProtectedRoute>
             } />
             <Route component={NotFound} />

@@ -63,6 +63,16 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
       return res.json();
     }
   });
+
+  // Fetch payment settings
+  const { data: paymentSettings = [] } = useQuery({
+    queryKey: ['/api/payment-settings'],
+  });
+
+  const getPaymentSettingForMethod = (method: string) => {
+    // Only return settings that are active
+    return paymentSettings.find((s: any) => s.paymentMethod === method && s.isActive);
+  };
   
   // Paginate bookings
   const paginatedBookings = bookings ? bookings.slice((page - 1) * pageSize, page * pageSize) : [];
@@ -141,9 +151,22 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
         // Calculate deposit amount (50% of total)
         const depositAmount = Math.round(selectedBooking.totalPrice * 0.5);
         
-        // Build payment link message
+        // Get payment account details from saved settings
+        const paymentSetting = getPaymentSettingForMethod(paymentMethod);
+        const accountName = paymentSetting?.accountName || '';
+        const accountNumber = paymentSetting?.accountNumber || '';
+        const instructions = paymentSetting?.instructions || '';
+        
+        // Build payment link message - use custom input or saved settings
         let fullPaymentLink = paymentLink;
-        if (!fullPaymentLink && paymentMethod !== 'cash') {
+        if (!fullPaymentLink && accountName && accountNumber) {
+          // Build payment details from saved settings
+          const methodLabel = paymentMethod === 'gcash' ? 'GCash' : 
+                             paymentMethod === 'paymaya' ? 'PayMaya' :
+                             paymentMethod === 'bank_bdo' ? 'BDO' :
+                             paymentMethod === 'bank_bpi' ? 'BPI' : 'Cash';
+          fullPaymentLink = `${methodLabel}: ${accountName} - ${accountNumber}`;
+        } else if (!fullPaymentLink && paymentMethod !== 'cash') {
           fullPaymentLink = `Pay via ${paymentMethod.toUpperCase()}`;
         }
         
@@ -155,7 +178,10 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           bookingReference: selectedBooking.bookingReference,
           depositAmount,
           paymentLink: fullPaymentLink,
-          paymentMethod
+          paymentMethod,
+          accountName,
+          accountNumber,
+          instructions
         });
         
         const smsData = await smsResult.json();
@@ -605,39 +631,83 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                       <SelectContent>
                         <SelectItem value="gcash">GCash</SelectItem>
                         <SelectItem value="paymaya">PayMaya</SelectItem>
-                        <SelectItem value="bank_transfer">Bank Transfer (BDO/BPI)</SelectItem>
+                        <SelectItem value="bank_bdo">BDO Bank Transfer</SelectItem>
+                        <SelectItem value="bank_bpi">BPI Bank Transfer</SelectItem>
                         <SelectItem value="cash">Cash on Event Day</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {paymentMethod !== 'cash' && (
-                    <div className="space-y-2">
-                      <Label>Payment Link / Account Number (Optional)</Label>
-                      <Input
-                        placeholder={
-                          paymentMethod === 'gcash' ? 'e.g., https://gcash.com/pay/yourname or 09XX XXX XXXX' :
-                          paymentMethod === 'paymaya' ? 'e.g., https://paymaya.me/yourname or 09XX XXX XXXX' :
-                          'e.g., BDO Account: 1234-5678-9012'
-                        }
-                        value={paymentLink}
-                        onChange={(e) => setPaymentLink(e.target.value)}
-                      />
-                      <p className="text-xs text-gray-500">
-                        This will be included in the SMS sent to the customer
-                      </p>
-                    </div>
-                  )}
+                  {paymentMethod !== 'cash' && (() => {
+                    const savedSetting = getPaymentSettingForMethod(paymentMethod);
+                    return (
+                      <div className="space-y-3">
+                        {savedSetting && savedSetting.accountName && savedSetting.accountNumber ? (
+                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-gray-500 font-medium">Saved Account (from Settings)</span>
+                              <span className="text-xs text-green-600">Will be used</span>
+                            </div>
+                            <p className="font-medium text-gray-800">{savedSetting.accountName}</p>
+                            <p className="text-sm text-gray-600">{savedSetting.accountNumber}</p>
+                            {savedSetting.instructions && (
+                              <p className="text-xs text-gray-500 mt-1">{savedSetting.instructions}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <p className="text-sm text-yellow-800">
+                              No account saved for this payment method. 
+                              <a href="/admin/settings" className="text-blue-600 underline ml-1">Configure in Settings</a>
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="space-y-2">
+                          <Label>Override Payment Details (Optional)</Label>
+                          <Input
+                            placeholder="Leave empty to use saved account"
+                            value={paymentLink}
+                            onChange={(e) => setPaymentLink(e.target.value)}
+                          />
+                          <p className="text-xs text-gray-500">
+                            Only fill this if you want to use different details than saved settings
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-800 mb-2">Preview Message</h4>
-                    <p className="text-sm text-blue-700">
-                      Good news, {selectedBooking.customer?.name}! Your booking ({selectedBooking.bookingReference}) has been approved! 
-                      Please pay the deposit of ₱{(selectedBooking.totalPrice / 200).toLocaleString()} to confirm your reservation.
-                      {paymentLink ? ` Pay online: ${paymentLink}` : paymentMethod !== 'cash' ? ` Pay via ${paymentMethod.toUpperCase()}` : ' Payment accepted on event day.'}
-                      {' '}- Peter's Creation Catering
-                    </p>
-                  </div>
+                  {(() => {
+                    const savedSetting = getPaymentSettingForMethod(paymentMethod);
+                    const methodLabel = paymentMethod === 'gcash' ? 'GCash' : 
+                                       paymentMethod === 'paymaya' ? 'PayMaya' :
+                                       paymentMethod === 'bank_bdo' ? 'BDO' :
+                                       paymentMethod === 'bank_bpi' ? 'BPI' : 'Cash';
+                    
+                    let paymentDetails = '';
+                    if (paymentLink) {
+                      paymentDetails = ` Pay: ${paymentLink}`;
+                    } else if (savedSetting?.accountName && savedSetting?.accountNumber) {
+                      paymentDetails = ` Send to ${methodLabel}: ${savedSetting.accountName} - ${savedSetting.accountNumber}`;
+                    } else if (paymentMethod !== 'cash') {
+                      paymentDetails = ` Pay via ${methodLabel}`;
+                    } else {
+                      paymentDetails = ' Payment accepted on event day.';
+                    }
+                    
+                    return (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="font-medium text-blue-800 mb-2">Preview Message</h4>
+                        <p className="text-sm text-blue-700">
+                          Good news, {selectedBooking.customer?.name}! Your booking ({selectedBooking.bookingReference}) has been approved! 
+                          Please pay the deposit of ₱{(selectedBooking.totalPrice / 200).toLocaleString()} to confirm your reservation.
+                          {paymentDetails}
+                          {' '}- Peter's Creation Catering
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
 

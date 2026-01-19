@@ -109,3 +109,10 @@ Booking statuses: `pending_approval` → `approved` → `deposit_paid` → `full
   - Send custom messages from admin dashboard
 - **Admin UI**: SMS button in BookingsTable allows admins to approve bookings and send payment links in one action
 - **Phone Format**: Automatically formats Philippine mobile numbers (09XX → +639XX)
+
+### Payment Settings
+- **Admin Settings Page**: `/admin/settings` for configuring payment accounts
+- **Saved Payment Accounts**: Stored in `payment_settings` table for GCash, PayMaya, BDO, BPI, and Cash
+- **Integration with SMS**: When approving bookings, saved payment account details are auto-populated in the SMS message
+- **Override Option**: Admin can override saved settings per booking if needed
+- **Fields per Payment Method**: Account Name, Account Number/Mobile Number, Instructions, Active status

@@ -12,6 +12,7 @@ import {
   dishes, type Dish, type InsertDish,
   addOns, type AddOn, type InsertAddOn,
   customQuotes, type CustomQuote, type InsertCustomQuote,
+  paymentSettings, type PaymentSetting, type InsertPaymentSetting,
   type BookingWithCustomer,
   type CustomQuoteWithCustomer
 } from "@shared/schema";
@@ -100,6 +101,12 @@ export interface IStorage {
   getCustomQuoteByReference(reference: string): Promise<CustomQuoteWithCustomer | undefined>;
   createCustomQuote(quote: InsertCustomQuote, customer: InsertCustomer): Promise<CustomQuoteWithCustomer>;
   updateCustomQuoteStatus(id: number, status: string, updates?: Partial<InsertCustomQuote>): Promise<CustomQuote | undefined>;
+
+  // Payment settings operations
+  getPaymentSettings(): Promise<PaymentSetting[]>;
+  getPaymentSetting(paymentMethod: string): Promise<PaymentSetting | undefined>;
+  upsertPaymentSetting(setting: InsertPaymentSetting): Promise<PaymentSetting>;
+  deletePaymentSetting(id: number): Promise<boolean>;
 }
 
 // Using MemStorage temporarily until database connection is fixed
@@ -637,6 +644,23 @@ export class MemStorage implements IStorage {
 
   async updateCustomQuoteStatus(id: number, status: string, updates?: Partial<InsertCustomQuote>): Promise<CustomQuote | undefined> {
     return undefined;
+  }
+
+  // Payment settings operations (stub implementations)
+  async getPaymentSettings(): Promise<PaymentSetting[]> {
+    return [];
+  }
+
+  async getPaymentSetting(paymentMethod: string): Promise<PaymentSetting | undefined> {
+    return undefined;
+  }
+
+  async upsertPaymentSetting(setting: InsertPaymentSetting): Promise<PaymentSetting> {
+    throw new Error("Payment settings not implemented in MemStorage");
+  }
+
+  async deletePaymentSetting(id: number): Promise<boolean> {
+    return false;
   }
 }
 
@@ -1236,6 +1260,36 @@ export class DatabaseStorage implements IStorage {
       .where(eq(customQuotes.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // Payment settings operations
+  async getPaymentSettings(): Promise<PaymentSetting[]> {
+    return db.select().from(paymentSettings).orderBy(paymentSettings.paymentMethod);
+  }
+
+  async getPaymentSetting(paymentMethod: string): Promise<PaymentSetting | undefined> {
+    const [setting] = await db.select().from(paymentSettings).where(eq(paymentSettings.paymentMethod, paymentMethod));
+    return setting || undefined;
+  }
+
+  async upsertPaymentSetting(setting: InsertPaymentSetting): Promise<PaymentSetting> {
+    const existing = await this.getPaymentSetting(setting.paymentMethod);
+    if (existing) {
+      const [updated] = await db
+        .update(paymentSettings)
+        .set({ ...setting, updatedAt: new Date() })
+        .where(eq(paymentSettings.paymentMethod, setting.paymentMethod))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(paymentSettings).values(setting).returning();
+      return created;
+    }
+  }
+
+  async deletePaymentSetting(id: number): Promise<boolean> {
+    const result = await db.delete(paymentSettings).where(eq(paymentSettings.id, id)).returning({ deletedId: paymentSettings.id });
+    return result.length > 0;
   }
 }
 

@@ -149,10 +149,15 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
           {!collapsed && <span>Profile</span>}
         </a>
         
-        <a className="flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition cursor-pointer">
-          <i className="fas fa-cog mr-3"></i>
-          {!collapsed && <span>Settings</span>}
-        </a>
+        <Link href="/admin/settings">
+          <a className={cn(
+            "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition cursor-pointer",
+            isActive('/admin/settings') && "bg-white bg-opacity-10"
+          )}>
+            <i className="fas fa-cog mr-3"></i>
+            {!collapsed && <span>Payment Settings</span>}
+          </a>
+        </Link>
         
         <a 
           className="flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition cursor-pointer"
