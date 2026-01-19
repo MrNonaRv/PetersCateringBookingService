@@ -65,13 +65,13 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
   });
 
   // Fetch payment settings
-  const { data: paymentSettings = [] } = useQuery({
+  const { data: paymentSettings = [] } = useQuery<any[]>({
     queryKey: ['/api/payment-settings'],
   });
 
   const getPaymentSettingForMethod = (method: string) => {
     // Only return settings that are active
-    return paymentSettings.find((s: any) => s.paymentMethod === method && s.isActive);
+    return paymentSettings.find((s) => s.paymentMethod === method && s.isActive);
   };
   
   // Paginate bookings

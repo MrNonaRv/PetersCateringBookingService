@@ -513,13 +513,15 @@ export default function BookingModal({
   useEffect(() => {
     if (isOpen && currentStep === 5 && !selectedServiceIdValue) {
       const eventType = form.getValues("eventType");
-      const matchedService = services.find(
-        (s) =>
-          s.name.toLowerCase().includes(eventType.toLowerCase()) ||
-          eventType.toLowerCase().includes(s.name.toLowerCase()),
-      );
-      if (matchedService) {
-        form.setValue("serviceId", matchedService.id);
+      if (eventType) {
+        const matchedService = services.find(
+          (s) =>
+            s.name.toLowerCase().includes(eventType.toLowerCase()) ||
+            eventType.toLowerCase().includes(s.name.toLowerCase()),
+        );
+        if (matchedService) {
+          form.setValue("serviceId", matchedService.id);
+        }
       }
     }
   }, [currentStep, isOpen, services, form, selectedServiceIdValue]);

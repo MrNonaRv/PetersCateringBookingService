@@ -546,6 +546,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Custom quote request endpoint
+  app.post("/api/custom-quotes", async (req, res) => {
+    try {
+      const { quote, customer } = req.body;
+      
+      // Prepare customer data
+      const customerWithDefaults = {
+        ...customer,
+        company: customer.company || ""
+      };
+      
+      const customerData = insertCustomerSchema.parse(customerWithDefaults);
+      
+      // Generate a unique quote reference
+      const quoteReference = `PCQ-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      
+      // Prepare quote data
+      const quoteData = {
+        quoteReference,
+        eventDate: quote.eventDate,
+        eventTime: quote.eventTime || "TBD",
+        eventType: quote.eventType || "custom",
+        guestCount: quote.guestCount || 0,
+        venueAddress: quote.venueAddress || "",
+        budget: quote.budget || 0,
+        theme: quote.theme || "",
+        description: quote.description || "",
+        preferences: quote.preferences || "",
+        specialRequests: quote.specialRequests || "",
+        status: "pending",
+        quotedPrice: null,
+        notes: null,
+        customerId: 0
+      };
+      
+      const createdQuote = await storage.createCustomQuote(quoteData, customerData);
+      
+      res.json({ 
+        success: true, 
+        quoteReference: createdQuote.quoteReference,
+        quoteId: createdQuote.id
+      });
+    } catch (error) {
+      console.error("Custom quote creation error:", error);
+      res.status(400).json({ 
+        message: "Failed to submit quote request",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   app.patch("/api/bookings/:id/status", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

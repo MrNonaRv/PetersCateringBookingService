@@ -51,7 +51,18 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
     return { success: true, messageSid: result.sid };
   } catch (error: any) {
     console.error('Failed to send SMS:', error.message);
-    return { success: false, error: error.message };
+    
+    // Provide more helpful error messages for common issues
+    let errorMessage = error.message;
+    if (error.message.includes("combination of 'To' and/or 'From'")) {
+      errorMessage = "Your Twilio number cannot send SMS to Philippine numbers. Please upgrade to a paid Twilio account and get a Philippine-enabled number, or use a different SMS provider.";
+    } else if (error.code === 21211) {
+      errorMessage = "Invalid phone number format. Please check the customer's phone number.";
+    } else if (error.code === 21614) {
+      errorMessage = "The phone number is not a valid mobile number.";
+    }
+    
+    return { success: false, error: errorMessage };
   }
 }
 
