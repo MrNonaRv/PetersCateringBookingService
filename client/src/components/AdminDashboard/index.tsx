@@ -13,6 +13,7 @@ import CustomersManagement from "./CustomersManagement";
 import { RecentEventsManagement } from "./RecentEventsManagement";
 import AdminMenu from "@/pages/admin/menu";
 import PaymentSettingsManagement from "./PaymentSettingsManagement";
+import CustomQuotesManagement from "./CustomQuotesManagement";
 
 interface AdminDashboardProps {
   currentPage: string;
@@ -89,6 +90,9 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
 
       case "settings":
         return <PaymentSettingsManagement />;
+
+      case "quotes":
+        return <CustomQuotesManagement />;
 
       default:
         return <div>404 - Page not found</div>;

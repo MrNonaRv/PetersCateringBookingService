@@ -546,6 +546,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Custom quotes endpoints
+  app.get("/api/custom-quotes", isAuthenticated, async (req, res) => {
+    try {
+      const quotes = await storage.getCustomQuotes();
+      res.json(quotes);
+    } catch (error) {
+      console.error("Error fetching custom quotes:", error);
+      res.status(500).json({ message: "Error fetching custom quotes" });
+    }
+  });
+
+  app.get("/api/custom-quotes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const quote = await storage.getCustomQuote(id);
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      res.json(quote);
+    } catch (error) {
+      console.error("Error fetching custom quote:", error);
+      res.status(500).json({ message: "Error fetching custom quote" });
+    }
+  });
+
   // Custom quote request endpoint
   app.post("/api/custom-quotes", async (req, res) => {
     try {
@@ -594,6 +619,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to submit quote request",
         error: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  app.patch("/api/custom-quotes/:id/status", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, quotedPrice, notes } = req.body;
+      
+      const validStatuses = ["pending", "reviewing", "quoted", "accepted", "rejected", "expired"];
+      
+      if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const quote = await storage.updateCustomQuoteStatus(id, status, { proposedPrice: quotedPrice, adminNotes: notes });
+      
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      
+      res.json(quote);
+    } catch (error) {
+      console.error("Error updating custom quote:", error);
+      res.status(500).json({ message: "Error updating quote status" });
     }
   });
 
