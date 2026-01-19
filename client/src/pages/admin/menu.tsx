@@ -4,6 +4,15 @@ import { Dish } from "@shared/schema";
 import { insertDishSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
+import {
+  ArrowLeft,
+  Loader2,
+  Plus,
+  Pencil,
+  Trash2,
+  LayoutDashboard,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -12,32 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus, Pencil, Trash2, LayoutDashboard } from "lucide-react";
 
 const MENU_CATEGORIES = [
   { value: "pork", label: "Pork Menu" },
@@ -144,7 +127,14 @@ export default function AdminDishes() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-heading font-bold text-primary">Menu Management</h1>
+        <div className="flex items-center gap-4">
+          <Link href="/admin">
+            <Button variant="outline" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-heading font-bold text-primary">Menu Management</h1>
+        </div>
         <Button onClick={handleAddNew} className="bg-primary hover:bg-primary/90">
           <Plus className="h-4 w-4 mr-2" />
           Add Menu Item
