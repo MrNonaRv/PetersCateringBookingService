@@ -5,6 +5,8 @@ import { insertDishSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
   Loader2,
@@ -21,6 +23,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const MENU_CATEGORIES = [
   { value: "pork", label: "Pork Menu" },
@@ -231,14 +256,22 @@ export default function AdminDishes() {
 
         return (
           <div key={category.value} className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-700 border-b pb-2 flex items-center gap-2">
-              <span className="bg-primary/10 text-primary p-2 rounded-lg">
-                <LayoutDashboard className="h-5 w-5" />
-              </span>
-              {category.label}
-              <span className="text-sm font-normal text-gray-400 ml-2">
-                ({categoryDishes.length} items)
-              </span>
+            <h2 className="text-xl font-bold text-gray-700 border-b pb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="bg-primary/10 text-primary p-2 rounded-lg">
+                  <LayoutDashboard className="h-5 w-5" />
+                </span>
+                {category.label}
+                <span className="text-sm font-normal text-gray-400 ml-2">
+                  ({categoryDishes.length} items)
+                </span>
+              </div>
+              <Link href="/admin">
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+              </Link>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {categoryDishes.map((dish) => (
