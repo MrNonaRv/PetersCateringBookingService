@@ -1195,7 +1195,19 @@ export default function BookingModal({
       case 6:
         if (bookingType === "standard") {
           const selectedPackage = packages.find(p => p.id === selectedPackageId);
-          const isDebut = selectedPackage?.name.toLowerCase().includes("debut");
+          
+          // Improved logic to detect package requirements from features or name
+          const parseRequirement = (categoryLabel: string) => {
+            const lowerLabel = categoryLabel.toLowerCase();
+            const feature = selectedPackage?.features?.find(f => 
+              f.toLowerCase().includes(lowerLabel) && /\d/.test(f)
+            );
+            if (feature) {
+              const match = feature.match(/(\d+)/);
+              return match ? parseInt(match[1]) : 1;
+            }
+            return 1;
+          };
 
           const porkDishes = getDishesByCategory("Pork Menu");
           const chickenDishes = getDishesByCategory("Chicken Menu");
@@ -1207,12 +1219,12 @@ export default function BookingModal({
           const amenityDishes = getDishesByCategory("Freebies (Amenities)");
 
           const categories = [
-            { label: "Pork Menu", dishes: porkDishes, min: isDebut ? 1 : 1 },
-            { label: "Chicken Menu", dishes: chickenDishes, min: isDebut ? 1 : 1 },
-            { label: "Beef Menu", dishes: beefDishes, min: isDebut ? 1 : 1 },
-            { label: "Fish Menu", dishes: fishDishes, min: 1 },
-            { label: "Appetizers (Pasta/Vegetables)", dishes: appetizerDishes, min: isDebut ? 1 : 1 },
-            { label: "Dessert", dishes: dessertDishes, min: isDebut ? 1 : 1 },
+            { label: "Pork Menu", dishes: porkDishes, min: parseRequirement("Pork") },
+            { label: "Chicken Menu", dishes: chickenDishes, min: parseRequirement("Chicken") },
+            { label: "Beef Menu", dishes: beefDishes, min: parseRequirement("Beef") },
+            { label: "Fish Menu", dishes: fishDishes, min: parseRequirement("Fish") },
+            { label: "Appetizers (Pasta/Vegetables)", dishes: appetizerDishes, min: parseRequirement("Appetizer") },
+            { label: "Dessert", dishes: dessertDishes, min: parseRequirement("Dessert") },
             { label: "Standard Inclusions", dishes: inclusionDishes, min: 0 },
             { label: "Freebies (Amenities)", dishes: amenityDishes, min: 0 },
           ];
@@ -1223,18 +1235,16 @@ export default function BookingModal({
                 Select Your Menu
               </h3>
 
-              {isDebut && (
+              {selectedPackage && (
                 <div className="bg-primary/5 border border-primary/10 p-4 rounded-lg mb-4">
                   <p className="text-sm font-medium text-primary flex items-center gap-2">
                     <Info className="h-4 w-4" />
-                    Debut Package Requirements:
+                    {selectedPackage.name} Requirements:
                   </p>
                   <ul className="text-xs text-primary/80 mt-2 list-disc list-inside">
-                    <li>3 Main Courses of your choice (1 Pork, 1 Chicken, 1 Beef)</li>
-                    <li>1 Appetizer and 1 Dessert</li>
-                    <li>Steamed Rice (Included)</li>
-                    <li>1 Bottled Water and Coke Sakto (Included)</li>
-                    <li>2-layer themed cake (Included)</li>
+                    {selectedPackage.features?.map((feature, idx) => (
+                      <li key={idx}>{feature}</li>
+                    ))}
                   </ul>
                 </div>
               )}
