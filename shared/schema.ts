@@ -62,6 +62,7 @@ export const customQuotes = pgTable("custom_quotes", {
   venueAddress: text("venue_address").notNull(),
   budget: integer("budget"), // in cents, customer's budget range
   theme: text("theme"),
+  description: text("description"), // Client's description of the event
   preferences: text("preferences"), // dietary preferences, cuisine style
   specialRequests: text("special_requests"),
   status: text("status").notNull().default("new"), // 'new', 'quote_sent', 'accepted', 'revision_requested', 'rejected', 'approved', 'deposit_paid'

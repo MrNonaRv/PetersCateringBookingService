@@ -97,7 +97,6 @@ const bookingFormSchema = z
     eventDate: z.date({ required_error: "Please select a date" }),
     eventType: z.string().min(1, "Please select event type"),
     eventTime: z.string().min(1, "Please select event time"),
-    eventDuration: z.number().min(1).max(12).default(4),
     guestCount: z
       .number()
       .min(10, "Minimum 10 guests")
@@ -111,6 +110,7 @@ const bookingFormSchema = z
     selectedDishes: z.array(z.number()).default([]),
     specialRequests: z.string().optional(),
     theme: z.string().optional(),
+    description: z.string().optional(),
     budget: z.number().optional(),
     termsAgreed: z.boolean().refine((val) => val === true, {
       message: "You must agree to the terms and conditions",
@@ -219,7 +219,6 @@ export default function BookingModal({
       bookingType: "standard",
       serviceId: selectedServiceId || 0,
       guestCount: 100,
-      eventDuration: 4,
       selectedDishes: [],
       preferredContactMethod: "phone",
       termsAgreed: false,
@@ -316,7 +315,6 @@ export default function BookingModal({
         eventDate: data.eventDate.toISOString().split("T")[0],
         eventType: data.eventType,
         eventTime: data.eventTime,
-        eventDuration: data.eventDuration,
         guestCount: data.guestCount,
         venueAddress: data.venueAddress,
         menuPreference: "package",
@@ -367,6 +365,7 @@ export default function BookingModal({
         venueAddress: data.venueAddress,
         budget: data.budget || 0,
         theme: data.theme || "",
+        description: data.description || "",
         preferences: "",
         specialRequests: data.specialRequests || "",
       };
@@ -413,7 +412,6 @@ export default function BookingModal({
         "eventTime",
         "venueAddress",
         "guestCount",
-        "eventDuration",
       ];
     } else if (currentStep === 5 && bookingType === "standard") {
       fieldsToValidate = ["serviceId", "packageId"];
@@ -578,10 +576,6 @@ export default function BookingModal({
                   <span className="text-gray-500">Guests:</span> {guestCount}
                 </p>
                 <p>
-                  <span className="text-gray-500">Duration:</span>{" "}
-                  {form.getValues("eventDuration")} hours
-                </p>
-                <p>
                   <span className="text-gray-500">Venue:</span>{" "}
                   {form.getValues("venueAddress")}
                 </p>
@@ -645,6 +639,15 @@ export default function BookingModal({
                   EVENT THEME
                 </h4>
                 <p className="text-sm">{form.getValues("theme")}</p>
+              </div>
+            )}
+
+            {bookingType === "custom" && form.getValues("description") && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-bold text-sm text-gray-500 mb-2">
+                  EVENT DESCRIPTION
+                </h4>
+                <p className="text-sm whitespace-pre-wrap">{form.getValues("description")}</p>
               </div>
             )}
 
@@ -1067,6 +1070,23 @@ export default function BookingModal({
                             {...field} 
                             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                             value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Event Description</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Describe the event you want (e.g., style, atmosphere, specific requirements)" 
+                            className="min-h-[100px]"
+                            {...field} 
                           />
                         </FormControl>
                         <FormMessage />
