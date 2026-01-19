@@ -1194,6 +1194,9 @@ export default function BookingModal({
 
       case 6:
         if (bookingType === "standard") {
+          const selectedPackage = packages.find(p => p.id === selectedPackageId);
+          const isDebut = selectedPackage?.name.toLowerCase().includes("debut");
+
           const porkDishes = getDishesByCategory("Pork Menu");
           const chickenDishes = getDishesByCategory("Chicken Menu");
           const beefDishes = getDishesByCategory("Beef Menu");
@@ -1204,12 +1207,12 @@ export default function BookingModal({
           const amenityDishes = getDishesByCategory("Freebies (Amenities)");
 
           const categories = [
-            { label: "Pork Menu", dishes: porkDishes, min: 1 },
-            { label: "Chicken Menu", dishes: chickenDishes, min: 1 },
-            { label: "Beef Menu", dishes: beefDishes, min: 1 },
+            { label: "Pork Menu", dishes: porkDishes, min: isDebut ? 1 : 1 },
+            { label: "Chicken Menu", dishes: chickenDishes, min: isDebut ? 1 : 1 },
+            { label: "Beef Menu", dishes: beefDishes, min: isDebut ? 1 : 1 },
             { label: "Fish Menu", dishes: fishDishes, min: 1 },
-            { label: "Appetizers (Pasta/Vegetables)", dishes: appetizerDishes, min: 1 },
-            { label: "Dessert", dishes: dessertDishes, min: 1 },
+            { label: "Appetizers (Pasta/Vegetables)", dishes: appetizerDishes, min: isDebut ? 1 : 1 },
+            { label: "Dessert", dishes: dessertDishes, min: isDebut ? 1 : 1 },
             { label: "Standard Inclusions", dishes: inclusionDishes, min: 0 },
             { label: "Freebies (Amenities)", dishes: amenityDishes, min: 0 },
           ];
@@ -1219,6 +1222,22 @@ export default function BookingModal({
               <h3 className="text-xl font-heading text-primary mb-4">
                 Select Your Menu
               </h3>
+
+              {isDebut && (
+                <div className="bg-primary/5 border border-primary/10 p-4 rounded-lg mb-4">
+                  <p className="text-sm font-medium text-primary flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Debut Package Requirements:
+                  </p>
+                  <ul className="text-xs text-primary/80 mt-2 list-disc list-inside">
+                    <li>3 Main Courses of your choice (1 Pork, 1 Chicken, 1 Beef)</li>
+                    <li>1 Appetizer and 1 Dessert</li>
+                    <li>Steamed Rice (Included)</li>
+                    <li>1 Bottled Water and Coke Sakto (Included)</li>
+                    <li>2-layer themed cake (Included)</li>
+                  </ul>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2 mb-4">
                 {categories.map((cat) => (
