@@ -1,11 +1,29 @@
+import { useQuery } from "@tanstack/react-query";
+
 export default function About() {
+  const { data: images = [] } = useQuery<any[]>({
+    queryKey: ["/api/gallery-images", "about"],
+    queryFn: async () => {
+      const res = await fetch("/api/gallery-images?category=about");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const activeImage =
+    (images || []).reverse().find((img: any) => Boolean(img.isActive)) ||
+    (images || [])[0];
+
+  const fallback =
+    "https://images.unsplash.com/photo-1565538810643-b5bdb714032a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1280&h=720";
+
   return (
     <section id="about" className="py-16 bg-primary bg-opacity-5">
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center">
           <div className="md:w-1/2 mb-8 md:mb-0">
             <img 
-              src="https://pixabay.com/get/ge015d2a743e5580263d78ae78c25aa6d86f73010b7c9f34420cc3e07426043dce1c0384103ed008d7e9cace3d7fd69790a373db0424a1699a53745ee2bbacfa7_1280.jpg" 
+              src={activeImage ? `/uploads/${activeImage.filename}` : fallback}
               alt="About Peter's Creation Catering" 
               className="rounded-lg shadow-xl"
             />

@@ -49,6 +49,7 @@ export function RecentEventsManagement() {
   const [editingEvent, setEditingEvent] = useState<RecentEvent | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const { data: events, isLoading } = useQuery<RecentEvent[]>({
     queryKey: ["/api/recent-events"],
@@ -323,9 +324,54 @@ export function RecentEventsManagement() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Image URL</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="https://..." />
-                      </FormControl>
+                      <div className="space-y-2">
+                        <FormControl>
+                          <Input {...field} placeholder="https://..." />
+                        </FormControl>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              try {
+                                setUploadingImage(true);
+                                const fd = new FormData();
+                                fd.append("image", file);
+                                const res = await fetch("/api/upload-image", {
+                                  method: "POST",
+                                  body: fd,
+                                  credentials: "include",
+                                });
+                                if (!res.ok) throw new Error("Upload failed");
+                                const data = await res.json();
+                                form.setValue("imageUrl", data.url);
+                                toast({
+                                  title: "Image uploaded",
+                                  description: "Event image URL updated.",
+                                });
+                              } catch (err: any) {
+                                toast({
+                                  title: "Upload failed",
+                                  description: err.message || "Could not upload image.",
+                                  variant: "destructive",
+                                });
+                              } finally {
+                                setUploadingImage(false);
+                              }
+                            }}
+                          />
+                          {uploadingImage && <span className="text-sm">Uploading...</span>}
+                        </div>
+                        {field.value && (
+                          <img
+                            src={field.value}
+                            alt="Event image"
+                            className="w-full h-40 object-cover rounded border"
+                          />
+                        )}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}

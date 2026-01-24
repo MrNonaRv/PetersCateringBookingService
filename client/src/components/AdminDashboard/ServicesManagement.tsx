@@ -28,6 +28,8 @@ export default function ServicesManagement() {
   const [editedName, setEditedName] = useState<string>("");
   const [editedDescription, setEditedDescription] = useState<string>("");
   const [editedFeatured, setEditedFeatured] = useState<boolean>(false);
+  const [editedImageUrl, setEditedImageUrl] = useState<string>("");
+  const [uploadingImage, setUploadingImage] = useState<boolean>(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -65,18 +67,70 @@ export default function ServicesManagement() {
     },
   });
 
+  const createServiceMutation = useMutation({
+    mutationFn: async (service: Omit<Service, "id">) => {
+      const res = await apiRequest('POST', `/api/services`, service);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/services'] });
+      toast({
+        title: "Service created",
+        description: "The new service has been added successfully.",
+      });
+      setIsEditDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create the service. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('DELETE', `/api/services/${id}`);
+      return res.text();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/services'] });
+      toast({
+        title: "Service deleted",
+        description: "The service has been removed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete the service. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEditService = (service: Service) => {
     setCurrentService(service);
     setEditedName(service.name);
     setEditedDescription(service.description);
     setEditedPrice(String(Math.round(service.basePrice / 100)));
     setEditedFeatured(service.featured);
+    setEditedImageUrl(service.imageUrl);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCreateServiceOpen = () => {
+    setCurrentService(null);
+    setEditedName("");
+    setEditedDescription("");
+    setEditedPrice("");
+    setEditedFeatured(false);
+    setEditedImageUrl("");
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateService = () => {
-    if (!currentService) return;
-
     const priceInCents = parseInt(editedPrice, 10) * 100;
 
     if (isNaN(priceInCents)) {
@@ -88,13 +142,55 @@ export default function ServicesManagement() {
       return;
     }
 
-    updateServiceMutation.mutate({
-      id: currentService.id,
-      name: editedName,
-      description: editedDescription,
-      basePrice: priceInCents,
-      featured: editedFeatured,
-    });
+    if (currentService) {
+      updateServiceMutation.mutate({
+        id: currentService.id,
+        name: editedName,
+        description: editedDescription,
+        imageUrl: editedImageUrl,
+        basePrice: priceInCents,
+        featured: editedFeatured,
+      });
+    } else {
+      createServiceMutation.mutate({
+        name: editedName,
+        description: editedDescription,
+        imageUrl: editedImageUrl,
+        basePrice: priceInCents,
+        featured: editedFeatured,
+      });
+    }
+  };
+
+  const handleImageFileChange = async (file: File | null) => {
+    if (!file) return;
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/upload-image", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to upload image");
+      }
+      const data = await res.json();
+      setEditedImageUrl(data.url);
+      toast({
+        title: "Image uploaded",
+        description: "Service image updated. Remember to save changes.",
+      });
+    } catch (e) {
+      toast({
+        title: "Upload failed",
+        description: "Could not upload image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   return (
@@ -105,7 +201,7 @@ export default function ServicesManagement() {
         </CardHeader>
         <CardContent className="p-6">
           <div className="mb-4 flex justify-end">
-            <Button className="bg-primary">
+            <Button className="bg-primary" onClick={handleCreateServiceOpen}>
               <Plus className="mr-2 h-4 w-4" /> Add New Service
             </Button>
           </div>
@@ -154,7 +250,17 @@ export default function ServicesManagement() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            if (confirm(`Delete service "${service.name}"? This cannot be undone.`)) {
+                              deleteServiceMutation.mutate(service.id);
+                            }
+                          }}
+                          disabled={deleteServiceMutation.isPending}
+                        >
                           <Trash className="h-4 w-4" />
                         </Button>
                       </div>
@@ -170,7 +276,7 @@ export default function ServicesManagement() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Service</DialogTitle>
+            <DialogTitle>{currentService ? "Edit Service" : "Add Service"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
@@ -194,6 +300,29 @@ export default function ServicesManagement() {
                 onChange={(e) => setEditedDescription(e.target.value)}
                 className="col-span-3"
               />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right">
+                Image
+              </Label>
+              <div className="col-span-3 space-y-3">
+                {editedImageUrl && (
+                  <img
+                    src={editedImageUrl}
+                    alt="Service image"
+                    className="w-full h-40 object-cover rounded border"
+                  />
+                )}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null)}
+                />
+                <p className="text-xs text-gray-500">
+                  Upload replaces current image. Max 5MB. JPEG/PNG/GIF/WebP.
+                </p>
+                {uploadingImage && <span className="text-sm">Uploading...</span>}
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="price" className="text-right">
@@ -237,9 +366,9 @@ export default function ServicesManagement() {
             <Button 
               type="submit" 
               onClick={handleUpdateService}
-              disabled={updateServiceMutation.isPending}
+              disabled={updateServiceMutation.isPending || createServiceMutation.isPending}
             >
-              {updateServiceMutation.isPending ? "Saving..." : "Save Changes"}
+              {updateServiceMutation.isPending || createServiceMutation.isPending ? "Saving..." : (currentService ? "Save Changes" : "Create Service")}
             </Button>
           </DialogFooter>
         </DialogContent>

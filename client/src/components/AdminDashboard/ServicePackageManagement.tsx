@@ -33,6 +33,7 @@ interface ServicePackage {
   maxGuests: number | null;
   features: string[];
   isActive: boolean;
+  hasThemedCake: boolean;
   sortOrder: number;
 }
 
@@ -52,6 +53,7 @@ export default function ServicePackageManagement() {
     maxGuests: "",
     features: [""],
     isActive: true,
+    hasThemedCake: false,
     sortOrder: "0"
   });
 
@@ -160,6 +162,7 @@ export default function ServicePackageManagement() {
       maxGuests: "",
       features: [""],
       isActive: true,
+      hasThemedCake: false,
       sortOrder: "0"
     });
     setCurrentPackage(null);
@@ -181,6 +184,7 @@ export default function ServicePackageManagement() {
       maxGuests: pkg.maxGuests?.toString() || "",
       features: pkg.features.length > 0 ? pkg.features : [""],
       isActive: pkg.isActive,
+      hasThemedCake: pkg.hasThemedCake,
       sortOrder: pkg.sortOrder.toString()
     });
     setIsEditDialogOpen(true);
@@ -214,6 +218,7 @@ export default function ServicePackageManagement() {
       maxGuests: formData.maxGuests ? parseInt(formData.maxGuests) : null,
       features,
       isActive: formData.isActive,
+      hasThemedCake: formData.hasThemedCake,
       sortOrder: parseInt(formData.sortOrder)
     };
 
@@ -350,7 +355,7 @@ export default function ServicePackageManagement() {
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-secondary" />
                     <div>
-                      <p className="text-sm text-gray-600">Price per person</p>
+                      <p className="text-sm text-gray-600">Package Price</p>
                       <p className="font-bold text-secondary">{formatPrice(pkg.pricePerPerson)}</p>
                     </div>
                   </div>
@@ -445,7 +450,7 @@ export default function ServicePackageManagement() {
             {/* Price and Guest Settings */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="pricePerPerson">Price per Person (₱) *</Label>
+                <Label htmlFor="pricePerPerson">Package Price (₱) *</Label>
                 <Input
                   id="pricePerPerson"
                   type="number"
@@ -528,14 +533,25 @@ export default function ServicePackageManagement() {
               </div>
             </div>
 
-            {/* Active Status */}
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
-              />
-              <Label htmlFor="isActive">Package is active</Label>
+            {/* Active Status and Themed Cake */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isActive"
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+                />
+                <Label htmlFor="isActive">Package is active</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="hasThemedCake"
+                  checked={formData.hasThemedCake}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, hasThemedCake: checked }))}
+                />
+                <Label htmlFor="hasThemedCake">Includes Themed Cake (Ask client for theme)</Label>
+              </div>
             </div>
 
             <Separator />

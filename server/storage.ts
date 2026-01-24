@@ -11,6 +11,7 @@ import {
   capacityCalendar, type CapacityCalendar, type InsertCapacityCalendar,
   dishes, type Dish, type InsertDish,
   addOns, type AddOn, type InsertAddOn,
+  venues, type Venue, type InsertVenue,
   customQuotes, type CustomQuote, type InsertCustomQuote,
   paymentSettings, type PaymentSetting, type InsertPaymentSetting,
   type BookingWithCustomer,
@@ -31,7 +32,7 @@ export interface IStorage {
   createService(service: InsertService): Promise<Service>;
   updateService(id: number, service: Partial<InsertService>): Promise<Service | undefined>;
   deleteService(id: number): Promise<boolean>;
-  
+
   // Service package operations
   getServicePackages(): Promise<ServicePackage[]>;
   getServicePackagesByService(serviceId: number): Promise<ServicePackage[]>;
@@ -39,13 +40,13 @@ export interface IStorage {
   createServicePackage(servicePackage: InsertServicePackage): Promise<ServicePackage>;
   updateServicePackage(id: number, servicePackage: Partial<InsertServicePackage>): Promise<ServicePackage | undefined>;
   deleteServicePackage(id: number): Promise<boolean>;
-  
+
   // Availability operations
   getAvailabilities(): Promise<Availability[]>;
   getAvailability(date: string): Promise<Availability | undefined>;
   setAvailability(availability: InsertAvailability): Promise<Availability>;
   updateAvailability(id: number, availability: Partial<InsertAvailability>): Promise<Availability | undefined>;
-  
+
   // Booking operations
   getBookings(): Promise<BookingWithCustomer[]>;
   getBooking(id: number): Promise<BookingWithCustomer | undefined>;
@@ -53,18 +54,18 @@ export interface IStorage {
   createBooking(booking: InsertBooking, customer: InsertCustomer, selectedDishes?: number[]): Promise<BookingWithCustomer>;
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
   updateBookingPayment(id: number, paymentData: Partial<InsertBooking>): Promise<Booking | undefined>;
-  
+
   // Customer operations
   getCustomer(id: number): Promise<Customer | undefined>;
   getCustomerByEmail(email: string): Promise<Customer | undefined>;
-  
+
   // Recent events operations
   getRecentEvents(): Promise<RecentEvent[]>;
   getRecentEvent(id: number): Promise<RecentEvent | undefined>;
   createRecentEvent(event: InsertRecentEvent): Promise<RecentEvent>;
   updateRecentEvent(id: number, event: Partial<InsertRecentEvent>): Promise<RecentEvent | undefined>;
   deleteRecentEvent(id: number): Promise<boolean>;
-  
+
   // Gallery image operations
   getGalleryImages(): Promise<GalleryImage[]>;
   getGalleryImagesByCategory(category: string): Promise<GalleryImage[]>;
@@ -95,6 +96,13 @@ export interface IStorage {
   updateAddOn(id: number, addOn: Partial<InsertAddOn>): Promise<AddOn | undefined>;
   deleteAddOn(id: number): Promise<boolean>;
 
+  // Venue operations
+  getVenues(): Promise<Venue[]>;
+  getVenue(id: number): Promise<Venue | undefined>;
+  createVenue(venue: InsertVenue): Promise<Venue>;
+  updateVenue(id: number, venue: Partial<InsertVenue>): Promise<Venue | undefined>;
+  deleteVenue(id: number): Promise<boolean>;
+
   // Custom quote operations
   getCustomQuotes(): Promise<CustomQuoteWithCustomer[]>;
   getCustomQuote(id: number): Promise<CustomQuoteWithCustomer | undefined>;
@@ -116,6 +124,7 @@ export class MemStorage implements IStorage {
   private availabilities: Map<number, Availability>;
   private bookings: Map<number, Booking>;
   private customers: Map<number, Customer>;
+  private venues: Map<number, Venue>;
   private recentEvents: Map<number, RecentEvent>;
   private currentIds: {
     user: number;
@@ -123,6 +132,7 @@ export class MemStorage implements IStorage {
     availability: number;
     booking: number;
     customer: number;
+    venue: number;
     recentEvent: number;
   };
 
@@ -132,6 +142,7 @@ export class MemStorage implements IStorage {
     this.availabilities = new Map();
     this.bookings = new Map();
     this.customers = new Map();
+    this.venues = new Map();
     this.recentEvents = new Map();
     this.currentIds = {
       user: 1,
@@ -139,6 +150,7 @@ export class MemStorage implements IStorage {
       availability: 1,
       booking: 1,
       customer: 1,
+      venue: 1,
       recentEvent: 1
     };
 
@@ -154,7 +166,8 @@ export class MemStorage implements IStorage {
 
     // Initialize with sample catering services
     this.initializeServices();
-    
+    this.initializeVenues();
+
     // Initialize with availability for the next 60 days
     this.initializeAvailability();
   }
@@ -233,7 +246,7 @@ export class MemStorage implements IStorage {
   async setAvailability(insertAvailability: InsertAvailability): Promise<Availability> {
     // Check if availability for this date already exists
     const existingAvail = await this.getAvailability(insertAvailability.date.toString());
-    
+
     if (existingAvail) {
       // Update existing
       existingAvail.isAvailable = insertAvailability.isAvailable ?? null;
@@ -282,7 +295,7 @@ export class MemStorage implements IStorage {
 
     const customer = this.getCustomerByBookingId(id);
     const service = this.services.get(booking.serviceId);
-    
+
     return { 
       ...booking, 
       customer: customer as Customer,
@@ -298,7 +311,7 @@ export class MemStorage implements IStorage {
 
     const customer = this.getCustomerByBookingId(booking.id);
     const service = this.services.get(booking.serviceId);
-    
+
     return { 
       ...booking, 
       customer: customer as Customer,
@@ -314,18 +327,19 @@ export class MemStorage implements IStorage {
       id: customerId,
       company: insertCustomer.company ?? null
     };
-    
+
     this.customers.set(customerId, customer);
-    
+
     // Create booking with customer ID
     const bookingId = this.currentIds.booking++;
     const bookingReference = `PCC-${Math.floor(10000 + Math.random() * 90000)}`;
-    
+
     const booking: Booking = { 
       ...insertBooking, 
       id: bookingId,
       customerId,
       bookingReference,
+      venueId: insertBooking.venueId ?? null,
       packageId: insertBooking.packageId ?? null,
       eventDuration: insertBooking.eventDuration ?? 4,
       status: insertBooking.status || "pending_approval",
@@ -345,15 +359,16 @@ export class MemStorage implements IStorage {
       paymentMethod: insertBooking.paymentMethod ?? null,
       paymentReference: insertBooking.paymentReference ?? null,
       adminNotes: insertBooking.adminNotes ?? null,
+      theme: insertBooking.theme ?? null,
       createdAt: new Date()
     };
-    
+
     this.bookings.set(bookingId, booking);
-    
+
     // Note: selectedDishes not persisted in MemStorage (would need bookingDishes map)
-    
+
     const service = this.services.get(booking.serviceId) as Service;
-    
+
     return { 
       ...booking, 
       customer,
@@ -495,17 +510,41 @@ export class MemStorage implements IStorage {
     for (let i = 0; i < 60; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      
+
       // Make some random dates unavailable (for demo purposes)
       // In a real app, this would be based on actual bookings
       const isAvailable = Math.random() > 0.15; // 15% chance of being unavailable
-      
+
       this.setAvailability({
         date: date.toISOString().split('T')[0] as any,
         isAvailable,
         notes: isAvailable ? "" : "Fully booked"
       });
     }
+  }
+
+  private initializeVenues(): void {
+    this.createVenue({
+      name: "CASA AMPARO (Occasion Venue)",
+      address: "Casa Amparo, Local City",
+      description: "Perfect for occasions, includes basic amenities.",
+      capacityMin: 80,
+      capacityMax: 100,
+      price: 500000, // 5000 pesos in cents
+      type: "venue",
+      isAvailable: true
+    });
+
+    this.createVenue({
+      name: "CASA AMPARO (Room)",
+      address: "Casa Amparo, Local City",
+      description: "Private room accommodation.",
+      capacityMin: 1,
+      capacityMax: 10,
+      price: 0, // Need to clarify price, setting to 0 for now or maybe it's an add-on?
+      type: "room",
+      isAvailable: true
+    });
   }
 
   // Service package operations (stub implementations)
@@ -623,6 +662,43 @@ export class MemStorage implements IStorage {
 
   async deleteAddOn(id: number): Promise<boolean> {
     return false;
+  }
+
+  // Venue operations
+  async getVenues(): Promise<Venue[]> {
+    return Array.from(this.venues.values());
+  }
+
+  async getVenue(id: number): Promise<Venue | undefined> {
+    return this.venues.get(id);
+  }
+
+  async createVenue(insertVenue: InsertVenue): Promise<Venue> {
+    const id = this.currentIds.venue++;
+    const venue: Venue = { 
+      ...insertVenue, 
+      id,
+      description: insertVenue.description || null,
+      capacityMin: insertVenue.capacityMin || 0,
+      capacityMax: insertVenue.capacityMax || null,
+      imageUrl: insertVenue.imageUrl || null,
+      type: insertVenue.type || "venue",
+      isAvailable: insertVenue.isAvailable ?? true
+    };
+    this.venues.set(id, venue);
+    return venue;
+  }
+
+  async updateVenue(id: number, venueUpdate: Partial<InsertVenue>): Promise<Venue | undefined> {
+    const existing = this.venues.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...venueUpdate };
+    this.venues.set(id, updated);
+    return updated;
+  }
+
+  async deleteVenue(id: number): Promise<boolean> {
+    return this.venues.delete(id);
   }
 
   // Custom quote operations (stub implementations)
@@ -743,7 +819,7 @@ export class DatabaseStorage implements IStorage {
   async setAvailability(insertAvailability: InsertAvailability): Promise<Availability> {
     // Check if availability for the date already exists
     const existingAvailability = await this.getAvailability(insertAvailability.date);
-    
+
     if (existingAvailability) {
       // Update existing record
       const [updated] = await db
@@ -774,7 +850,7 @@ export class DatabaseStorage implements IStorage {
   async getBookings(): Promise<BookingWithCustomer[]> {
     // Get all bookings
     const bookingsData = await db.select().from(bookings);
-    
+
     // Fetch the related data for each booking
     const result: BookingWithCustomer[] = await Promise.all(
       bookingsData.map(async (booking) => {
@@ -783,7 +859,7 @@ export class DatabaseStorage implements IStorage {
           .select()
           .from(customers)
           .where(eq(customers.id, booking.customerId));
-        
+
         // Get service data (handle null serviceId for custom quotes)
         let service = null;
         if (booking.serviceId) {
@@ -793,7 +869,7 @@ export class DatabaseStorage implements IStorage {
             .where(eq(services.id, booking.serviceId));
           service = serviceData;
         }
-        
+
         // Get package data
         let packageData = null;
         if (booking.packageId) {
@@ -803,17 +879,41 @@ export class DatabaseStorage implements IStorage {
             .where(eq(servicePackages.id, booking.packageId));
           packageData = pkg;
         }
-        
+
+        // Get venue data
+        let venue = null;
+        if (booking.venueId) {
+          const [venueData] = await db
+            .select()
+            .from(venues)
+            .where(eq(venues.id, booking.venueId));
+          venue = venueData;
+        }
+
+        // Get selected dishes
+        const dishesResult = await db
+          .select()
+          .from(bookingDishes)
+          .innerJoin(dishes, eq(bookingDishes.dishId, dishes.id))
+          .where(eq(bookingDishes.bookingId, booking.id));
+
+        const selectedDishes = dishesResult.map(({ dishes: dish, booking_dishes: bd }) => ({
+          ...dish,
+          quantity: bd.quantity || 1
+        }));
+
         // Combine the data
         return {
           ...booking,
           customer,
           service,
-          package: packageData
+          package: packageData,
+          venue,
+          selectedDishes
         };
       })
     );
-    
+
     return result;
   }
 
@@ -822,15 +922,15 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(bookings)
       .where(eq(bookings.id, id));
-    
+
     if (!booking) return undefined;
-    
+
     // Get customer data
     const [customer] = await db
       .select()
       .from(customers)
       .where(eq(customers.id, booking.customerId));
-    
+
     // Get service data (handle null serviceId for custom quotes)
     let service = null;
     if (booking.serviceId) {
@@ -840,7 +940,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(services.id, booking.serviceId));
       service = serviceData;
     }
-    
+
     // Get package data
     let packageData = null;
     if (booking.packageId) {
@@ -850,12 +950,36 @@ export class DatabaseStorage implements IStorage {
         .where(eq(servicePackages.id, booking.packageId));
       packageData = pkg;
     }
-    
+
+    // Get venue data
+    let venue = null;
+    if (booking.venueId) {
+      const [venueData] = await db
+        .select()
+        .from(venues)
+        .where(eq(venues.id, booking.venueId));
+      venue = venueData;
+    }
+
+    // Get selected dishes
+    const dishesResult = await db
+      .select()
+      .from(bookingDishes)
+      .innerJoin(dishes, eq(bookingDishes.dishId, dishes.id))
+      .where(eq(bookingDishes.bookingId, booking.id));
+
+    const selectedDishes = dishesResult.map(({ dishes: dish, booking_dishes: bd }) => ({
+      ...dish,
+      quantity: bd.quantity || 1
+    }));
+
     return {
       ...booking,
       customer,
       service,
-      package: packageData
+      package: packageData,
+      venue,
+      selectedDishes
     };
   }
 
@@ -864,15 +988,15 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(bookings)
       .where(eq(bookings.bookingReference, reference));
-    
+
     if (!booking) return undefined;
-    
+
     // Get customer data
     const [customer] = await db
       .select()
       .from(customers)
       .where(eq(customers.id, booking.customerId));
-    
+
     // Get service data (handle null serviceId for custom quotes)
     let service = null;
     if (booking.serviceId) {
@@ -882,7 +1006,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(services.id, booking.serviceId));
       service = serviceData;
     }
-    
+
     // Get package data
     let packageData = null;
     if (booking.packageId) {
@@ -892,12 +1016,36 @@ export class DatabaseStorage implements IStorage {
         .where(eq(servicePackages.id, booking.packageId));
       packageData = pkg;
     }
-    
+
+    // Get venue data
+    let venue = null;
+    if (booking.venueId) {
+      const [venueData] = await db
+        .select()
+        .from(venues)
+        .where(eq(venues.id, booking.venueId));
+      venue = venueData;
+    }
+
+    // Get selected dishes
+    const dishesResult = await db
+      .select()
+      .from(bookingDishes)
+      .innerJoin(dishes, eq(bookingDishes.dishId, dishes.id))
+      .where(eq(bookingDishes.bookingId, booking.id));
+
+    const selectedDishes = dishesResult.map(({ dishes: dish, booking_dishes: bd }) => ({
+      ...dish,
+      quantity: bd.quantity || 1
+    }));
+
     return {
       ...booking,
       customer,
       service,
-      package: packageData
+      package: packageData,
+      venue,
+      selectedDishes
     };
   }
 
@@ -908,7 +1056,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(customers)
       .where(eq(customers.email, insertCustomer.email));
-    
+
     if (existingCustomer) {
       // Update existing customer information
       const [updatedCustomer] = await db
@@ -925,18 +1073,18 @@ export class DatabaseStorage implements IStorage {
         .returning();
       customer = newCustomer;
     }
-    
+
     // Create booking with the customer ID
     const bookingWithCustomerId = {
       ...insertBooking,
       customerId: customer.id
     };
-    
+
     const [booking] = await db
       .insert(bookings)
       .values(bookingWithCustomerId)
       .returning();
-    
+
     // Save selected dishes if provided
     if (selectedDishes && selectedDishes.length > 0) {
       const dishInserts = selectedDishes.map(dishId => ({
@@ -946,14 +1094,14 @@ export class DatabaseStorage implements IStorage {
       }));
       await db.insert(bookingDishes).values(dishInserts);
     }
-    
+
     // Update capacity calendar for the event date
     const eventDateStr = insertBooking.eventDate;
     const [existingCapacity] = await db
       .select()
       .from(capacityCalendar)
       .where(eq(capacityCalendar.date, eventDateStr));
-    
+
     if (existingCapacity) {
       // Increment booked slots
       await db
@@ -971,13 +1119,13 @@ export class DatabaseStorage implements IStorage {
           bookedSlots: 1
         });
     }
-    
+
     // Get service data
     const [service] = await db
       .select()
       .from(services)
       .where(eq(services.id, booking.serviceId));
-    
+
     return {
       ...booking,
       customer,
@@ -1253,6 +1401,35 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+  // Venue operations
+  async getVenues(): Promise<Venue[]> {
+    return db.select().from(venues).orderBy(venues.name);
+  }
+
+  async getVenue(id: number): Promise<Venue | undefined> {
+    const [venue] = await db.select().from(venues).where(eq(venues.id, id));
+    return venue || undefined;
+  }
+
+  async createVenue(insertVenue: InsertVenue): Promise<Venue> {
+    const [venue] = await db.insert(venues).values(insertVenue).returning();
+    return venue;
+  }
+
+  async updateVenue(id: number, venueUpdate: Partial<InsertVenue>): Promise<Venue | undefined> {
+    const [updated] = await db
+      .update(venues)
+      .set(venueUpdate)
+      .where(eq(venues.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteVenue(id: number): Promise<boolean> {
+    const result = await db.delete(venues).where(eq(venues.id, id)).returning({ deletedId: venues.id });
+    return result.length > 0;
+  }
+
   // Custom quote operations
   async getCustomQuotes(): Promise<CustomQuoteWithCustomer[]> {
     const quotesData = await db.select().from(customQuotes).orderBy(desc(customQuotes.createdAt));
@@ -1288,13 +1465,13 @@ export class DatabaseStorage implements IStorage {
       const [newCustomer] = await db.insert(customers).values(insertCustomer).returning();
       customer = newCustomer;
     }
-    
+
     const quoteReference = `PCQ-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
     const [quote] = await db
       .insert(customQuotes)
       .values({ ...insertQuote, customerId: customer.id, quoteReference })
       .returning();
-    
+
     return { ...quote, customer };
   }
 

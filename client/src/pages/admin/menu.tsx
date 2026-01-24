@@ -82,7 +82,7 @@ export default function AdminDishes() {
       name: "",
       description: "",
       category: "pork",
-      tags: [],
+      tags: [] as string[],
       imageUrl: "",
       additionalCost: 0,
       isAvailable: true,
@@ -145,7 +145,15 @@ export default function AdminDishes() {
   // Helper to open dialog for EDITING dish
   const handleEdit = (dish: Dish) => {
     setEditingDish(dish);
-    form.reset(dish);
+    form.reset({
+      ...dish,
+      description: dish.description || "",
+      tags: dish.tags || [],
+      imageUrl: dish.imageUrl || "",
+      additionalCost: dish.additionalCost || 0,
+      isAvailable: dish.isAvailable ?? true,
+      sortOrder: dish.sortOrder || 0
+    });
     setIsDialogOpen(true);
   };
 

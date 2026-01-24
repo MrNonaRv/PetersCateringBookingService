@@ -50,6 +50,20 @@ export const addOns = pgTable("add_ons", {
   isAvailable: boolean("is_available").default(true),
 });
 
+// Venues table
+export const venues = pgTable("venues", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  address: text("address").notNull(),
+  capacityMin: integer("capacity_min").default(0),
+  capacityMax: integer("capacity_max"),
+  price: integer("price").notNull(), // in cents
+  type: text("type").notNull().default("venue"), // 'venue', 'room', etc.
+  imageUrl: text("image_url"),
+  isAvailable: boolean("is_available").default(true),
+});
+
 // Custom quote requests
 export const customQuotes = pgTable("custom_quotes", {
   id: serial("id").primaryKey(),
@@ -121,6 +135,7 @@ export const servicePackages = pgTable("service_packages", {
   minGuests: integer("min_guests").notNull().default(10),
   maxGuests: integer("max_guests"), // null = no limit
   features: text("features").array(), // array of features included
+  hasThemedCake: boolean("has_themed_cake").default(false),
   isActive: boolean("is_active").default(true),
   sortOrder: integer("sort_order").default(0), // for ordering packages
 });
@@ -158,6 +173,7 @@ export const bookings = pgTable("bookings", {
   menuPreference: text("menu_preference").notNull(),
   serviceStyle: text("service_style").notNull(),
   additionalServices: text("additional_services"),
+  theme: text("theme"), // Theme for the cake or event if applicable
   specialRequests: text("special_requests"),
   status: text("status").notNull().default("pending_approval"), // pending_approval, approved, deposit_paid, fully_paid, confirmed, completed, cancelled
   totalPrice: integer("total_price").notNull(), // in cents
@@ -277,6 +293,10 @@ export const insertAddOnSchema = createInsertSchema(addOns).omit({
   id: true,
 });
 
+export const insertVenueSchema = createInsertSchema(venues).omit({
+  id: true,
+});
+
 export const insertCustomQuoteSchema = createInsertSchema(customQuotes).omit({
   id: true,
   createdAt: true,
@@ -331,6 +351,9 @@ export type Dish = typeof dishes.$inferSelect;
 
 export type InsertAddOn = z.infer<typeof insertAddOnSchema>;
 export type AddOn = typeof addOns.$inferSelect;
+
+export type InsertVenue = z.infer<typeof insertVenueSchema>;
+export type Venue = typeof venues.$inferSelect;
 
 export type InsertCustomQuote = z.infer<typeof insertCustomQuoteSchema>;
 export type CustomQuote = typeof customQuotes.$inferSelect;
@@ -436,6 +459,8 @@ export type BookingWithCustomer = Booking & {
   customer: Customer;
   service: Service | null;
   package?: ServicePackage | null;
+  venue?: Venue | null;
+  selectedDishes?: (Dish & { quantity: number })[];
 };
 
 // Combined quote with customer data

@@ -167,6 +167,19 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
     }
   };
 
+  // Helper to group dishes by category
+  const groupDishesByCategory = (dishes: any[]) => {
+    if (!dishes) return {};
+    return dishes.reduce((acc, dish) => {
+      const category = dish.category;
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(dish);
+      return acc;
+    }, {} as Record<string, any[]>);
+  };
+
   // Open SMS dialog
   const openSmsDialog = (booking: any, type: 'approve' | 'reminder' | 'custom') => {
     setSelectedBooking(booking);
@@ -504,7 +517,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           </DialogHeader>
 
           {selectedBooking && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="text-lg font-medium mb-4">Booking Information</h3>
                 <div className="space-y-2">
@@ -534,6 +548,11 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                   <div>
                     <span className="font-medium">Menu Preference:</span> {selectedBooking.menuPreference}
                   </div>
+                  {selectedBooking.theme && (
+                    <div>
+                      <span className="font-medium">Theme:</span> {selectedBooking.theme}
+                    </div>
+                  )}
                   <div>
                     <span className="font-medium">Service Style:</span> {selectedBooking.serviceStyle}
                   </div>
@@ -584,6 +603,28 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                   <p className="mt-1">{selectedBooking.venueAddress}</p>
                 </div>
               </div>
+            </div>
+
+            {selectedBooking.selectedDishes && selectedBooking.selectedDishes.length > 0 && (
+              <div className="mt-8 border-t pt-6">
+                 <h3 className="text-lg font-medium mb-4">Menu Selection</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                   {Object.entries(groupDishesByCategory(selectedBooking.selectedDishes)).map(([category, dishes]) => (
+                     <div key={category} className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <h4 className="font-semibold capitalize mb-2 text-primary">{category}</h4>
+                        <ul className="space-y-1">
+                          {(dishes as any[]).map((dish, idx) => (
+                            <li key={idx} className="text-sm flex justify-between">
+                              <span>{dish.name}</span>
+                              {dish.quantity > 1 && <span className="text-gray-500 text-xs">x{dish.quantity}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                     </div>
+                   ))}
+                 </div>
+              </div>
+            )}
             </div>
           )}
 
@@ -803,10 +844,10 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <h4 className="font-medium text-blue-800 mb-2">Preview Message</h4>
                         <p className="text-sm text-blue-700">
-                          Good news, {selectedBooking.customer?.name}! Your booking ({selectedBooking.bookingReference}) has been approved! 
-                          Please pay the deposit of ₱{(selectedBooking.totalPrice / 200).toLocaleString()} to confirm your reservation.
+                          Hi {selectedBooking.customer?.name}, booking {selectedBooking.bookingReference} approved. 
+                          Down payment: ₱{(selectedBooking.totalPrice / 200).toLocaleString()}.
                           {paymentDetails}
-                          {' '}- Peter's Creation Catering
+                          {' '}- Peters Catering
                         </p>
                       </div>
                     );
@@ -818,9 +859,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <h4 className="font-medium text-orange-800 mb-2">Reminder Message Preview</h4>
                   <p className="text-sm text-orange-700">
-                  Hi {selectedBooking.customer?.name}! Friendly reminder: Your catering event is on {parseLocalYMD(selectedBooking.eventDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}. 
-                    Outstanding balance: ₱{((selectedBooking.balanceAmount || (selectedBooking.totalPrice - (selectedBooking.depositAmount || 0))) / 100).toLocaleString()}. 
-                    Please settle before the event. Ref: {selectedBooking.bookingReference} - Peter's Creation Catering
+                    Hi {selectedBooking.customer?.name}, upcoming event on {parseLocalYMD(selectedBooking.eventDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}. 
+                    Ref: {selectedBooking.bookingReference}. See you soon! - Peters Catering
                   </p>
                 </div>
               )}

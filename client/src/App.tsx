@@ -17,6 +17,7 @@ import AdminMenu from "@/pages/admin/menu";
 import AdminSettings from "@/pages/admin/settings";
 import AdminQuotes from "@/pages/admin/quotes";
 import AdminProfile from "@/pages/admin/profile";
+import AdminAbout from "@/pages/admin/about";
 import Login from "@/pages/login";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/providers/ProtectedRoute";
@@ -83,6 +84,11 @@ function App() {
             <Route path="/admin/settings" component={() => 
               <ProtectedRoute>
                 <AdminSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/about" component={() => 
+              <ProtectedRoute>
+                <AdminAbout />
               </ProtectedRoute>
             } />
             <Route path="/admin/profile" component={() => 

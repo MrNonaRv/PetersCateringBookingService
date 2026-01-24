@@ -77,15 +77,15 @@ export default function BudgetInquiry({ services, onSelectService, onCustomInqui
     return `₱${Math.round(priceInCents / 100).toLocaleString("en-PH")}`;
   };
 
-  const calculateTotalCostPesos = (service: Service, guests: number) => {
+  const calculateTotalCost = (service: Service, guests: number) => {
     return Math.round((service.basePrice * guests) / 100);
   };
 
   useEffect(() => {
     // Filter services based on budget and guest count
     const filteredServices = services.filter(service => {
-      const totalCostPesos = calculateTotalCostPesos(service, guestCount);
-      return totalCostPesos <= budget;
+      const totalCost = calculateTotalCost(service, guestCount);
+      return totalCost <= budget;
     });
 
     setRecommendations(filteredServices.slice(0, 3)); // Show top 3 recommendations

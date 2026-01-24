@@ -1,17 +1,18 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { 
-  insertUserSchema, 
-  insertServiceSchema, 
+import {
+  insertUserSchema,
+  insertServiceSchema,
   insertServicePackageSchema,
-  insertAvailabilitySchema, 
-  insertBookingSchema, 
+  insertAvailabilitySchema,
+  insertBookingSchema,
   insertCustomerSchema,
   insertRecentEventSchema,
   insertGalleryImageSchema,
   insertDishSchema,
-  insertPaymentSettingSchema
+  insertVenueSchema,
+  insertPaymentSettingSchema,
 } from "../shared/schema";
 import multer from "multer";
 import path from "path";
@@ -21,16 +22,20 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
-import { createCheckoutSession, getCheckoutSession, isPaymongoConfigured } from "./paymongo";
-import { 
-  isSMSConfigured, 
-  sendBookingConfirmation, 
-  sendBookingApproved, 
+import {
+  createCheckoutSession,
+  getCheckoutSession,
+  isPaymongoConfigured,
+} from "./paymongo";
+import {
+  isSMSConfigured,
+  sendBookingConfirmation,
+  sendBookingApproved,
   sendDepositReceived,
   sendPaymentReminder,
   sendEventReminder,
   sendCustomMessage,
-  sendBookingCancelled 
+  sendBookingCancelled,
 } from "./sms";
 
 const MemorySessionStore = MemoryStore(session);
@@ -38,20 +43,25 @@ const MemorySessionStore = MemoryStore(session);
 export async function registerRoutes(app: Express): Promise<Server> {
   const autoCancelTimers = new Map<number, NodeJS.Timeout>();
   // Serve static files from uploads directory
-  app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
+  app.use(
+    "/uploads",
+    express.static(path.join(process.cwd(), "public", "uploads")),
+  );
 
   // Setup session middleware
-  app.use(session({
-    secret: process.env.SESSION_SECRET || "peter-creation-catering-secret",
-    resave: false,
-    saveUninitialized: false,
-    store: new MemorySessionStore({
-      checkPeriod: 86400000 // prune expired entries every 24h
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || "peter-creation-catering-secret",
+      resave: false,
+      saveUninitialized: false,
+      store: new MemorySessionStore({
+        checkPeriod: 86400000, // prune expired entries every 24h
+      }),
+      cookie: {
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      },
     }),
-    cookie: {
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-  }));
+  );
 
   // Set up authentication
   setupAuthentication(app);
@@ -128,7 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dishes", async (req, res) => {
     try {
       const { category } = req.query;
-      if (category && typeof category === 'string') {
+      if (category && typeof category === "string") {
         const dishes = await storage.getDishesByCategory(category);
         res.json(dishes);
       } else {
@@ -181,8 +191,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/service-packages", async (req, res) => {
     try {
       const { serviceId } = req.query;
-      if (serviceId && typeof serviceId === 'string') {
-        const packages = await storage.getServicePackagesByService(parseInt(serviceId));
+      if (serviceId && typeof serviceId === "string") {
+        const packages = await storage.getServicePackagesByService(
+          parseInt(serviceId),
+        );
         res.json(packages);
       } else {
         const packages = await storage.getServicePackages();
@@ -232,7 +244,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const packageData = insertServicePackageSchema.partial().parse(req.body);
-      const servicePackage = await storage.updateServicePackage(id, packageData);
+      const servicePackage = await storage.updateServicePackage(
+        id,
+        packageData,
+      );
 
       if (!servicePackage) {
         return res.status(404).json({ message: "Service package not found" });
@@ -259,6 +274,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Venues routes
+  app.get("/api/venues", async (req, res) => {
+    try {
+      const venues = await storage.getVenues();
+      res.json(venues);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching venues" });
+    }
+  });
+
+  app.get("/api/venues/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const venue = await storage.getVenue(id);
+      if (!venue) {
+        return res.status(404).json({ message: "Venue not found" });
+      }
+      res.json(venue);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching venue" });
+    }
+  });
+
+  // Protected admin routes for venues
+  app.post("/api/venues", isAuthenticated, async (req, res) => {
+    try {
+      const venueData = insertVenueSchema.parse(req.body);
+      const venue = await storage.createVenue(venueData);
+      res.status(201).json(venue);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid venue data" });
+    }
+  });
+
+  app.put("/api/venues/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const venueData = insertVenueSchema.partial().parse(req.body);
+      const venue = await storage.updateVenue(id, venueData);
+      if (!venue) {
+        return res.status(404).json({ message: "Venue not found" });
+      }
+      res.json(venue);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid venue data" });
+    }
+  });
+
+  app.delete("/api/venues/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteVenue(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Venue not found" });
+      }
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting venue" });
+    }
+  });
+
   // Gallery images routes
   // Setup multer for file upload
   const uploadDir = path.join(process.cwd(), "public", "uploads");
@@ -272,28 +348,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cb(null, uploadDir);
       },
       filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9);
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
         const ext = path.extname(file.originalname);
         cb(null, file.fieldname + "-" + uniqueSuffix + ext);
-      }
+      },
     }),
     fileFilter: (req, file, cb) => {
-      const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      const allowedMimes = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
       if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'));
+        cb(
+          new Error(
+            "Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.",
+          ),
+        );
       }
     },
     limits: {
-      fileSize: 5 * 1024 * 1024 // 5MB limit
-    }
+      fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
   });
+
+  // Generic single image upload (returns public URL)
+  app.post(
+    "/api/upload-image",
+    isAuthenticated,
+    upload.single("image"),
+    async (req, res) => {
+      try {
+        const file = req.file as Express.Multer.File | undefined;
+        if (!file) {
+          return res.status(400).json({ message: "No image uploaded" });
+        }
+        const publicUrl = `/uploads/${file.filename}`;
+        res.status(201).json({ url: publicUrl, filename: file.filename });
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        res.status(400).json({ message: "Error uploading image" });
+      }
+    },
+  );
 
   app.get("/api/gallery-images", async (req, res) => {
     try {
       const category = req.query.category as string;
-      const images = category 
+      const images = category
         ? await storage.getGalleryImagesByCategory(category)
         : await storage.getGalleryImages();
       res.json(images);
@@ -317,39 +422,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/gallery-images", isAuthenticated, upload.array('images', 10), async (req, res) => {
-    try {
-      const files = req.files as Express.Multer.File[];
-      if (!files || files.length === 0) {
-        return res.status(400).json({ message: "No images uploaded" });
+  app.post(
+    "/api/gallery-images",
+    isAuthenticated,
+    upload.array("images", 10),
+    async (req, res) => {
+      try {
+        const files = req.files as Express.Multer.File[];
+        if (!files || files.length === 0) {
+          return res.status(400).json({ message: "No images uploaded" });
+        }
+
+        const { title, description, category } = req.body;
+
+        const uploadedImages = [];
+
+        for (const file of files) {
+          const imageData = {
+            title: title || file.originalname,
+            description: description || "",
+            filename: file.filename,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            category: category || "general",
+            isActive: true,
+          };
+
+          const image = await storage.createGalleryImage(imageData);
+          uploadedImages.push(image);
+        }
+
+        res.status(201).json(uploadedImages);
+      } catch (error) {
+        console.error("Error uploading images:", error);
+        res.status(400).json({ message: "Error uploading images" });
       }
-
-      const { title, description, category } = req.body;
-
-      const uploadedImages = [];
-
-      for (const file of files) {
-        const imageData = {
-          title: title || file.originalname,
-          description: description || "",
-          filename: file.filename,
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
-          category: category || "general",
-          isActive: true
-        };
-
-        const image = await storage.createGalleryImage(imageData);
-        uploadedImages.push(image);
-      }
-
-      res.status(201).json(uploadedImages);
-    } catch (error) {
-      console.error("Error uploading images:", error);
-      res.status(400).json({ message: "Error uploading images" });
-    }
-  });
+    },
+  );
 
   app.put("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
     try {
@@ -443,7 +553,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const capacity = await storage.getCapacityByDate(date);
 
       if (!capacity) {
-        return res.json({ date, bookedSlots: 0, maxSlots: 7, dayType: 'normal' });
+        return res.json({
+          date,
+          bookedSlots: 0,
+          maxSlots: 7,
+          dayType: "normal",
+        });
       }
 
       res.json(capacity);
@@ -516,7 +631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentMethod: booking.paymentMethod || null,
         paymentReference: booking.paymentReference || null,
         menuPreference: booking.menuPreference || "package",
-        serviceStyle: booking.serviceStyle || "buffet"
+        serviceStyle: booking.serviceStyle || "buffet",
       };
 
       console.log("Prepared booking data:", bookingWithDefaults);
@@ -524,7 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prepare customer data
       const customerWithDefaults = {
         ...customer,
-        company: customer.company || ""
+        company: customer.company || "",
       };
 
       console.log("Prepared customer data:", customerWithDefaults);
@@ -533,7 +648,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bookingData = insertBookingSchema.parse(bookingWithDefaults);
       const customerData = insertCustomerSchema.parse(customerWithDefaults);
 
-      const createdBooking = await storage.createBooking(bookingData, customerData, selectedDishes);
+      const createdBooking = await storage.createBooking(
+        bookingData,
+        customerData,
+        selectedDishes,
+      );
       res.status(201).json(createdBooking);
     } catch (error) {
       console.error("Booking creation error:", error);
@@ -541,9 +660,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error details:", error.message);
         console.error("Error stack:", error.stack);
       }
-      res.status(400).json({ 
+      res.status(400).json({
         message: "Invalid booking data",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   });
@@ -581,7 +700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prepare customer data
       const customerWithDefaults = {
         ...customer,
-        company: customer.company || ""
+        company: customer.company || "",
       };
 
       const customerData = insertCustomerSchema.parse(customerWithDefaults);
@@ -605,48 +724,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "pending",
         quotedPrice: null,
         notes: null,
-        customerId: 0
+        customerId: 0,
       };
 
-      const createdQuote = await storage.createCustomQuote(quoteData, customerData);
+      const createdQuote = await storage.createCustomQuote(
+        quoteData,
+        customerData,
+      );
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         quoteReference: createdQuote.quoteReference,
-        quoteId: createdQuote.id
+        quoteId: createdQuote.id,
       });
     } catch (error) {
       console.error("Custom quote creation error:", error);
-      res.status(400).json({ 
+      res.status(400).json({
         message: "Failed to submit quote request",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   });
 
-  app.patch("/api/custom-quotes/:id/status", isAuthenticated, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const { status, quotedPrice, notes } = req.body;
+  app.patch(
+    "/api/custom-quotes/:id/status",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const { status, quotedPrice, notes } = req.body;
 
-      const validStatuses = ["pending", "reviewing", "quoted", "accepted", "rejected", "expired"];
+        const validStatuses = [
+          "pending",
+          "reviewing",
+          "quoted",
+          "accepted",
+          "rejected",
+          "expired",
+        ];
 
-      if (!status || !validStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
+        if (!status || !validStatuses.includes(status)) {
+          return res.status(400).json({ message: "Invalid status" });
+        }
+
+        const quote = await storage.updateCustomQuoteStatus(id, status, {
+          proposedPrice: quotedPrice,
+          adminNotes: notes,
+        });
+
+        if (!quote) {
+          return res.status(404).json({ message: "Quote not found" });
+        }
+
+        res.json(quote);
+      } catch (error) {
+        console.error("Error updating custom quote:", error);
+        res.status(500).json({ message: "Error updating quote status" });
       }
-
-      const quote = await storage.updateCustomQuoteStatus(id, status, { proposedPrice: quotedPrice, adminNotes: notes });
-
-      if (!quote) {
-        return res.status(404).json({ message: "Quote not found" });
-      }
-
-      res.json(quote);
-    } catch (error) {
-      console.error("Error updating custom quote:", error);
-      res.status(500).json({ message: "Error updating quote status" });
-    }
-  });
+    },
+  );
 
   app.patch("/api/bookings/:id/status", isAuthenticated, async (req, res) => {
     try {
@@ -654,15 +790,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status } = req.body;
 
       const validStatuses = [
-        "pending", 
-        "pending_approval", 
-        "approved", 
-        "deposit_paid", 
-        "fully_paid", 
-        "confirmed", 
+        "pending",
+        "pending_approval",
+        "approved",
+        "deposit_paid",
+        "fully_paid",
+        "confirmed",
         "scheduled",
-        "completed", 
-        "cancelled"
+        "completed",
+        "cancelled",
       ];
 
       if (!status || !validStatuses.includes(status)) {
@@ -677,31 +813,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Schedule auto-cancel when approved; clear when paid/confirmed/cancelled
       if (booking) {
-        if (status === 'approved') {
-          const deadlineIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        if (status === "approved") {
+          const deadlineIso = new Date(
+            Date.now() + 24 * 60 * 60 * 1000,
+          ).toISOString();
           let notes: any = {};
-          try { notes = booking.adminNotes ? JSON.parse(booking.adminNotes) : {}; } catch {}
+          try {
+            notes = booking.adminNotes ? JSON.parse(booking.adminNotes) : {};
+          } catch {}
           notes.autoCancelDeadline = deadlineIso;
-          await storage.updateBookingPayment(id, { adminNotes: JSON.stringify(notes) });
+          await storage.updateBookingPayment(id, {
+            adminNotes: JSON.stringify(notes),
+          });
           if (autoCancelTimers.has(id)) clearTimeout(autoCancelTimers.get(id)!);
-          const t = setTimeout(async () => {
-            try {
-              const latest = await storage.getBooking(id);
-              if (!latest) return;
-              if (latest.status === 'cancelled') return;
-              if (latest.depositPaid) return;
-              await storage.updateBookingStatus(id, 'cancelled');
-              await sendBookingCancelled({
-                customerPhone: latest.customer.phone,
-                customerName: latest.customer.name,
-                bookingReference: latest.bookingReference
-              });
-            } finally {
-              autoCancelTimers.delete(id);
-            }
-          }, 24 * 60 * 60 * 1000);
+          const t = setTimeout(
+            async () => {
+              try {
+                const latest = await storage.getBooking(id);
+                if (!latest) return;
+                if (latest.status === "cancelled") return;
+                if (latest.depositPaid) return;
+                await storage.updateBookingStatus(id, "cancelled");
+                await sendBookingCancelled({
+                  customerPhone: latest.customer.phone,
+                  customerName: latest.customer.name,
+                  bookingReference: latest.bookingReference,
+                });
+              } finally {
+                autoCancelTimers.delete(id);
+              }
+            },
+            24 * 60 * 60 * 1000,
+          );
           autoCancelTimers.set(id, t);
-        } else if (['deposit_paid', 'confirmed', 'fully_paid', 'cancelled', 'completed'].includes(status)) {
+        } else if (
+          [
+            "deposit_paid",
+            "confirmed",
+            "fully_paid",
+            "cancelled",
+            "completed",
+          ].includes(status)
+        ) {
           if (autoCancelTimers.has(id)) {
             clearTimeout(autoCancelTimers.get(id)!);
             autoCancelTimers.delete(id);
@@ -752,7 +905,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 2. Store the token with expiration in the database
         // 3. Send an email with a reset link containing the token
         // For now, we just log this for demonstration
-        console.log(`Password reset requested for user: ${user.username} (${email})`);
+        console.log(
+          `Password reset requested for user: ${user.username} (${email})`,
+        );
 
         // If Twilio SMS is configured, we could also send an SMS notification
         // For security, we always return the same response regardless of whether
@@ -760,9 +915,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Always return success to prevent email enumeration
-      res.json({ 
-        success: true, 
-        message: "If an account exists with this email, password reset instructions will be sent." 
+      res.json({
+        success: true,
+        message:
+          "If an account exists with this email, password reset instructions will be sent.",
       });
     } catch (error) {
       console.error("Forgot password error:", error);
@@ -845,14 +1001,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: "GCash",
         description: "Pay using GCash mobile wallet",
         icon: "smartphone",
-        type: "digital_wallet"
+        type: "digital_wallet",
       },
       {
         id: "paymaya",
         name: "PayMaya",
         description: "Pay using PayMaya digital wallet",
         icon: "credit-card",
-        type: "digital_wallet"
+        type: "digital_wallet",
       },
       {
         id: "bank_transfer",
@@ -864,16 +1020,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountName: "Peter's Creation Catering Services",
           accountNumber: "1234567890",
           bankName: "BPI Bank",
-          instructions: "Please include your booking reference in the transfer description"
-        }
+          instructions:
+            "Please include your booking reference in the transfer description",
+        },
       },
       {
         id: "cash",
         name: "Cash Payment",
         description: "Pay in cash upon service delivery",
         icon: "banknote",
-        type: "cash"
-      }
+        type: "cash",
+      },
     ];
 
     res.json(paymentMethods);
@@ -885,7 +1042,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { bookingId, paymentMethod, paymentReference } = req.body;
 
       if (!bookingId || !paymentMethod) {
-        return res.status(400).json({ message: "Booking ID and payment method are required" });
+        return res
+          .status(400)
+          .json({ message: "Booking ID and payment method are required" });
       }
 
       // Simulate payment processing logic
@@ -895,7 +1054,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionId: `TXN-${Date.now()}`,
         paymentMethod,
         paymentReference: paymentReference || `REF-${Date.now()}`,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       res.json(paymentResult);
@@ -908,9 +1067,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Check if Paymongo is configured
   app.get("/api/paymongo/status", (req, res) => {
-    res.json({ 
+    res.json({
       configured: isPaymongoConfigured(),
-      publicKey: process.env.PAYMONGO_PUBLIC_KEY ? 'configured' : 'missing'
+      publicKey: process.env.PAYMONGO_PUBLIC_KEY ? "configured" : "missing",
     });
   });
 
@@ -918,17 +1077,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/paymongo/create-checkout", async (req, res) => {
     try {
       if (!isPaymongoConfigured()) {
-        return res.status(503).json({ 
-          message: "Online payment is not available. Please contact us for alternative payment options.",
-          code: "PAYMONGO_NOT_CONFIGURED"
+        return res.status(503).json({
+          message:
+            "Online payment is not available. Please contact us for alternative payment options.",
+          code: "PAYMONGO_NOT_CONFIGURED",
         });
       }
 
-      const { 
-        bookingId, 
+      const {
+        bookingId,
         paymentType, // 'deposit', 'balance', or 'full'
         successUrl,
-        cancelUrl 
+        cancelUrl,
       } = req.body;
 
       if (!bookingId) {
@@ -951,11 +1111,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let amount: number;
       let description: string;
 
-      if (paymentType === 'deposit') {
+      if (paymentType === "deposit") {
         // Deposit is typically 50% of total
         amount = Math.round(booking.totalPrice * 0.5);
         description = `Deposit Payment for Catering Service`;
-      } else if (paymentType === 'balance') {
+      } else if (paymentType === "balance") {
         // Balance is the remaining amount
         amount = booking.balanceAmount || Math.round(booking.totalPrice * 0.5);
         description = `Balance Payment for Catering Service`;
@@ -966,12 +1126,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Build success and cancel URLs
-      const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 
-                      process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 
-                      'http://localhost:5000';
+      const baseUrl =
+        process.env.REPLIT_DEPLOYMENT_URL || process.env.REPLIT_DEV_DOMAIN
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : "http://localhost:5000";
 
-      const finalSuccessUrl = successUrl || `${baseUrl}/payment-success?booking=${booking.bookingReference}&type=${paymentType}`;
-      const finalCancelUrl = cancelUrl || `${baseUrl}/payment-cancelled?booking=${booking.bookingReference}`;
+      const finalSuccessUrl =
+        successUrl ||
+        `${baseUrl}/payment-success?booking=${booking.bookingReference}&type=${paymentType}`;
+      const finalCancelUrl =
+        cancelUrl ||
+        `${baseUrl}/payment-cancelled?booking=${booking.bookingReference}`;
 
       // Create checkout session
       const checkoutSession = await createCheckoutSession({
@@ -983,7 +1148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerPhone: customer.phone,
         paymentType,
         successUrl: finalSuccessUrl,
-        cancelUrl: finalCancelUrl
+        cancelUrl: finalCancelUrl,
       });
 
       res.json({
@@ -991,12 +1156,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkoutUrl: checkoutSession.checkoutUrl,
         checkoutId: checkoutSession.id,
         amount,
-        paymentType
+        paymentType,
       });
     } catch (error: any) {
       console.error("Paymongo checkout error:", error);
-      res.status(500).json({ 
-        message: error.message || "Failed to create checkout session" 
+      res.status(500).json({
+        message: error.message || "Failed to create checkout session",
       });
     }
   });
@@ -1005,9 +1170,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/paymongo/verify/:checkoutId", async (req, res) => {
     try {
       if (!isPaymongoConfigured()) {
-        return res.status(503).json({ 
+        return res.status(503).json({
           message: "Payment verification is not available.",
-          code: "PAYMONGO_NOT_CONFIGURED"
+          code: "PAYMONGO_NOT_CONFIGURED",
         });
       }
 
@@ -1016,103 +1181,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const session = await getCheckoutSession(checkoutId);
 
       // Check if payment was successful
-      const isPaid = session.payments.some(p => p.status === 'paid');
+      const isPaid = session.payments.some((p) => p.status === "paid");
 
       res.json({
         checkoutId: session.id,
         status: session.status,
         isPaid,
-        payments: session.payments
+        payments: session.payments,
       });
     } catch (error: any) {
       console.error("Paymongo verify error:", error);
-      res.status(500).json({ 
-        message: "Failed to verify payment status" 
+      res.status(500).json({
+        message: "Failed to verify payment status",
       });
     }
   });
 
   // Webhook endpoint for Paymongo payment notifications
-  app.post("/api/paymongo/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
-    try {
-      const payload = req.body.toString();
-      const event = JSON.parse(payload);
+  app.post(
+    "/api/paymongo/webhook",
+    express.raw({ type: "application/json" }),
+    async (req, res) => {
+      try {
+        const payload = req.body.toString();
+        const event = JSON.parse(payload);
 
-      console.log("Paymongo webhook received:", event.data?.attributes?.type);
+        console.log("Paymongo webhook received:", event.data?.attributes?.type);
 
-      const eventType = event.data?.attributes?.type;
-      const eventData = event.data?.attributes?.data;
+        const eventType = event.data?.attributes?.type;
+        const eventData = event.data?.attributes?.data;
 
-      if (eventType === 'checkout_session.payment.paid' || eventType === 'payment.paid') {
-        // Extract booking reference from metadata or reference number
-        const metadata = eventData?.attributes?.metadata || {};
-        const bookingReference = metadata.booking_reference || eventData?.attributes?.reference_number;
-        const paymentType = metadata.payment_type || 'deposit';
+        if (
+          eventType === "checkout_session.payment.paid" ||
+          eventType === "payment.paid"
+        ) {
+          // Extract booking reference from metadata or reference number
+          const metadata = eventData?.attributes?.metadata || {};
+          const bookingReference =
+            metadata.booking_reference ||
+            eventData?.attributes?.reference_number;
+          const paymentType = metadata.payment_type || "deposit";
 
-        if (bookingReference) {
-          const booking = await storage.getBookingByReference(bookingReference);
+          if (bookingReference) {
+            const booking =
+              await storage.getBookingByReference(bookingReference);
 
-          if (booking) {
-            // Update booking payment status
-            const paymentDetails = eventData?.attributes;
-            const paymentMethod = paymentDetails?.source?.type || 'paymongo';
-            const paymentId = eventData?.id;
+            if (booking) {
+              // Update booking payment status
+              const paymentDetails = eventData?.attributes;
+              const paymentMethod = paymentDetails?.source?.type || "paymongo";
+              const paymentId = eventData?.id;
 
-            if (paymentType === 'deposit') {
-              await storage.updateBookingPayment(booking.id, {
-                depositPaid: true,
-                depositPaymentMethod: paymentMethod,
-                depositPaymentReference: paymentId,
-                depositPaidAt: new Date(),
-                paymentStatus: 'deposit_paid',
-                status: 'deposit_paid'
-              });
-              if (autoCancelTimers.has(booking.id)) {
-                clearTimeout(autoCancelTimers.get(booking.id)!);
-                autoCancelTimers.delete(booking.id);
+              if (paymentType === "deposit") {
+                await storage.updateBookingPayment(booking.id, {
+                  depositPaid: true,
+                  depositPaymentMethod: paymentMethod,
+                  depositPaymentReference: paymentId,
+                  depositPaidAt: new Date(),
+                  paymentStatus: "deposit_paid",
+                  status: "deposit_paid",
+                });
+                if (autoCancelTimers.has(booking.id)) {
+                  clearTimeout(autoCancelTimers.get(booking.id)!);
+                  autoCancelTimers.delete(booking.id);
+                }
+              } else if (paymentType === "balance") {
+                await storage.updateBookingPayment(booking.id, {
+                  balancePaid: true,
+                  balancePaymentMethod: paymentMethod,
+                  balancePaymentReference: paymentId,
+                  balancePaidAt: new Date(),
+                  paymentStatus: "fully_paid",
+                  status: "confirmed",
+                });
+                if (autoCancelTimers.has(booking.id)) {
+                  clearTimeout(autoCancelTimers.get(booking.id)!);
+                  autoCancelTimers.delete(booking.id);
+                }
+              } else {
+                // Full payment
+                await storage.updateBookingPayment(booking.id, {
+                  depositPaid: true,
+                  balancePaid: true,
+                  depositPaymentMethod: paymentMethod,
+                  depositPaymentReference: paymentId,
+                  depositPaidAt: new Date(),
+                  balancePaidAt: new Date(),
+                  paymentStatus: "fully_paid",
+                  status: "confirmed",
+                });
+                if (autoCancelTimers.has(booking.id)) {
+                  clearTimeout(autoCancelTimers.get(booking.id)!);
+                  autoCancelTimers.delete(booking.id);
+                }
               }
-            } else if (paymentType === 'balance') {
-              await storage.updateBookingPayment(booking.id, {
-                balancePaid: true,
-                balancePaymentMethod: paymentMethod,
-                balancePaymentReference: paymentId,
-                balancePaidAt: new Date(),
-                paymentStatus: 'fully_paid',
-                status: 'confirmed'
-              });
-              if (autoCancelTimers.has(booking.id)) {
-                clearTimeout(autoCancelTimers.get(booking.id)!);
-                autoCancelTimers.delete(booking.id);
-              }
-            } else {
-              // Full payment
-              await storage.updateBookingPayment(booking.id, {
-                depositPaid: true,
-                balancePaid: true,
-                depositPaymentMethod: paymentMethod,
-                depositPaymentReference: paymentId,
-                depositPaidAt: new Date(),
-                balancePaidAt: new Date(),
-                paymentStatus: 'fully_paid',
-                status: 'confirmed'
-              });
-              if (autoCancelTimers.has(booking.id)) {
-                clearTimeout(autoCancelTimers.get(booking.id)!);
-                autoCancelTimers.delete(booking.id);
-              }
+
+              console.log(
+                `Booking ${bookingReference} payment updated: ${paymentType}`,
+              );
             }
-
-            console.log(`Booking ${bookingReference} payment updated: ${paymentType}`);
           }
         }
-      }
 
-      res.json({ received: true });
-    } catch (error) {
-      console.error("Webhook processing error:", error);
-      res.status(400).json({ message: "Webhook processing failed" });
-    }
-  });
+        res.json({ received: true });
+      } catch (error) {
+        console.error("Webhook processing error:", error);
+        res.status(400).json({ message: "Webhook processing failed" });
+      }
+    },
+  );
 
   // Update booking payment status manually (for admin)
   app.patch("/api/bookings/:id/payment", isAuthenticated, async (req, res) => {
@@ -1144,18 +1321,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/payment-settings/:method", isAuthenticated, async (req, res) => {
-    try {
-      const setting = await storage.getPaymentSetting(req.params.method);
-      if (!setting) {
-        return res.status(404).json({ message: "Payment setting not found" });
+  app.get(
+    "/api/payment-settings/:method",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const setting = await storage.getPaymentSetting(req.params.method);
+        if (!setting) {
+          return res.status(404).json({ message: "Payment setting not found" });
+        }
+        res.json(setting);
+      } catch (error) {
+        console.error("Error fetching payment setting:", error);
+        res.status(500).json({ message: "Error fetching payment setting" });
       }
-      res.json(setting);
-    } catch (error) {
-      console.error("Error fetching payment setting:", error);
-      res.status(500).json({ message: "Error fetching payment setting" });
-    }
-  });
+    },
+  );
 
   app.post("/api/payment-settings", isAuthenticated, async (req, res) => {
     try {
@@ -1164,20 +1345,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(setting);
     } catch (error: any) {
       console.error("Error creating payment setting:", error);
-      res.status(400).json({ message: error.message || "Invalid payment setting data" });
+      res
+        .status(400)
+        .json({ message: error.message || "Invalid payment setting data" });
     }
   });
 
-  app.put("/api/payment-settings/:method", isAuthenticated, async (req, res) => {
-    try {
-      const settingData = { ...req.body, paymentMethod: req.params.method };
-      const setting = await storage.upsertPaymentSetting(settingData);
-      res.json(setting);
-    } catch (error: any) {
-      console.error("Error updating payment setting:", error);
-      res.status(400).json({ message: error.message || "Invalid payment setting data" });
-    }
-  });
+  app.put(
+    "/api/payment-settings/:method",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const settingData = { ...req.body, paymentMethod: req.params.method };
+        const setting = await storage.upsertPaymentSetting(settingData);
+        res.json(setting);
+      } catch (error: any) {
+        console.error("Error updating payment setting:", error);
+        res
+          .status(400)
+          .json({ message: error.message || "Invalid payment setting data" });
+      }
+    },
+  );
 
   app.delete("/api/payment-settings/:id", isAuthenticated, async (req, res) => {
     try {
@@ -1197,40 +1386,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Check if SMS is configured
   app.get("/api/sms/status", (req, res) => {
-    res.json({ 
-      configured: isSMSConfigured()
+    res.json({
+      configured: isSMSConfigured(),
     });
   });
 
   // Send booking confirmation SMS (automatically called when booking is created)
-  app.post("/api/sms/booking-confirmation", isAuthenticated, async (req, res) => {
-    try {
-      const { bookingId } = req.body;
+  app.post(
+    "/api/sms/booking-confirmation",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const { bookingId } = req.body;
 
-      if (!bookingId) {
-        return res.status(400).json({ message: "Booking ID is required" });
+        if (!bookingId) {
+          return res.status(400).json({ message: "Booking ID is required" });
+        }
+
+        const booking = await storage.getBooking(parseInt(bookingId));
+        if (!booking) {
+          return res.status(404).json({ message: "Booking not found" });
+        }
+
+        const result = await sendBookingConfirmation({
+          customerPhone: booking.customer.phone,
+          customerName: booking.customer.name,
+          bookingReference: booking.bookingReference,
+          eventDate: booking.eventDate,
+          eventType: booking.eventType,
+          totalPrice: booking.totalPrice,
+        });
+
+        res.json(result);
+      } catch (error: any) {
+        console.error("SMS booking confirmation error:", error);
+        res
+          .status(500)
+          .json({ message: error.message || "Failed to send SMS" });
       }
-
-      const booking = await storage.getBooking(parseInt(bookingId));
-      if (!booking) {
-        return res.status(404).json({ message: "Booking not found" });
-      }
-
-      const result = await sendBookingConfirmation({
-        customerPhone: booking.customer.phone,
-        customerName: booking.customer.name,
-        bookingReference: booking.bookingReference,
-        eventDate: booking.eventDate,
-        eventType: booking.eventType,
-        totalPrice: booking.totalPrice
-      });
-
-      res.json(result);
-    } catch (error: any) {
-      console.error("SMS booking confirmation error:", error);
-      res.status(500).json({ message: error.message || "Failed to send SMS" });
-    }
-  });
+    },
+  );
 
   // Send booking approved SMS with payment link
   app.post("/api/sms/booking-approved", isAuthenticated, async (req, res) => {
@@ -1253,7 +1448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerName: booking.customer.name,
         bookingReference: booking.bookingReference,
         depositAmount,
-        paymentLink
+        paymentLink,
       });
 
       res.json(result);
@@ -1277,14 +1472,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Booking not found" });
       }
 
-      const remainingBalance = booking.balanceAmount || Math.round(booking.totalPrice * 0.5);
+      const remainingBalance =
+        booking.balanceAmount || Math.round(booking.totalPrice * 0.5);
 
       const result = await sendDepositReceived({
         customerPhone: booking.customer.phone,
         customerName: booking.customer.name,
         bookingReference: booking.bookingReference,
         amountPaid: amountPaid || Math.round(booking.totalPrice * 0.5),
-        remainingBalance
+        remainingBalance,
       });
 
       res.json(result);
@@ -1314,15 +1510,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const eventDate = parseLocalYMD(booking.eventDate);
       const today = new Date();
-      const daysUntilEvent = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const daysUntilEvent = Math.ceil(
+        (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+      );
 
       const result = await sendPaymentReminder({
         customerPhone: booking.customer.phone,
         customerName: booking.customer.name,
         bookingReference: booking.bookingReference,
-        balanceAmount: booking.balanceAmount || Math.round(booking.totalPrice * 0.5),
+        balanceAmount:
+          booking.balanceAmount || Math.round(booking.totalPrice * 0.5),
         eventDate: booking.eventDate,
-        daysUntilEvent
+        daysUntilEvent,
       });
 
       res.json(result);
@@ -1352,7 +1551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bookingReference: booking.bookingReference,
         eventDate: booking.eventDate,
         eventTime: booking.eventTime,
-        venueAddress: booking.venueAddress
+        venueAddress: booking.venueAddress,
       });
 
       res.json(result);
@@ -1368,7 +1567,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { bookingId, message } = req.body;
 
       if (!bookingId || !message) {
-        return res.status(400).json({ message: "Booking ID and message are required" });
+        return res
+          .status(400)
+          .json({ message: "Booking ID and message are required" });
       }
 
       const booking = await storage.getBooking(parseInt(bookingId));
@@ -1378,7 +1579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await sendCustomMessage({
         customerPhone: booking.customer.phone,
-        message
+        message,
       });
 
       res.json(result);
@@ -1399,29 +1600,31 @@ function setupAuthentication(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  passport.use(new LocalStrategy(async (username, password, done) => {
-    try {
-      const user = await storage.getUserByUsername(username);
+  passport.use(
+    new LocalStrategy(async (username, password, done) => {
+      try {
+        const user = await storage.getUserByUsername(username);
 
-      if (!user) {
-        return done(null, false, { message: "Incorrect username." });
+        if (!user) {
+          return done(null, false, { message: "Incorrect username." });
+        }
+
+        // Use bcrypt to compare passwords
+        const { compare } = await import("bcrypt");
+        const isMatch = await compare(password, user.password);
+
+        if (!isMatch) {
+          return done(null, false, { message: "Incorrect password." });
+        }
+
+        // Don't send password to client
+        const { password: _, ...userWithoutPassword } = user;
+        return done(null, userWithoutPassword);
+      } catch (error) {
+        return done(error);
       }
-
-      // Use bcrypt to compare passwords
-      const { compare } = await import('bcrypt');
-      const isMatch = await compare(password, user.password);
-
-      if (!isMatch) {
-        return done(null, false, { message: "Incorrect password." });
-      }
-
-      // Don't send password to client
-      const { password: _, ...userWithoutPassword } = user;
-      return done(null, userWithoutPassword);
-    } catch (error) {
-      return done(error);
-    }
-  }));
+    }),
+  );
 
   passport.serializeUser((user: any, done) => {
     done(null, user.id);

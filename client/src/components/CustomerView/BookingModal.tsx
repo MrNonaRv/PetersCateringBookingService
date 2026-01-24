@@ -47,6 +47,8 @@ import {
   Clock,
   UtensilsCrossed,
   ClipboardCheck,
+  MapPin,
+  Building
 } from "lucide-react";
 
 interface Service {
@@ -56,6 +58,19 @@ interface Service {
   basePrice: number;
   imageUrl: string;
   featured: boolean;
+}
+
+interface Venue {
+  id: number;
+  name: string;
+  description: string | null;
+  address: string;
+  capacityMin: number;
+  capacityMax: number | null;
+  price: number;
+  type: string;
+  imageUrl: string | null;
+  isAvailable: boolean;
 }
 
 interface ServicePackage {
@@ -68,6 +83,7 @@ interface ServicePackage {
   maxGuests: number | null;
   features: string[];
   isActive: boolean;
+  hasThemedCake: boolean;
   sortOrder: number;
 }
 
@@ -114,6 +130,7 @@ const bookingFormSchema = z
       .min(10, "Minimum 10 guests")
       .max(500, "Maximum 500 guests"),
     venueAddress: z.string().min(5, "Please enter the venue address"),
+    venueId: z.number().optional(),
     name: z.string().min(2, "Name is required"),
     email: z.string().email("Valid email is required"),
     phone: z.string().min(10, "Valid phone number is required"),
@@ -271,6 +288,11 @@ export default function BookingModal({
     enabled: isOpen,
   });
 
+  const { data: venues = [] } = useQuery<Venue[]>({
+    queryKey: ["/api/venues"],
+    enabled: isOpen,
+  });
+
   useEffect(() => {
     if (isOpen) {
       setCurrentStep(1);
@@ -301,9 +323,15 @@ export default function BookingModal({
     mutationFn: async (data: BookingFormValues) => {
       const selectedPackage = packages.find((p) => p.id === data.packageId);
       const currentSelectedService = services.find((s) => s.id === data.serviceId);
-      const totalPrice = selectedPackage
+      const selectedVenue = venues.find((v) => v.id === data.venueId);
+
+      let totalPrice = selectedPackage
         ? selectedPackage.pricePerPerson
-        : (currentSelectedService?.basePrice || 0) * guestCount;
+        : (currentSelectedService?.basePrice || 0) * data.guestCount;
+
+      if (selectedVenue) {
+        totalPrice += selectedVenue.price;
+      }
 
       const selectedDishNames = dishes
         .filter((d) => data.selectedDishes.includes(d.id))
@@ -328,9 +356,11 @@ export default function BookingModal({
         eventTime: data.eventTime,
         guestCount: data.guestCount,
         venueAddress: data.venueAddress,
+        venueId: data.venueId,
         menuPreference: "package",
         serviceStyle: "buffet",
         additionalServices: "",
+        theme: data.theme || "",
         specialRequests: (data.specialRequests || "") + dishesNote,
         totalPrice,
         status: "pending_approval",
@@ -422,8 +452,10 @@ export default function BookingModal({
         "eventType",
         "eventTime",
         "venueAddress",
-        "guestCount",
       ];
+      if (bookingType === "custom") {
+        fieldsToValidate.push("guestCount");
+      }
     } else if (currentStep === 5 && bookingType === "standard") {
       fieldsToValidate = ["serviceId", "packageId"];
       const serviceId = form.getValues("serviceId");
@@ -438,6 +470,15 @@ export default function BookingModal({
       if (!packageId) {
         form.setError("packageId", { message: "Please select a package" });
         return;
+      }
+    } else if (currentStep === 6 && bookingType === "standard") {
+      const selectedPackage = packages.find(p => p.id === selectedPackageId);
+      if (selectedPackage?.hasThemedCake) {
+        const theme = form.getValues("theme");
+        if (!theme || theme.trim() === "") {
+          form.setError("theme", { message: "Please specify a cake theme" });
+          return; // Stop if theme is required but missing
+        }
       }
     }
 
@@ -541,14 +582,32 @@ export default function BookingModal({
     }
   }, [currentStep, isOpen, services, form, selectedServiceIdValue]);
 
+  useEffect(() => {
+    if (selectedPackageId && bookingType === "standard") {
+      const pkg = packages.find((p) => p.id === selectedPackageId);
+      if (pkg) {
+        // Always set to minGuests when a package is selected
+        // This ensures the guest count aligns with the package baseline
+        // instead of sticking to the default 100
+        form.setValue("guestCount", pkg.minGuests);
+      }
+    }
+  }, [selectedPackageId, packages, form, bookingType]);
+
   const renderReviewStep = () => {
     const selectedPackage = packages.find((p) => p.id === selectedPackageId);
     const selectedService = services.find(
       (s) => s.id === selectedServiceIdValue,
     );
-    const totalPrice = selectedPackage
+    const selectedVenue = venues.find((v) => v.id === form.getValues("venueId"));
+
+    let totalPrice = selectedPackage
       ? selectedPackage.pricePerPerson
       : (selectedService?.basePrice || 0) * guestCount;
+
+    if (selectedVenue) {
+      totalPrice += selectedVenue.price;
+    }
 
     const selectedDishNames = dishes
       .filter((d) => selectedDishes.includes(d.id))
@@ -628,8 +687,34 @@ export default function BookingModal({
                   SELECTED PACKAGE
                 </h4>
                 <p className="font-bold text-lg">{selectedPackage.name}</p>
+                <p className="text-sm text-gray-600 mt-1 mb-2">{selectedPackage.description}</p>
+                {selectedPackage.features && selectedPackage.features.length > 0 && (
+                  <ul className="text-xs text-gray-600 list-disc list-inside mb-3 space-y-1">
+                    {selectedPackage.features.map((feature, idx) => (
+                      <li key={idx}>{feature}</li>
+                    ))}
+                  </ul>
+                )}
                 <p className="text-2xl font-bold text-primary mt-2">
                   {formatCents(selectedPackage.pricePerPerson)}
+                </p>
+              </div>
+            )}
+
+            {bookingType === "standard" && selectedVenue && (
+              <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
+                <h4 className="font-bold text-sm text-gray-500 mb-2">
+                  SELECTED VENUE
+                </h4>
+                <p className="font-bold text-lg">{selectedVenue.name}</p>
+                {selectedVenue.description && (
+                  <p className="text-sm text-gray-600 mt-1">{selectedVenue.description}</p>
+                )}
+                <div className="text-xs text-gray-500 mt-2 mb-2">
+                  <p>Capacity: {selectedVenue.capacityMin} - {selectedVenue.capacityMax || "Unlimited"} pax</p>
+                </div>
+                <p className="text-2xl font-bold text-primary mt-2">
+                  {formatCents(selectedVenue.price)}
                 </p>
               </div>
             )}
@@ -649,10 +734,10 @@ export default function BookingModal({
               </div>
             )}
 
-            {bookingType === "custom" && form.getValues("theme") && (
+            {form.getValues("theme") && (
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  EVENT THEME
+                  {bookingType === "standard" ? "CAKE THEME" : "EVENT THEME"}
                 </h4>
                 <p className="text-sm">{form.getValues("theme")}</p>
               </div>
@@ -1041,22 +1126,86 @@ export default function BookingModal({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="venueAddress"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Venue Address *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="House No., Street, Barangay, City"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <div className="md:col-span-2 space-y-4">
+                <Label>Venue Selection *</Label>
+
+                {venues.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {venues.map((venue) => (
+                      <div
+                        key={venue.id}
+                        className={cn(
+                          "border rounded-lg p-4 cursor-pointer transition-all flex flex-col gap-2",
+                          form.getValues("venueId") === venue.id
+                            ? "border-primary bg-primary/5"
+                            : "border-gray-200 hover:border-gray-300"
+                        )}
+                        onClick={() => {
+                          form.setValue("venueId", venue.id);
+                          form.setValue("venueAddress", venue.address);
+                        }}
+                      >
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-bold flex items-center gap-2">
+                            <Building className="h-4 w-4 text-primary" />
+                            {venue.name}
+                          </h4>
+                          {venue.price > 0 && (
+                            <Badge variant="secondary">
+                              {formatPesos(venue.price / 100)}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">{venue.description}</p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <MapPin className="h-3 w-3" />
+                          {venue.address}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Capacity: {venue.capacityMin} - {venue.capacityMax || "Unlimited"} pax
+                        </div>
+                      </div>
+                    ))}
+
+                    <div
+                      className={cn(
+                        "border rounded-lg p-4 cursor-pointer transition-all flex flex-col gap-2 justify-center",
+                        !form.getValues("venueId")
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200 hover:border-gray-300"
+                      )}
+                      onClick={() => {
+                        form.setValue("venueId", undefined);
+                        form.setValue("venueAddress", "");
+                      }}
+                    >
+                      <h4 className="font-bold flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-primary" />
+                        Other Location
+                      </h4>
+                      <p className="text-sm text-gray-600">Specify your own venue address</p>
+                    </div>
+                  </div>
                 )}
-              />
+
+                <FormField
+                  control={form.control}
+                  name="venueAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Venue Address {form.getValues("venueId") ? "(Auto-filled)" : "*"}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="House No., Street, Barangay, City"
+                          {...field}
+                          disabled={!!form.getValues("venueId")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               {bookingType === "custom" && (
                 <>
@@ -1109,34 +1258,32 @@ export default function BookingModal({
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="guestCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Guest Count: {field.value}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={10}
+                            max={500}
+                            step={5}
+                            value={[field.value]}
+                            onValueChange={(value) => field.onChange(value[0])}
+                            className="mt-4"
+                          />
+                        </FormControl>
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>10 guests</span>
+                          <span>500 guests</span>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </>
               )}
-
-              <FormField
-                control={form.control}
-                name="guestCount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Guest Count: {field.value}</FormLabel>
-                    <FormControl>
-                      <Slider
-                        min={10}
-                        max={500}
-                        step={5}
-                        value={[field.value]}
-                        onValueChange={(value) => field.onChange(value[0])}
-                        className="mt-4"
-                      />
-                    </FormControl>
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>10 guests</span>
-                      <span>500 guests</span>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
             </div>
           </div>
         );
@@ -1146,7 +1293,11 @@ export default function BookingModal({
           return renderReviewStep();
         }
 
-        const eligiblePackages = getEligiblePackages();
+        const eligiblePackages = bookingType === "standard" 
+          ? packages.filter(p => p.isActive) 
+          : getEligiblePackages();
+
+        const selectedPkg = packages.find(p => p.id === selectedPackageId);
 
         return (
           <div className="space-y-6">
@@ -1154,7 +1305,6 @@ export default function BookingModal({
               <h3 className="text-xl font-heading text-primary">
                 Select Package
               </h3>
-              <Badge variant="outline">{guestCount} guests</Badge>
             </div>
 
             <div className="mb-4">
@@ -1225,7 +1375,7 @@ export default function BookingModal({
                         <div className="text-xl font-bold text-primary">
                           {formatCents(pkg.pricePerPerson)}
                         </div>
-                        <div className="text-xs text-gray-500">per person</div>
+                        <div className="text-xs text-gray-500">package price</div>
                         <div className="text-xs text-gray-400 mt-1">
                           {pkg.minGuests}-{pkg.maxGuests || "500+"} guests
                         </div>
@@ -1249,6 +1399,44 @@ export default function BookingModal({
                 )}
               </div>
             )}
+
+            {bookingType === "standard" && selectedPkg && (
+              <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                <h4 className="font-bold mb-4 flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  Guest Count
+                </h4>
+                <FormField
+                  control={form.control}
+                  name="guestCount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        How many guests? ({selectedPkg.minGuests} - {selectedPkg.maxGuests || "500+"})
+                      </FormLabel>
+                      <FormControl>
+                        <Slider
+                          min={selectedPkg.minGuests}
+                          max={selectedPkg.maxGuests || 500}
+                          step={5}
+                          value={[field.value]}
+                          onValueChange={(value) => field.onChange(value[0])}
+                          className="mt-4"
+                        />
+                      </FormControl>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{selectedPkg.minGuests} guests</span>
+                        <span>{selectedPkg.maxGuests || "500+"} guests</span>
+                      </div>
+                      <div className="mt-2 text-center font-bold text-lg text-primary">
+                        {field.value} Guests
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
           </div>
         );
 
@@ -1256,7 +1444,6 @@ export default function BookingModal({
         if (bookingType === "standard") {
           const selectedPackage = packages.find(p => p.id === selectedPackageId);
 
-          // Improved logic to detect package requirements from features or name
           const parseRequirement = (categoryLabel: string) => {
             const lowerLabel = categoryLabel.toLowerCase();
             const feature = selectedPackage?.features?.find(f => 
@@ -1268,6 +1455,16 @@ export default function BookingModal({
             }
             return 1;
           };
+          const parseGroupRequirement = (key: string, fallback: number) => {
+            const feature = selectedPackage?.features?.find(f => 
+              f.toLowerCase().includes(key.toLowerCase()) && /\d/.test(f)
+            );
+            if (feature) {
+              const match = feature.match(/(\d+)/);
+              return match ? parseInt(match[1]) : fallback;
+            }
+            return fallback;
+          };
 
           const porkDishes = getDishesByCategory("Pork Menu");
           const chickenDishes = getDishesByCategory("Chicken Menu");
@@ -1278,13 +1475,26 @@ export default function BookingModal({
           const inclusionDishes = getDishesByCategory("Standard Inclusions");
           const amenityDishes = getDishesByCategory("Freebies (Amenities)");
 
+          const mainCourseRequired = parseGroupRequirement("Main Courses", 4);
+          const vegetableRequired = parseGroupRequirement("Vegetable", 1);
+          const dessertRequired = parseGroupRequirement("Dessert", 1);
+
+          const mainCourseCategories = ["pork","chicken","beef","fish"];
+          const countSelectedInCats = (cats: string[]) => {
+            const catDishes = dishes.filter(d => cats.includes(d.category));
+            return selectedDishes.filter(id => catDishes.some(d => d.id === id)).length;
+          };
+          const mainSelectedCount = countSelectedInCats(mainCourseCategories);
+          const vegSelectedCount = countSelectedInCats(["appetizer"]);
+          const dessertSelectedCount = countSelectedInCats(["dessert"]);
+
           const categories = [
-            { label: "Appetizers (Pasta/Vegetables)", dishes: appetizerDishes, min: parseRequirement("Appetizer") },
-            { label: "Pork Menu", dishes: porkDishes, min: parseRequirement("Pork") },
-            { label: "Chicken Menu", dishes: chickenDishes, min: parseRequirement("Chicken") },
-            { label: "Beef Menu", dishes: beefDishes, min: parseRequirement("Beef") },
-            { label: "Fish Menu", dishes: fishDishes, min: parseRequirement("Fish") },
-            { label: "Dessert", dishes: dessertDishes, min: parseRequirement("Dessert") },
+            { label: "Appetizers (Pasta/Vegetables)", dishes: appetizerDishes, min: vegetableRequired },
+            { label: "Pork Menu", dishes: porkDishes, min: 0 },
+            { label: "Chicken Menu", dishes: chickenDishes, min: 0 },
+            { label: "Beef Menu", dishes: beefDishes, min: 0 },
+            { label: "Fish Menu", dishes: fishDishes, min: 0 },
+            { label: "Dessert", dishes: dessertDishes, min: dessertRequired },
             { label: "Standard Inclusions", dishes: inclusionDishes, min: 0 },
             { label: "Freebies (Amenities)", dishes: amenityDishes, min: 0 },
           ];
@@ -1294,6 +1504,34 @@ export default function BookingModal({
               <h3 className="text-xl font-heading text-primary mb-4">
                 Select Your Menu
               </h3>
+
+              {selectedPackage && selectedPackage.hasThemedCake && (
+                 <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-lg mb-4">
+                   <h4 className="font-bold text-secondary mb-2 flex items-center gap-2">
+                     <Package className="h-4 w-4" />
+                     Themed Cake Included
+                   </h4>
+                   <p className="text-sm text-gray-600 mb-3">
+                     This package includes a themed cake. Please specify your desired theme below.
+                   </p>
+                   <FormField
+                     control={form.control}
+                     name="theme"
+                     render={({ field }) => (
+                       <FormItem>
+                         <FormLabel>Cake Theme *</FormLabel>
+                         <FormControl>
+                           <Input 
+                             placeholder="e.g. Unicorn, Superhero, Floral, Minimalist" 
+                             {...field} 
+                           />
+                         </FormControl>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
+                 </div>
+               )}
 
               {selectedPackage && (
                 <div className="bg-primary/5 border border-primary/10 p-4 rounded-lg mb-4">
@@ -1306,6 +1544,11 @@ export default function BookingModal({
                       <li key={idx}>{feature}</li>
                     ))}
                   </ul>
+                  <div className="mt-2 text-xs text-gray-600">
+                    <span className="mr-4">Main Courses: {mainSelectedCount}/{mainCourseRequired}</span>
+                    <span className="mr-4">Vegetable: {vegSelectedCount}/{vegetableRequired}</span>
+                    <span>Dessert: {dessertSelectedCount}/{dessertRequired}</span>
+                  </div>
                 </div>
               )}
 
@@ -1334,9 +1577,14 @@ export default function BookingModal({
                         <h4 className="font-bold mb-3 flex items-center gap-2">
                           <UtensilsCrossed className="h-4 w-4" />
                           {cat.label}
-                          {cat.min > 0 && (
+                          {cat.min > 0 && group.title !== "Main Courses" && (
                             <span className="text-sm font-normal text-gray-500">
                               (Select at least {cat.min})
+                            </span>
+                          )}
+                          {group.title === "Main Courses" && (
+                            <span className="text-sm font-normal text-gray-500">
+                              (Select total {mainCourseRequired} items across Beef, Pork, Chicken, Fish)
                             </span>
                           )}
                         </h4>
@@ -1350,7 +1598,18 @@ export default function BookingModal({
                                   ? "border-primary bg-primary/5" 
                                   : "border-gray-200 hover:border-gray-300"
                               )}
-                              onClick={() => toggleDish(dish.id)}
+                              onClick={() => {
+                                const dcat = dish.category;
+                                const isMain = mainCourseCategories.includes(dcat);
+                                const isVeg = dcat === "appetizer";
+                                const isDess = dcat === "dessert";
+                                if (!selectedDishes.includes(dish.id)) {
+                                  if (isMain && mainSelectedCount >= mainCourseRequired) return;
+                                  if (isVeg && vegSelectedCount >= vegetableRequired) return;
+                                  if (isDess && dessertSelectedCount >= dessertRequired) return;
+                                }
+                                toggleDish(dish.id);
+                              }}
                             >
                               <div className="flex items-center gap-2">
                                 <Checkbox

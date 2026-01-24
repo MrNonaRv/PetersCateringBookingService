@@ -1,7 +1,7 @@
 const IPROGSMS_API_TOKEN = process.env.IPROGSMS_API_TOKEN;
 const IPROGSMS_API_URL = 'https://www.iprogsms.com/api/v1/sms_messages';
 const IPROGSMS_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME;
-const DEFAULT_SENDER_NAME = 'PETERSCATER';
+const DEFAULT_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME;
 
 export function isSMSConfigured(): boolean {
   return !!IPROGSMS_API_TOKEN;
@@ -87,11 +87,7 @@ export async function sendBookingApproved(params: {
   depositAmount: number;
   paymentLink?: string;
 }): Promise<SMSResult> {
-  let message = `Hi ${params.customerName}! Great news - your catering reservation ${params.bookingReference} is approved! Please pay the deposit of PHP ${(params.depositAmount / 100).toLocaleString()} to confirm your reservation.`;
-  if (params.paymentLink) {
-    message += ` Pay: ${params.paymentLink}`;
-  }
-  message += ` - Peters Creation Catering`;
+  let message = `Hi ${params.customerName}, booking ${params.bookingReference} is approved. Please check details: ${params.paymentLink || 'online'}. - Peters Catering`;
 
   return sendSMS(params.customerPhone, message);
 }
@@ -103,7 +99,7 @@ export async function sendDepositReceived(params: {
   amountPaid: number;
   remainingBalance: number;
 }): Promise<SMSResult> {
-  const message = `Hi ${params.customerName}! Thank you, we received your reservation fee for ${params.bookingReference}. Your event is now scheduled. We will be in touch! - Peters Creation Catering`;
+  const message = `Hi ${params.customerName}, update received for ${params.bookingReference}. Your date is secured. - Peters Catering`;
 
   return sendSMS(params.customerPhone, message);
 }
@@ -116,7 +112,7 @@ export async function sendPaymentReminder(params: {
   eventDate: string;
   daysUntilEvent: number;
 }): Promise<SMSResult> {
-  const message = `Hi ${params.customerName}! Reminder: Your catering event ${params.bookingReference} is on ${params.eventDate}. Please call us if you have any questions. - Peters Creation Catering`;
+  const message = `Hi ${params.customerName}, upcoming event on ${params.eventDate}. Ref: ${params.bookingReference}. See you soon! - Peters Catering`;
 
   return sendSMS(params.customerPhone, message);
 }

@@ -9,12 +9,13 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { useQuery } from "@tanstack/react-query";
 
 interface HeroProps {
   onBookNow: () => void;
 }
 
-const heroSlides = [
+const defaultSlides = [
   {
     id: 1,
     image: "https://images.unsplash.com/photo-1565538810643-b5bdb714032a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&h=600",
@@ -52,6 +53,23 @@ const heroSlides = [
 export default function Hero({ onBookNow }: HeroProps) {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
+  const { data: events = [] } = useQuery<any[]>({
+    queryKey: ["/api/recent-events"],
+  });
+
+  const featuredSlides = (events || [])
+    .filter((e: any) => Boolean(e.featured))
+    .slice(0, 5)
+    .map((e: any, idx: number) => ({
+      id: e.id ?? idx + 1,
+      image: e.imageUrl,
+      title: e.title,
+      subtitle: e.description,
+      buttonText: "Book Your Event",
+      overlay: "bg-[#343a40] bg-opacity-40",
+    }));
+
+  const heroSlides = featuredSlides.length > 0 ? featuredSlides : defaultSlides;
 
   useEffect(() => {
     if (!api) {
@@ -111,7 +129,7 @@ export default function Hero({ onBookNow }: HeroProps) {
             </CarouselItem>
           ))}
         </CarouselContent>
-        
+
         {/* Navigation arrows with enhanced styling */}
         <CarouselPrevious className="left-8 h-12 w-12 bg-white/20 hover:bg-white/30 border-white/30 hover:border-white/50 text-white hover:text-white backdrop-blur-sm transition-all duration-300" />
         <CarouselNext className="right-8 h-12 w-12 bg-white/20 hover:bg-white/30 border-white/30 hover:border-white/50 text-white hover:text-white backdrop-blur-sm transition-all duration-300" />

@@ -12,14 +12,14 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
   const { logout } = useAuth();
   const [location, setLocation] = useLocation();
-  
+
   const isActive = (path: string) => {
     if (path === '/admin' && currentPage === 'dashboard') {
       return true;
     }
     return location === path;
   };
-  
+
   return (
     <div className={cn(
       "bg-primary text-white shadow-lg transition-all duration-300 ease-in-out h-screen sticky top-0",
@@ -48,7 +48,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
           </div>
         )}
       </div>
-      
+
       <nav className="mt-4">
         <div className={cn(
           "px-4 py-2 text-sm text-white text-opacity-70 uppercase",
@@ -56,7 +56,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
         )}>
           {collapsed ? "Main" : "Main"}
         </div>
-        
+
         <Link href="/admin/dashboard">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
@@ -66,7 +66,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
             {!collapsed && <span>Dashboard</span>}
           </a>
         </Link>
-        
+
         <Link href="/admin/bookings">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
@@ -76,7 +76,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
             {!collapsed && <span>Bookings</span>}
           </a>
         </Link>
-        
+
         <Link href="/admin/customers">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
@@ -86,7 +86,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
             {!collapsed && <span>Customers</span>}
           </a>
         </Link>
-        
+
         <Link href="/admin/services">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
@@ -96,7 +96,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
             {!collapsed && <span>Services</span>}
           </a>
         </Link>
-        
+
         <Link href="/admin/service-packages">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
@@ -106,7 +106,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
             {!collapsed && <span>Packages</span>}
           </a>
         </Link>
-        
+
         <Link href="/admin/gallery">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
@@ -116,7 +116,17 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
             {!collapsed && <span>Gallery</span>}
           </a>
         </Link>
-        
+
+        <Link href="/admin/about">
+          <a className={cn(
+            "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
+            isActive('/admin/about') && "bg-white bg-opacity-10"
+          )}>
+            <i className="fas fa-info-circle mr-3"></i>
+            {!collapsed && <span>About Image</span>}
+          </a>
+        </Link>
+
         <Link href="/admin/recent-events">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
@@ -146,19 +156,19 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
             {!collapsed && <span>Menu Category</span>}
           </div>
         </Link>
-        
+
         <div className={cn(
           "mt-4 px-4 py-2 text-sm text-white text-opacity-70 uppercase",
           collapsed && "text-center"
         )}>
           {collapsed ? "Opts" : "Settings"}
         </div>
-        
+
         <a className="flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition cursor-pointer">
           <i className="fas fa-user-circle mr-3"></i>
           {!collapsed && <span>Profile</span>}
         </a>
-        
+
         <Link href="/admin/settings">
           <a className={cn(
             "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition cursor-pointer",
@@ -168,7 +178,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
             {!collapsed && <span>Payment Settings</span>}
           </a>
         </Link>
-        
+
         <a 
           className="flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition cursor-pointer"
           onClick={() => logout()}

@@ -2,7 +2,7 @@ import { pool } from "./db";
 
 export async function initializeDatabase() {
   const client = await pool.connect();
-  
+
   try {
     await client.query(`
       -- Capacity calendar for daily booking limits
@@ -92,6 +92,16 @@ export async function initializeDatabase() {
       -- Add new columns to bookings table if they don't exist
       DO $$ 
       BEGIN
+        -- Service Packages new columns
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'service_packages' AND column_name = 'has_themed_cake') THEN
+          ALTER TABLE service_packages ADD COLUMN has_themed_cake BOOLEAN DEFAULT false;
+        END IF;
+
+        -- Bookings new columns
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bookings' AND column_name = 'theme') THEN
+          ALTER TABLE bookings ADD COLUMN theme TEXT;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bookings' AND column_name = 'package_id') THEN
           ALTER TABLE bookings ADD COLUMN package_id INTEGER REFERENCES service_packages(id);
         END IF;
@@ -133,7 +143,7 @@ export async function initializeDatabase() {
         END IF;
       END $$;
     `);
-    
+
     console.log("Database tables initialized successfully");
   } catch (error) {
     console.error("Error initializing database:", error);

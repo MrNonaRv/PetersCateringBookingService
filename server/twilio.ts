@@ -11,11 +11,11 @@ function getClient(): twilio.Twilio | null {
     console.warn('Twilio credentials not configured. SMS notifications disabled.');
     return null;
   }
-  
+
   if (!client) {
     client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
   }
-  
+
   return client;
 }
 
@@ -31,27 +31,27 @@ export interface SMSResult {
 
 export async function sendSMS(to: string, message: string): Promise<SMSResult> {
   const twilioClient = getClient();
-  
+
   if (!twilioClient || !TWILIO_PHONE_NUMBER) {
     console.warn('Twilio not configured. Skipping SMS:', { to, message: message.substring(0, 50) + '...' });
     return { success: false, error: 'Twilio not configured' };
   }
-  
+
   try {
     // Format phone number for Philippines if needed
     const formattedNumber = formatPhoneNumber(to);
-    
+
     const result = await twilioClient.messages.create({
       body: message,
       from: TWILIO_PHONE_NUMBER,
       to: formattedNumber
     });
-    
+
     console.log('SMS sent successfully:', result.sid);
     return { success: true, messageSid: result.sid };
   } catch (error: any) {
     console.error('Failed to send SMS:', error.message);
-    
+
     // Provide more helpful error messages for common issues
     let errorMessage = error.message;
     if (error.message.includes("combination of 'To' and/or 'From'")) {
@@ -61,7 +61,7 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
     } else if (error.code === 21614) {
       errorMessage = "The phone number is not a valid mobile number.";
     }
-    
+
     return { success: false, error: errorMessage };
   }
 }
@@ -69,7 +69,7 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
 function formatPhoneNumber(phone: string): string {
   // Remove all non-digit characters
   let cleaned = phone.replace(/\D/g, '');
-  
+
   // Handle Philippine numbers
   if (cleaned.startsWith('0') && cleaned.length === 11) {
     // Convert 09xxxxxxxxx to +639xxxxxxxxx
@@ -81,12 +81,12 @@ function formatPhoneNumber(phone: string): string {
     // Assume Philippine number if 10 digits
     cleaned = '63' + cleaned;
   }
-  
+
   // Add + prefix if not present
   if (!cleaned.startsWith('+')) {
     cleaned = '+' + cleaned;
   }
-  
+
   return cleaned;
 }
 
@@ -101,7 +101,7 @@ export async function sendBookingConfirmation(params: {
   totalPrice: number;
 }): Promise<SMSResult> {
   const message = `Hi ${params.customerName}! Your catering booking request (${params.bookingReference}) has been received. Event: ${params.eventType} on ${params.eventDate}. Total: PHP ${(params.totalPrice / 100).toLocaleString()}. We'll contact you shortly to confirm. - Peter's Creation Catering`;
-  
+
   return sendSMS(params.customerPhone, message);
 }
 
@@ -112,14 +112,8 @@ export async function sendBookingApproved(params: {
   depositAmount: number;
   paymentLink?: string;
 }): Promise<SMSResult> {
-  let message = `Good news, ${params.customerName}! Your booking (${params.bookingReference}) has been approved! Please pay the deposit of PHP ${(params.depositAmount / 100).toLocaleString()} to confirm your reservation.`;
-  
-  if (params.paymentLink) {
-    message += ` Pay online: ${params.paymentLink}`;
-  }
-  
-  message += ` - Peter's Creation Catering`;
-  
+  let message = `Hi ${params.customerName}, booking ${params.bookingReference} is approved. Please check details: ${params.paymentLink || 'online'}. - Peters Catering`;
+
   return sendSMS(params.customerPhone, message);
 }
 
@@ -130,8 +124,8 @@ export async function sendDepositReceived(params: {
   amountPaid: number;
   remainingBalance: number;
 }): Promise<SMSResult> {
-  const message = `Thank you, ${params.customerName}! We've received your deposit of PHP ${(params.amountPaid / 100).toLocaleString()} for booking ${params.bookingReference}. Remaining balance: PHP ${(params.remainingBalance / 100).toLocaleString()}. Your event is now confirmed! - Peter's Creation Catering`;
-  
+  const message = `Hi ${params.customerName}, payment received: PHP ${(params.amountPaid / 100).toLocaleString()} for booking ${params.bookingReference}. Event confirmed. - Peters Catering`;
+
   return sendSMS(params.customerPhone, message);
 }
 
@@ -143,8 +137,8 @@ export async function sendPaymentReminder(params: {
   eventDate: string;
   daysUntilEvent: number;
 }): Promise<SMSResult> {
-  const message = `Hi ${params.customerName}! Friendly reminder: Your catering event is on ${params.eventDate} (${params.daysUntilEvent} days away). Outstanding balance: PHP ${(params.balanceAmount / 100).toLocaleString()}. Please settle before the event. Ref: ${params.bookingReference} - Peter's Creation Catering`;
-  
+  const message = `Hi ${params.customerName}, upcoming event on ${params.eventDate}. Ref: ${params.bookingReference}. See you soon! - Peters Catering`;
+
   return sendSMS(params.customerPhone, message);
 }
 
@@ -157,7 +151,7 @@ export async function sendEventReminder(params: {
   venueAddress: string;
 }): Promise<SMSResult> {
   const message = `Hi ${params.customerName}! Reminder: Your catering event is tomorrow (${params.eventDate}) at ${params.eventTime}. Venue: ${params.venueAddress}. We look forward to serving you! Ref: ${params.bookingReference} - Peter's Creation Catering`;
-  
+
   return sendSMS(params.customerPhone, message);
 }
 
@@ -167,7 +161,7 @@ export async function sendBookingCancelled(params: {
   bookingReference: string;
 }): Promise<SMSResult> {
   const message = `Hi ${params.customerName}, your booking (${params.bookingReference}) has been cancelled as requested. If you have any questions or would like to rebook, please contact us. - Peter's Creation Catering`;
-  
+
   return sendSMS(params.customerPhone, message);
 }
 
