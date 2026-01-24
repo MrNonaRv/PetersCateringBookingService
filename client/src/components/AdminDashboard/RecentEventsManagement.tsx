@@ -209,7 +209,7 @@ export function RecentEventsManagement() {
                 {editingEvent ? "Edit Recent Event" : "Add Recent Event"}
               </DialogTitle>
             </DialogHeader>
-            
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
@@ -408,31 +408,34 @@ export function RecentEventsManagement() {
                 {event.eventType}
               </Badge>
             </div>
-            
+
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">{event.title}</CardTitle>
             </CardHeader>
-            
+
             <CardContent className="space-y-2">
               <div className="flex items-center text-sm text-gray-600">
                 <Calendar className="w-4 h-4 mr-2" />
-                {new Date(event.eventDate).toLocaleDateString()}
+                {(() => {
+                  const [y, m, d] = event.eventDate.split("-").map((v: string) => parseInt(v, 10));
+                  return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString();
+                })()}
               </div>
-              
+
               <div className="flex items-center text-sm text-gray-600">
                 <MapPin className="w-4 h-4 mr-2" />
                 {event.venue}
               </div>
-              
+
               <div className="flex items-center text-sm text-gray-600">
                 <Users className="w-4 h-4 mr-2" />
                 {event.guestCount} guests
               </div>
-              
+
               <p className="text-sm text-gray-700 line-clamp-2">
                 {event.description}
               </p>
-              
+
               <div className="flex justify-end space-x-2 pt-2">
                 <Button
                   variant="outline"

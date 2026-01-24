@@ -49,9 +49,9 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
   const [customMessage, setCustomMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
-  
+
   const pageSize = limit || 10;
-  
+
   // Fetch bookings
   const { data: bookings, isLoading, refetch } = useQuery({
     queryKey: ['/api/bookings'],
@@ -73,52 +73,58 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
     // Only return settings that are active
     return paymentSettings.find((s) => s.paymentMethod === method && s.isActive);
   };
-  
+
+  const parseLocalYMD = (dateString: string) => {
+    const [y, m, d] = dateString.split("-").map((v) => parseInt(v, 10));
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
+
   // Paginate bookings
   const paginatedBookings = bookings ? bookings.slice((page - 1) * pageSize, page * pageSize) : [];
   const totalPages = bookings ? Math.ceil(bookings.length / pageSize) : 0;
-  
+
   // Format date
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseLocalYMD(dateString);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
-  
+
   // Format price from cents to pesos
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toFixed(2)}`;
+    const pesos = Math.round(priceInCents / 100);
+    return `₱${pesos.toLocaleString("en-PH")}`;
   };
-  
+
   // View booking details
   const viewBooking = (booking: any) => {
     setSelectedBooking(booking);
     setIsViewDialogOpen(true);
   };
-  
+
   // Edit booking
   const editBooking = (booking: any) => {
     setSelectedBooking(booking);
     setIsEditDialogOpen(true);
   };
-  
+
   // Update booking status
   const updateBookingStatus = async (bookingId: number, status: string) => {
     try {
       await apiRequest('PATCH', `/api/bookings/${bookingId}/status`, { status });
-      
+
       // Show success message
       toast({
         title: "Status Updated",
         description: `Booking status changed to ${status}`,
       });
-      
+
       // Refetch bookings
       refetch();
-      
+
       // Close the dialog
       setIsEditDialogOpen(false);
     } catch (error) {
@@ -143,20 +149,20 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
   // Send SMS notification
   const sendSmsNotification = async () => {
     if (!selectedBooking) return;
-    
+
     setIsSending(true);
-    
+
     try {
       if (smsType === 'approve') {
         // Calculate deposit amount (50% of total)
         const depositAmount = Math.round(selectedBooking.totalPrice * 0.5);
-        
+
         // Get payment account details from saved settings
         const paymentSetting = getPaymentSettingForMethod(paymentMethod);
         const accountName = paymentSetting?.accountName || '';
         const accountNumber = paymentSetting?.accountNumber || '';
         const instructions = paymentSetting?.instructions || '';
-        
+
         // Build payment link message - use custom input or saved settings
         let fullPaymentLink = paymentLink;
         if (!fullPaymentLink && accountName && accountNumber) {
@@ -169,7 +175,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
         } else if (!fullPaymentLink && paymentMethod !== 'cash') {
           fullPaymentLink = `Pay via ${paymentMethod.toUpperCase()}`;
         }
-        
+
         // Send approval SMS first - if this fails, we don't update status
         const smsResult = await apiRequest('POST', '/api/sms/booking-approved', {
           bookingId: selectedBooking.id,
@@ -183,24 +189,24 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           accountNumber,
           instructions
         });
-        
+
         const smsData = await smsResult.json();
         if (!smsData.success) {
           throw new Error(smsData.error || 'Failed to send SMS');
         }
-        
+
         // Only update status to approved after SMS succeeds
         await apiRequest('PATCH', `/api/bookings/${selectedBooking.id}/status`, { status: 'approved' });
-        
+
         toast({
           title: "Booking Approved",
           description: "SMS notification with payment details sent to customer",
         });
       } else if (smsType === 'reminder') {
-        const eventDate = new Date(selectedBooking.eventDate);
+        const eventDate = parseLocalYMD(selectedBooking.eventDate);
         const today = new Date();
         const daysUntil = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         await apiRequest('POST', '/api/sms/payment-reminder', {
           bookingId: selectedBooking.id,
           customerPhone: selectedBooking.customer.phone,
@@ -210,7 +216,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           eventDate: selectedBooking.eventDate,
           daysUntilEvent: daysUntil
         });
-        
+
         toast({
           title: "Reminder Sent",
           description: "Payment reminder SMS sent to customer",
@@ -225,18 +231,18 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           setIsSending(false);
           return;
         }
-        
+
         await apiRequest('POST', '/api/sms/custom', {
           customerPhone: selectedBooking.customer.phone,
           message: customMessage
         });
-        
+
         toast({
           title: "Message Sent",
           description: "Custom SMS sent to customer",
         });
       }
-      
+
       refetch();
       setIsSmsDialogOpen(false);
     } catch (error: any) {
@@ -249,7 +255,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
       setIsSending(false);
     }
   };
-  
+
   return (
     <>
       <div className="overflow-x-auto">
@@ -356,7 +362,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           </TableBody>
         </Table>
       </div>
-      
+
       {/* Pagination */}
       {!limit && (
         <div className="px-6 py-3 border-t flex justify-between items-center">
@@ -373,7 +379,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
               <ChevronLeft className="h-4 w-4 mr-1" />
               Previous
             </Button>
-            
+
             {/* Page numbers */}
             {Array.from({ length: Math.min(totalPages, 3) }, (_, i) => {
               const pageNum = page <= 2 ? i + 1 : page - 1 + i;
@@ -391,7 +397,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
               }
               return null;
             })}
-            
+
             <Button 
               variant="outline" 
               size="sm" 
@@ -404,7 +410,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           </div>
         </div>
       )}
-      
+
       {/* View Booking Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="sm:max-w-3xl">
@@ -414,7 +420,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
               Booking ID: {selectedBooking?.bookingReference}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedBooking && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -470,7 +476,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="text-lg font-medium mb-4">Customer Information</h3>
                 <div className="space-y-2">
@@ -489,7 +495,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     </div>
                   )}
                 </div>
-                
+
                 <h3 className="text-lg font-medium mt-6 mb-4">Venue Information</h3>
                 <div>
                   <span className="font-medium">Address:</span>
@@ -498,7 +504,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
               </div>
             </div>
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
             <Button onClick={() => {
@@ -508,7 +514,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Edit Booking Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -518,7 +524,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
               Booking ID: {selectedBooking?.bookingReference}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedBooking && (
             <div className="space-y-4">
               <div>
@@ -532,7 +538,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                   {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
                 </Badge>
               </div>
-              
+
               <div>
                 <h3 className="font-medium mb-2">Change Status To</h3>
                 <div className="space-y-2">
@@ -545,7 +551,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     <Badge className="bg-yellow-100 text-yellow-800 mr-2">Pending</Badge>
                     Awaiting confirmation
                   </Button>
-                  
+
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
@@ -555,7 +561,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     <Badge className="bg-green-100 text-green-800 mr-2">Confirmed</Badge>
                     Booking is confirmed
                   </Button>
-                  
+
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
@@ -565,7 +571,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     <Badge className="bg-blue-100 text-blue-800 mr-2">Completed</Badge>
                     Event has taken place
                   </Button>
-                  
+
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
@@ -579,7 +585,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
               </div>
             </div>
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Close</Button>
           </DialogFooter>
@@ -677,7 +683,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                             </p>
                           </div>
                         )}
-                        
+
                         <div className="space-y-2">
                           <Label>Override Payment Details (Optional)</Label>
                           <Input
@@ -699,7 +705,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                                        paymentMethod === 'paymaya' ? 'PayMaya' :
                                        paymentMethod === 'bank_bdo' ? 'BDO' :
                                        paymentMethod === 'bank_bpi' ? 'BPI' : 'Cash';
-                    
+
                     let paymentDetails = '';
                     if (paymentLink) {
                       paymentDetails = ` Pay: ${paymentLink}`;
@@ -710,7 +716,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     } else {
                       paymentDetails = ' Payment accepted on event day.';
                     }
-                    
+
                     return (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <h4 className="font-medium text-blue-800 mb-2">Preview Message</h4>
@@ -730,7 +736,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <h4 className="font-medium text-orange-800 mb-2">Reminder Message Preview</h4>
                   <p className="text-sm text-orange-700">
-                    Hi {selectedBooking.customer?.name}! Friendly reminder: Your catering event is on {new Date(selectedBooking.eventDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}. 
+                  Hi {selectedBooking.customer?.name}! Friendly reminder: Your catering event is on {parseLocalYMD(selectedBooking.eventDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}. 
                     Outstanding balance: ₱{((selectedBooking.balanceAmount || (selectedBooking.totalPrice - (selectedBooking.depositAmount || 0))) / 100).toLocaleString()}. 
                     Please settle before the event. Ref: {selectedBooking.bookingReference} - Peter's Creation Catering
                   </p>

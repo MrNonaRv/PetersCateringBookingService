@@ -99,8 +99,13 @@ export default function CustomQuotesManagement() {
     },
   });
 
+  const parseLocalYMD = (dateString: string) => {
+    const [y, m, d] = dateString.split("-").map((v) => parseInt(v, 10));
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
+
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseLocalYMD(dateString);
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -109,7 +114,8 @@ export default function CustomQuotesManagement() {
   };
 
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toLocaleString()}`;
+    const pesos = Math.round(priceInCents / 100);
+    return `₱${pesos.toLocaleString("en-PH")}`;
   };
 
   const getStatusBadge = (status: string) => {

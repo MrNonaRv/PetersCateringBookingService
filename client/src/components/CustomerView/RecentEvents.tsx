@@ -49,7 +49,7 @@ export function RecentEvents() {
             we bring exceptional service to every event.
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {events.map((event) => (
             <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -73,29 +73,32 @@ export function RecentEvents() {
                   </Badge>
                 </div>
               </div>
-              
+
               <CardContent className="p-6">
                 <h3 className="font-bold text-xl mb-3">{event.title}</h3>
-                
+
                 <div className="flex items-center text-sm text-gray-600 mb-2">
                   <Calendar className="w-4 h-4 mr-2" />
-                  {new Date(event.eventDate).toLocaleDateString()}
+                  {(() => {
+                    const [y, m, d] = event.eventDate.split("-").map((v: string) => parseInt(v, 10));
+                    return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString();
+                  })()}
                 </div>
-                
+
                 <div className="flex items-center text-sm text-gray-600 mb-2">
                   <MapPin className="w-4 h-4 mr-2" />
                   {event.venue}
                 </div>
-                
+
                 <div className="flex items-center text-sm text-gray-600 mb-4">
                   <Users className="w-4 h-4 mr-2" />
                   {event.guestCount} guests
                 </div>
-                
+
                 <p className="text-gray-700 mb-4 line-clamp-3">
                   {event.description}
                 </p>
-                
+
                 {event.highlights && event.highlights.length > 0 && (
                   <div className="space-y-2">
                     <h4 className="font-semibold text-sm text-gray-800">Event Highlights:</h4>

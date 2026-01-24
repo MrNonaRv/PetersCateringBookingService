@@ -12,7 +12,7 @@ import {
   insertGalleryImageSchema,
   insertDishSchema,
   insertPaymentSettingSchema
-} from "@shared/schema";
+} from "../shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -69,11 +69,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const service = await storage.getService(id);
-      
+
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
-      
+
       res.json(service);
     } catch (error) {
       res.status(500).json({ message: "Error fetching service" });
@@ -96,11 +96,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const serviceData = req.body;
       const service = await storage.updateService(id, serviceData);
-      
+
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
-      
+
       res.json(service);
     } catch (error) {
       res.status(400).json({ message: "Invalid service data" });
@@ -111,11 +111,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const deleted = await storage.deleteService(id);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "Service not found" });
       }
-      
+
       res.status(204).end();
     } catch (error) {
       res.status(500).json({ message: "Error deleting service" });
@@ -205,11 +205,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const servicePackage = await storage.getServicePackage(id);
-      
+
       if (!servicePackage) {
         return res.status(404).json({ message: "Service package not found" });
       }
-      
+
       res.json(servicePackage);
     } catch (error) {
       res.status(500).json({ message: "Error fetching service package" });
@@ -231,11 +231,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const packageData = insertServicePackageSchema.partial().parse(req.body);
       const servicePackage = await storage.updateServicePackage(id, packageData);
-      
+
       if (!servicePackage) {
         return res.status(404).json({ message: "Service package not found" });
       }
-      
+
       res.json(servicePackage);
     } catch (error) {
       res.status(400).json({ message: "Invalid service package data" });
@@ -246,11 +246,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const deleted = await storage.deleteServicePackage(id);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "Service package not found" });
       }
-      
+
       res.status(204).end();
     } catch (error) {
       res.status(500).json({ message: "Error deleting service package" });
@@ -304,11 +304,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const image = await storage.getGalleryImage(id);
-      
+
       if (!image) {
         return res.status(404).json({ message: "Gallery image not found" });
       }
-      
+
       res.json(image);
     } catch (error) {
       res.status(500).json({ message: "Error fetching gallery image" });
@@ -323,9 +323,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { title, description, category } = req.body;
-      
+
       const uploadedImages = [];
-      
+
       for (const file of files) {
         const imageData = {
           title: title || file.originalname,
@@ -341,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const image = await storage.createGalleryImage(imageData);
         uploadedImages.push(image);
       }
-      
+
       res.status(201).json(uploadedImages);
     } catch (error) {
       console.error("Error uploading images:", error);
@@ -354,11 +354,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const imageData = insertGalleryImageSchema.partial().parse(req.body);
       const image = await storage.updateGalleryImage(id, imageData);
-      
+
       if (!image) {
         return res.status(404).json({ message: "Gallery image not found" });
       }
-      
+
       res.json(image);
     } catch (error) {
       res.status(400).json({ message: "Invalid gallery image data" });
@@ -368,7 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // Get image info first to delete file
       const image = await storage.getGalleryImage(id);
       if (image) {
@@ -377,13 +377,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           fs.unlinkSync(filePath);
         }
       }
-      
+
       const deleted = await storage.deleteGalleryImage(id);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "Gallery image not found" });
       }
-      
+
       res.status(204).end();
     } catch (error) {
       res.status(500).json({ message: "Error deleting gallery image" });
@@ -404,11 +404,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const date = req.params.date;
       const availability = await storage.getAvailability(date);
-      
+
       if (!availability) {
         return res.json({ date, isAvailable: true }); // Default to available
       }
-      
+
       res.json(availability);
     } catch (error) {
       res.status(500).json({ message: "Error fetching availability" });
@@ -439,11 +439,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const date = req.params.date;
       const capacity = await storage.getCapacityByDate(date);
-      
+
       if (!capacity) {
         return res.json({ date, bookedSlots: 0, maxSlots: 7, dayType: 'normal' });
       }
-      
+
       res.json(capacity);
     } catch (error) {
       res.status(500).json({ message: "Error fetching capacity" });
@@ -464,11 +464,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const booking = await storage.getBooking(id);
-      
+
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       res.json(booking);
     } catch (error) {
       res.status(500).json({ message: "Error fetching booking" });
@@ -479,11 +479,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const reference = req.params.reference;
       const booking = await storage.getBookingByReference(reference);
-      
+
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       res.json(booking);
     } catch (error) {
       res.status(500).json({ message: "Error fetching booking" });
@@ -493,14 +493,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bookings", async (req, res) => {
     try {
       const { booking, customer, selectedDishes } = req.body;
-      
+
       console.log("Received booking data:", booking);
       console.log("Received customer data:", customer);
       console.log("Received selected dishes:", selectedDishes);
-      
+
       // Generate a unique booking reference
       const bookingReference = `PCB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      
+
       // Prepare booking data with all required fields
       const bookingWithDefaults = {
         ...booking,
@@ -516,21 +516,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         menuPreference: booking.menuPreference || "package",
         serviceStyle: booking.serviceStyle || "buffet"
       };
-      
+
       console.log("Prepared booking data:", bookingWithDefaults);
-      
+
       // Prepare customer data
       const customerWithDefaults = {
         ...customer,
         company: customer.company || ""
       };
-      
+
       console.log("Prepared customer data:", customerWithDefaults);
-      
+
       // Validate the data
       const bookingData = insertBookingSchema.parse(bookingWithDefaults);
       const customerData = insertCustomerSchema.parse(customerWithDefaults);
-      
+
       const createdBooking = await storage.createBooking(bookingData, customerData, selectedDishes);
       res.status(201).json(createdBooking);
     } catch (error) {
@@ -575,18 +575,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/custom-quotes", async (req, res) => {
     try {
       const { quote, customer } = req.body;
-      
+
       // Prepare customer data
       const customerWithDefaults = {
         ...customer,
         company: customer.company || ""
       };
-      
+
       const customerData = insertCustomerSchema.parse(customerWithDefaults);
-      
+
       // Generate a unique quote reference
       const quoteReference = `PCQ-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      
+
       // Prepare quote data
       const quoteData = {
         quoteReference,
@@ -605,9 +605,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: null,
         customerId: 0
       };
-      
+
       const createdQuote = await storage.createCustomQuote(quoteData, customerData);
-      
+
       res.json({ 
         success: true, 
         quoteReference: createdQuote.quoteReference,
@@ -626,19 +626,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { status, quotedPrice, notes } = req.body;
-      
+
       const validStatuses = ["pending", "reviewing", "quoted", "accepted", "rejected", "expired"];
-      
+
       if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
-      
+
       const quote = await storage.updateCustomQuoteStatus(id, status, { proposedPrice: quotedPrice, adminNotes: notes });
-      
+
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
-      
+
       res.json(quote);
     } catch (error) {
       console.error("Error updating custom quote:", error);
@@ -650,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { status } = req.body;
-      
+
       const validStatuses = [
         "pending", 
         "pending_approval", 
@@ -662,17 +662,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "completed", 
         "cancelled"
       ];
-      
+
       if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
-      
+
       const booking = await storage.updateBookingStatus(id, status);
-      
+
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       res.json(booking);
     } catch (error) {
       res.status(500).json({ message: "Error updating booking status" });
@@ -701,15 +701,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/forgot-password", async (req, res) => {
     try {
       const { email } = req.body;
-      
+
       if (!email) {
         return res.status(400).json({ message: "Email is required" });
       }
-      
+
       // Find user by email
       const allUsers = await storage.getUsers();
       const user = allUsers.find((u: { email: string }) => u.email === email);
-      
+
       if (user) {
         // In production, you would:
         // 1. Generate a password reset token
@@ -717,12 +717,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 3. Send an email with a reset link containing the token
         // For now, we just log this for demonstration
         console.log(`Password reset requested for user: ${user.username} (${email})`);
-        
+
         // If Twilio SMS is configured, we could also send an SMS notification
         // For security, we always return the same response regardless of whether
         // the email exists to prevent email enumeration attacks
       }
-      
+
       // Always return success to prevent email enumeration
       res.json({ 
         success: true, 
@@ -748,11 +748,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const event = await storage.getRecentEvent(id);
-      
+
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
-      
+
       res.json(event);
     } catch (error) {
       res.status(500).json({ message: "Error fetching event" });
@@ -775,11 +775,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const eventData = insertRecentEventSchema.partial().parse(req.body);
       const event = await storage.updateRecentEvent(id, eventData);
-      
+
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
-      
+
       res.json(event);
     } catch (error) {
       res.status(400).json({ message: "Invalid event data" });
@@ -790,11 +790,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const success = await storage.deleteRecentEvent(id);
-      
+
       if (!success) {
         return res.status(404).json({ message: "Event not found" });
       }
-      
+
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Error deleting event" });
@@ -839,7 +839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: "cash"
       }
     ];
-    
+
     res.json(paymentMethods);
   });
 
@@ -847,11 +847,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/process-payment", async (req, res) => {
     try {
       const { bookingId, paymentMethod, paymentReference } = req.body;
-      
+
       if (!bookingId || !paymentMethod) {
         return res.status(400).json({ message: "Booking ID and payment method are required" });
       }
-      
+
       // Simulate payment processing logic
       // In a real application, you would integrate with actual payment processors
       const paymentResult = {
@@ -861,7 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentReference: paymentReference || `REF-${Date.now()}`,
         timestamp: new Date()
       };
-      
+
       res.json(paymentResult);
     } catch (error) {
       res.status(500).json({ message: "Payment processing error" });
@@ -869,7 +869,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Paymongo Payment Integration Routes
-  
+
   // Check if Paymongo is configured
   app.get("/api/paymongo/status", (req, res) => {
     res.json({ 
@@ -933,7 +933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 
                       process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 
                       'http://localhost:5000';
-      
+
       const finalSuccessUrl = successUrl || `${baseUrl}/payment-success?booking=${booking.bookingReference}&type=${paymentType}`;
       const finalCancelUrl = cancelUrl || `${baseUrl}/payment-cancelled?booking=${booking.bookingReference}`;
 
@@ -976,12 +976,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { checkoutId } = req.params;
-      
+
       const session = await getCheckoutSession(checkoutId);
-      
+
       // Check if payment was successful
       const isPaid = session.payments.some(p => p.status === 'paid');
-      
+
       res.json({
         checkoutId: session.id,
         status: session.status,
@@ -1001,9 +1001,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const payload = req.body.toString();
       const event = JSON.parse(payload);
-      
+
       console.log("Paymongo webhook received:", event.data?.attributes?.type);
-      
+
       const eventType = event.data?.attributes?.type;
       const eventData = event.data?.attributes?.data;
 
@@ -1012,16 +1012,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const metadata = eventData?.attributes?.metadata || {};
         const bookingReference = metadata.booking_reference || eventData?.attributes?.reference_number;
         const paymentType = metadata.payment_type || 'deposit';
-        
+
         if (bookingReference) {
           const booking = await storage.getBookingByReference(bookingReference);
-          
+
           if (booking) {
             // Update booking payment status
             const paymentDetails = eventData?.attributes;
             const paymentMethod = paymentDetails?.source?.type || 'paymongo';
             const paymentId = eventData?.id;
-            
+
             if (paymentType === 'deposit') {
               await storage.updateBookingPayment(booking.id, {
                 depositPaid: true,
@@ -1053,12 +1053,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 status: 'confirmed'
               });
             }
-            
+
             console.log(`Booking ${bookingReference} payment updated: ${paymentType}`);
           }
         }
       }
-      
+
       res.json({ received: true });
     } catch (error) {
       console.error("Webhook processing error:", error);
@@ -1071,13 +1071,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const paymentData = req.body;
-      
+
       const booking = await storage.updateBookingPayment(id, paymentData);
-      
+
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       res.json(booking);
     } catch (error) {
       console.error("Update payment error:", error);
@@ -1146,7 +1146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // SMS Integration Routes (iProgSMS)
-  
+
   // Check if SMS is configured
   app.get("/api/sms/status", (req, res) => {
     res.json({ 
@@ -1158,16 +1158,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sms/booking-confirmation", isAuthenticated, async (req, res) => {
     try {
       const { bookingId } = req.body;
-      
+
       if (!bookingId) {
         return res.status(400).json({ message: "Booking ID is required" });
       }
-      
+
       const booking = await storage.getBooking(parseInt(bookingId));
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       const result = await sendBookingConfirmation({
         customerPhone: booking.customer.phone,
         customerName: booking.customer.name,
@@ -1176,7 +1176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         eventType: booking.eventType,
         totalPrice: booking.totalPrice
       });
-      
+
       res.json(result);
     } catch (error: any) {
       console.error("SMS booking confirmation error:", error);
@@ -1188,18 +1188,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sms/booking-approved", isAuthenticated, async (req, res) => {
     try {
       const { bookingId, paymentLink } = req.body;
-      
+
       if (!bookingId) {
         return res.status(400).json({ message: "Booking ID is required" });
       }
-      
+
       const booking = await storage.getBooking(parseInt(bookingId));
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       const depositAmount = Math.round(booking.totalPrice * 0.5);
-      
+
       const result = await sendBookingApproved({
         customerPhone: booking.customer.phone,
         customerName: booking.customer.name,
@@ -1207,7 +1207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         depositAmount,
         paymentLink
       });
-      
+
       res.json(result);
     } catch (error: any) {
       console.error("SMS booking approved error:", error);
@@ -1219,18 +1219,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sms/deposit-received", isAuthenticated, async (req, res) => {
     try {
       const { bookingId, amountPaid } = req.body;
-      
+
       if (!bookingId) {
         return res.status(400).json({ message: "Booking ID is required" });
       }
-      
+
       const booking = await storage.getBooking(parseInt(bookingId));
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       const remainingBalance = booking.balanceAmount || Math.round(booking.totalPrice * 0.5);
-      
+
       const result = await sendDepositReceived({
         customerPhone: booking.customer.phone,
         customerName: booking.customer.name,
@@ -1238,7 +1238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amountPaid: amountPaid || Math.round(booking.totalPrice * 0.5),
         remainingBalance
       });
-      
+
       res.json(result);
     } catch (error: any) {
       console.error("SMS deposit received error:", error);
@@ -1250,20 +1250,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sms/payment-reminder", isAuthenticated, async (req, res) => {
     try {
       const { bookingId } = req.body;
-      
+
       if (!bookingId) {
         return res.status(400).json({ message: "Booking ID is required" });
       }
-      
+
       const booking = await storage.getBooking(parseInt(bookingId));
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
-      const eventDate = new Date(booking.eventDate);
+
+      const parseLocalYMD = (dateString: string) => {
+        const [y, m, d] = dateString.split("-").map((v) => parseInt(v, 10));
+        return new Date(y, (m || 1) - 1, d || 1);
+      };
+      const eventDate = parseLocalYMD(booking.eventDate);
       const today = new Date();
       const daysUntilEvent = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       const result = await sendPaymentReminder({
         customerPhone: booking.customer.phone,
         customerName: booking.customer.name,
@@ -1272,7 +1276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         eventDate: booking.eventDate,
         daysUntilEvent
       });
-      
+
       res.json(result);
     } catch (error: any) {
       console.error("SMS payment reminder error:", error);
@@ -1284,16 +1288,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sms/event-reminder", isAuthenticated, async (req, res) => {
     try {
       const { bookingId } = req.body;
-      
+
       if (!bookingId) {
         return res.status(400).json({ message: "Booking ID is required" });
       }
-      
+
       const booking = await storage.getBooking(parseInt(bookingId));
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       const result = await sendEventReminder({
         customerPhone: booking.customer.phone,
         customerName: booking.customer.name,
@@ -1302,7 +1306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         eventTime: booking.eventTime,
         venueAddress: booking.venueAddress
       });
-      
+
       res.json(result);
     } catch (error: any) {
       console.error("SMS event reminder error:", error);
@@ -1314,21 +1318,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sms/custom", isAuthenticated, async (req, res) => {
     try {
       const { bookingId, message } = req.body;
-      
+
       if (!bookingId || !message) {
         return res.status(400).json({ message: "Booking ID and message are required" });
       }
-      
+
       const booking = await storage.getBooking(parseInt(bookingId));
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-      
+
       const result = await sendCustomMessage({
         customerPhone: booking.customer.phone,
         message
       });
-      
+
       res.json(result);
     } catch (error: any) {
       console.error("SMS custom message error:", error);
@@ -1350,19 +1354,19 @@ function setupAuthentication(app: Express) {
   passport.use(new LocalStrategy(async (username, password, done) => {
     try {
       const user = await storage.getUserByUsername(username);
-      
+
       if (!user) {
         return done(null, false, { message: "Incorrect username." });
       }
-      
+
       // Use bcrypt to compare passwords
       const { compare } = await import('bcrypt');
       const isMatch = await compare(password, user.password);
-      
+
       if (!isMatch) {
         return done(null, false, { message: "Incorrect password." });
       }
-      
+
       // Don't send password to client
       const { password: _, ...userWithoutPassword } = user;
       return done(null, userWithoutPassword);
@@ -1378,11 +1382,11 @@ function setupAuthentication(app: Express) {
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
-      
+
       if (!user) {
         return done(null, false);
       }
-      
+
       // Don't send password to client
       const { password: _, ...userWithoutPassword } = user;
       done(null, userWithoutPassword);
