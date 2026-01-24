@@ -1,5 +1,7 @@
 const IPROGSMS_API_TOKEN = process.env.IPROGSMS_API_TOKEN;
 const IPROGSMS_API_URL = 'https://www.iprogsms.com/api/v1/sms_messages';
+const IPROGSMS_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME;
+const DEFAULT_SENDER_NAME = 'PETERSCATER';
 
 export function isSMSConfigured(): boolean {
   return !!IPROGSMS_API_TOKEN;
@@ -31,6 +33,7 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
         api_token: IPROGSMS_API_TOKEN,
         phone_number: formattedNumber,
         message: message,
+        sender_name: IPROGSMS_SENDER_NAME || DEFAULT_SENDER_NAME,
       }),
     });
 
@@ -41,7 +44,8 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
       return { success: true, messageId: data.message_id };
     } else {
       console.error('Failed to send SMS:', data);
-      return { success: false, error: data.message || 'Failed to send SMS' };
+      const providerError = data.message || 'Failed to send SMS';
+      return { success: false, error: providerError };
     }
   } catch (error: any) {
     console.error('Failed to send SMS:', error.message);
@@ -83,7 +87,11 @@ export async function sendBookingApproved(params: {
   depositAmount: number;
   paymentLink?: string;
 }): Promise<SMSResult> {
-  const message = `Hi ${params.customerName}! Great news - your catering reservation ${params.bookingReference} is approved. We will call you to discuss the next steps. - Peters Creation Catering`;
+  let message = `Hi ${params.customerName}! Great news - your catering reservation ${params.bookingReference} is approved! Please pay the deposit of PHP ${(params.depositAmount / 100).toLocaleString()} to confirm your reservation.`;
+  if (params.paymentLink) {
+    message += ` Pay: ${params.paymentLink}`;
+  }
+  message += ` - Peters Creation Catering`;
 
   return sendSMS(params.customerPhone, message);
 }

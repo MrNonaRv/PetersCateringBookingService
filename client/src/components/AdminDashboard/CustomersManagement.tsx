@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Eye } from "lucide-react";
+import { Link } from "wouter";
 
 export default function CustomersManagement() {
   const { data: bookings, isLoading } = useQuery({
@@ -67,7 +68,7 @@ export default function CustomersManagement() {
                   const customerBookings = bookings.filter((booking: any) => 
                     booking.customer.email === customer.email
                   ).length;
-                  
+
                   return (
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
@@ -76,9 +77,11 @@ export default function CustomersManagement() {
                       <TableCell>{customer.company || "-"}</TableCell>
                       <TableCell>{customerBookings}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4 mr-1" /> View
-                        </Button>
+                        <Link href={`/admin/bookings?customer=${encodeURIComponent(customer.email)}`}>
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4 mr-1" /> View
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   );

@@ -16,16 +16,17 @@ import AdminRecentEvents from "@/pages/admin/recent-events";
 import AdminMenu from "@/pages/admin/menu";
 import AdminSettings from "@/pages/admin/settings";
 import AdminQuotes from "@/pages/admin/quotes";
+import AdminProfile from "@/pages/admin/profile";
 import Login from "@/pages/login";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/providers/ProtectedRoute";
 
 function App() {
   const [location] = useLocation();
-  
+
   // Check if we're on an admin page
   const isAdminPage = location.startsWith("/admin");
-  
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -82,6 +83,11 @@ function App() {
             <Route path="/admin/settings" component={() => 
               <ProtectedRoute>
                 <AdminSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/profile" component={() => 
+              <ProtectedRoute>
+                <AdminProfile />
               </ProtectedRoute>
             } />
             <Route path="/admin/quotes" component={() => 

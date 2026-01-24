@@ -15,7 +15,7 @@ export default function OverviewCards() {
       return res.json();
     }
   });
-  
+
   if (isLoadingBookings) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -34,13 +34,13 @@ export default function OverviewCards() {
       </div>
     );
   }
-  
+
   // Calculate stats from bookings
   const calculateStats = () => {
     if (!bookings) return { total: 0, pending: 0, today: 0, totalRevenue: 0 };
-    
+
     const today = new Date().toISOString().split('T')[0];
-    
+
     return {
       total: bookings.length,
       pending: bookings.filter((booking: any) => booking.status === 'pending').length,
@@ -48,14 +48,14 @@ export default function OverviewCards() {
       totalRevenue: bookings.reduce((sum: number, booking: any) => sum + booking.totalPrice, 0)
     };
   };
-  
+
   const { total, pending, today, totalRevenue } = calculateStats();
-  
+
   // Format price from cents to pesos
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toFixed(2)}`;
+  return `₱${Math.round(priceInCents / 100).toLocaleString("en-PH")}`;
   };
-  
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <Card className="shadow">
@@ -73,7 +73,7 @@ export default function OverviewCards() {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card className="shadow">
         <CardContent className="p-6">
           <div className="flex justify-between items-center mb-4">
@@ -89,7 +89,7 @@ export default function OverviewCards() {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card className="shadow">
         <CardContent className="p-6">
           <div className="flex justify-between items-center mb-4">
@@ -105,7 +105,7 @@ export default function OverviewCards() {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card className="shadow">
         <CardContent className="p-6">
           <div className="flex justify-between items-center mb-4">

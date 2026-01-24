@@ -29,12 +29,14 @@ import {
   sendDepositReceived,
   sendPaymentReminder,
   sendEventReminder,
-  sendCustomMessage 
+  sendCustomMessage,
+  sendBookingCancelled 
 } from "./sms";
 
 const MemorySessionStore = MemoryStore(session);
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const autoCancelTimers = new Map<number, NodeJS.Timeout>();
   // Serve static files from uploads directory
   app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
 
@@ -673,6 +675,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Booking not found" });
       }
 
+      // Schedule auto-cancel when approved; clear when paid/confirmed/cancelled
+      if (booking) {
+        if (status === 'approved') {
+          const deadlineIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          let notes: any = {};
+          try { notes = booking.adminNotes ? JSON.parse(booking.adminNotes) : {}; } catch {}
+          notes.autoCancelDeadline = deadlineIso;
+          await storage.updateBookingPayment(id, { adminNotes: JSON.stringify(notes) });
+          if (autoCancelTimers.has(id)) clearTimeout(autoCancelTimers.get(id)!);
+          const t = setTimeout(async () => {
+            try {
+              const latest = await storage.getBooking(id);
+              if (!latest) return;
+              if (latest.status === 'cancelled') return;
+              if (latest.depositPaid) return;
+              await storage.updateBookingStatus(id, 'cancelled');
+              await sendBookingCancelled({
+                customerPhone: latest.customer.phone,
+                customerName: latest.customer.name,
+                bookingReference: latest.bookingReference
+              });
+            } finally {
+              autoCancelTimers.delete(id);
+            }
+          }, 24 * 60 * 60 * 1000);
+          autoCancelTimers.set(id, t);
+        } else if (['deposit_paid', 'confirmed', 'fully_paid', 'cancelled', 'completed'].includes(status)) {
+          if (autoCancelTimers.has(id)) {
+            clearTimeout(autoCancelTimers.get(id)!);
+            autoCancelTimers.delete(id);
+          }
+        }
+      }
+
       res.json(booking);
     } catch (error) {
       res.status(500).json({ message: "Error updating booking status" });
@@ -1031,6 +1067,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 paymentStatus: 'deposit_paid',
                 status: 'deposit_paid'
               });
+              if (autoCancelTimers.has(booking.id)) {
+                clearTimeout(autoCancelTimers.get(booking.id)!);
+                autoCancelTimers.delete(booking.id);
+              }
             } else if (paymentType === 'balance') {
               await storage.updateBookingPayment(booking.id, {
                 balancePaid: true,
@@ -1040,6 +1080,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 paymentStatus: 'fully_paid',
                 status: 'confirmed'
               });
+              if (autoCancelTimers.has(booking.id)) {
+                clearTimeout(autoCancelTimers.get(booking.id)!);
+                autoCancelTimers.delete(booking.id);
+              }
             } else {
               // Full payment
               await storage.updateBookingPayment(booking.id, {
@@ -1052,6 +1096,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 paymentStatus: 'fully_paid',
                 status: 'confirmed'
               });
+              if (autoCancelTimers.has(booking.id)) {
+                clearTimeout(autoCancelTimers.get(booking.id)!);
+                autoCancelTimers.delete(booking.id);
+              }
             }
 
             console.log(`Booking ${bookingReference} payment updated: ${paymentType}`);

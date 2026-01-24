@@ -64,7 +64,7 @@ export default function Services({ services, isLoading, onSelectService }: Servi
   });
 
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₱${Math.round(priceInCents / 100).toLocaleString("en-PH")}`;
   };
 
   useEffect(() => {

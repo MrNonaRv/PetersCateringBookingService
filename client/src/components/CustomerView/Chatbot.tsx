@@ -59,7 +59,7 @@ export default function Chatbot({ services }: ChatbotProps) {
   }, [isOpen]);
 
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toFixed(2)}`;
+    return `₱${Math.round(priceInCents / 100).toLocaleString("en-PH")}`;
   };
 
   const getResponse = (userMessage: string): { text: string; suggestions?: string[] } => {
@@ -180,7 +180,7 @@ export default function Chatbot({ services }: ChatbotProps) {
 
     // Simulate typing and get response
     await simulateTyping();
-    
+
     const response = getResponse(text);
     const botMessage: Message = {
       id: (Date.now() + 1).toString(),
@@ -276,7 +276,7 @@ export default function Chatbot({ services }: ChatbotProps) {
                             <User className="h-4 w-4 mt-1 flex-shrink-0" />
                           )}
                         </div>
-                        
+
                         {/* Suggestions */}
                         {message.suggestions && (
                           <div className="mt-2 space-y-1">
@@ -296,7 +296,7 @@ export default function Chatbot({ services }: ChatbotProps) {
                       </div>
                     </div>
                   ))}
-                  
+
                   {/* Typing indicator */}
                   {isTyping && (
                     <div className="flex justify-start">
@@ -312,7 +312,7 @@ export default function Chatbot({ services }: ChatbotProps) {
                       </div>
                     </div>
                   )}
-                  
+
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>

@@ -74,22 +74,22 @@ export default function BudgetInquiry({ services, onSelectService, onCustomInqui
   const [recommendations, setRecommendations] = useState<Service[]>([]);
 
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toFixed(2)}`;
+    return `₱${Math.round(priceInCents / 100).toLocaleString("en-PH")}`;
   };
 
-  const calculateTotalCost = (service: Service, guests: number) => {
-    return service.basePrice * guests;
+  const calculateTotalCostPesos = (service: Service, guests: number) => {
+    return Math.round((service.basePrice * guests) / 100);
   };
 
   useEffect(() => {
     // Filter services based on budget and guest count
     const filteredServices = services.filter(service => {
-      const totalCost = calculateTotalCost(service, guestCount);
-      return totalCost <= budget;
+      const totalCostPesos = calculateTotalCostPesos(service, guestCount);
+      return totalCostPesos <= budget;
     });
-    
+
     setRecommendations(filteredServices.slice(0, 3)); // Show top 3 recommendations
-    
+
     // Update selected range based on budget
     const range = budgetRanges.find(r => budget >= r.min && budget <= r.max);
     if (range) {
@@ -206,7 +206,7 @@ export default function BudgetInquiry({ services, onSelectService, onCustomInqui
                     ₱{((currentRange?.min || 0) / 1000).toFixed(0)}K - ₱{((currentRange?.max || 0) / 1000).toFixed(0)}K
                   </Badge>
                 </div>
-                
+
                 <div className="border-t pt-4">
                   <h4 className="font-semibold mb-3">Package Includes:</h4>
                   <ul className="space-y-2">
@@ -246,7 +246,7 @@ export default function BudgetInquiry({ services, onSelectService, onCustomInqui
               {recommendations.map((service) => {
                 const totalCost = calculateTotalCost(service, guestCount);
                 const savings = budget - totalCost;
-                
+
                 return (
                   <Card key={service.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                     <div className="relative">
@@ -264,7 +264,7 @@ export default function BudgetInquiry({ services, onSelectService, onCustomInqui
                     <CardContent className="p-4">
                       <h4 className="text-lg font-heading font-bold text-primary mb-2">{service.name}</h4>
                       <p className="text-sm text-gray-600 mb-3 line-clamp-2">{service.description}</p>
-                      
+
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-sm">
                           <span>Per Person:</span>
@@ -279,7 +279,7 @@ export default function BudgetInquiry({ services, onSelectService, onCustomInqui
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         </div>
                       </div>
-                      
+
                       <Button 
                         onClick={() => onSelectService(service.id)}
                         className="w-full bg-primary hover:bg-secondary transition-colors"

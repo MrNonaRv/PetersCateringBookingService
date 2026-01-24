@@ -14,6 +14,7 @@ import { RecentEventsManagement } from "./RecentEventsManagement";
 import AdminMenu from "@/pages/admin/menu";
 import PaymentSettingsManagement from "./PaymentSettingsManagement";
 import CustomQuotesManagement from "./CustomQuotesManagement";
+import AdminProfile from "./Profile";
 
 interface AdminDashboardProps {
   currentPage: string;
@@ -22,7 +23,7 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const { user } = useAuth();
-  
+
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
@@ -34,7 +35,7 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
         return (
           <>
             <OverviewCards />
-            
+
             <div className="grid grid-cols-1 gap-6 mt-6">
               <Card>
                 <CardHeader className="px-6 py-4 border-b">
@@ -44,7 +45,7 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
                   <BookingCalendar />
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader className="px-6 py-4 border-b flex justify-between items-center">
                   <CardTitle className="text-lg font-medium">Recent Bookings</CardTitle>
@@ -57,7 +58,7 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
             </div>
           </>
         );
-      
+
       case "bookings":
         return (
           <Card>
@@ -69,19 +70,22 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
             </CardContent>
           </Card>
         );
-      
+
       case "services":
         return <ServicesManagement />;
-      
+
       case "service-packages":
         return <ServicePackageManagement />;
-      
+
       case "gallery":
         return <GalleryManagement />;
-      
+
       case "customers":
         return <CustomersManagement />;
-      
+
+      case "profile":
+        return <AdminProfile />;
+
       case "recent-events":
         return <RecentEventsManagement />;
 
@@ -103,7 +107,7 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
     <div className="flex min-h-screen bg-gray-100">
       {/* Sidebar */}
       <Sidebar collapsed={isSidebarCollapsed} currentPage={currentPage} />
-      
+
       {/* Main Content */}
       <div className="flex-1 overflow-x-hidden">
         {/* Top Navigation */}
@@ -118,7 +122,7 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
             "Admin Panel"
           } 
         />
-        
+
         {/* Dashboard Content */}
         <div className="p-6">
           {renderContent()}

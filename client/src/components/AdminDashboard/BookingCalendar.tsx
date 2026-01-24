@@ -105,7 +105,7 @@ export default function BookingCalendar() {
   };
 
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toLocaleString()}`;
+    return `₱${Math.round(priceInCents / 100).toLocaleString("en-PH")}`;
   };
 
   const days = getDaysInMonth();

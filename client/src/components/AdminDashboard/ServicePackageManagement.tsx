@@ -41,7 +41,7 @@ export default function ServicePackageManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentPackage, setCurrentPackage] = useState<ServicePackage | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<number>(0);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     serviceId: 0,
@@ -59,7 +59,8 @@ export default function ServicePackageManagement() {
   const queryClient = useQueryClient();
 
   const formatPrice = (priceInCents: number) => {
-    return `₱${(priceInCents / 100).toFixed(2)}`;
+    const pesos = Math.round(priceInCents / 100);
+    return `₱${pesos.toLocaleString("en-PH")}`;
   };
 
   // Fetch services
@@ -175,7 +176,7 @@ export default function ServicePackageManagement() {
       serviceId: pkg.serviceId,
       name: pkg.name,
       description: pkg.description,
-      pricePerPerson: (pkg.pricePerPerson / 100).toFixed(2),
+      pricePerPerson: String(Math.round(pkg.pricePerPerson / 100)),
       minGuests: pkg.minGuests.toString(),
       maxGuests: pkg.maxGuests?.toString() || "",
       features: pkg.features.length > 0 ? pkg.features : [""],
@@ -201,7 +202,7 @@ export default function ServicePackageManagement() {
       return;
     }
 
-    const priceInCents = Math.round(parseFloat(formData.pricePerPerson) * 100);
+    const priceInCents = parseInt(formData.pricePerPerson, 10) * 100;
     const features = formData.features.filter(f => f.trim() !== "");
 
     const packageData = {
@@ -344,7 +345,7 @@ export default function ServicePackageManagement() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-700 mb-4">{pkg.description}</p>
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-secondary" />
@@ -396,7 +397,7 @@ export default function ServicePackageManagement() {
               {currentPackage ? "Edit Package" : "Add New Package"}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Service Selection */}
             <div>

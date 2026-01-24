@@ -48,14 +48,22 @@ import {
 } from "@/components/ui/select";
 
 const MENU_CATEGORIES = [
+  { value: "appetizer", label: "Appetizers (Pasta/Vegetables)" },
   { value: "pork", label: "Pork Menu" },
   { value: "chicken", label: "Chicken Menu" },
   { value: "beef", label: "Beef Menu" },
   { value: "fish", label: "Fish Menu" },
-  { value: "appetizer", label: "Appetizers (Pasta/Vegetables)" },
   { value: "dessert", label: "Dessert" },
   { value: "standard_inclusion", label: "Standard Inclusions" },
   { value: "amenity", label: "Freebies (Amenities)" },
+];
+const CATEGORY_LABELS = Object.fromEntries(MENU_CATEGORIES.map(c => [c.value, c.label]));
+const MENU_GROUPS = [
+  { title: "Appetizers", categories: ["appetizer"] },
+  { title: "Main Courses", categories: ["pork", "chicken", "beef", "fish"] },
+  { title: "Dessert", categories: ["dessert"] },
+  { title: "Standard Inclusions", categories: ["standard_inclusion"] },
+  { title: "Freebies (Amenities)", categories: ["amenity"] },
 ];
 
 export default function AdminDishes() {
@@ -250,20 +258,19 @@ export default function AdminDishes() {
         </DialogContent>
       </Dialog>
 
-      {MENU_CATEGORIES.map((category) => {
-        const categoryDishes = dishes?.filter((d) => d.category === category.value) || [];
-        if (categoryDishes.length === 0 && !isLoading) return null;
-
+      {MENU_GROUPS.map((group) => {
+        const groupDishes = dishes?.filter((d) => group.categories.includes(d.category)) || [];
+        if (groupDishes.length === 0 && !isLoading) return null;
         return (
-          <div key={category.value} className="space-y-4">
+          <div key={group.title} className="space-y-4">
             <h2 className="text-xl font-bold text-gray-700 border-b pb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="bg-primary/10 text-primary p-2 rounded-lg">
                   <LayoutDashboard className="h-5 w-5" />
                 </span>
-                {category.label}
+                {group.title}
                 <span className="text-sm font-normal text-gray-400 ml-2">
-                  ({categoryDishes.length} items)
+                  ({groupDishes.length} items)
                 </span>
               </div>
               <Link href="/admin">
@@ -273,40 +280,49 @@ export default function AdminDishes() {
                 </Button>
               </Link>
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categoryDishes.map((dish) => (
-                <div key={dish.id} className="bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-shadow group">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-lg text-gray-900">{dish.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1 line-clamp-2">{dish.description}</p>
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-primary"
-                        onClick={() => handleEdit(dish)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to delete "${dish.name}"?`)) {
-                            deleteMutation.mutate(dish.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+            {group.categories.map((catVal) => {
+              const subDishes = groupDishes.filter((d) => d.category === catVal);
+              if (subDishes.length === 0) return null;
+              return (
+                <div key={catVal}>
+                  <h3 className="text-lg font-semibold text-gray-600">{CATEGORY_LABELS[catVal]}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {subDishes.map((dish) => (
+                      <div key={dish.id} className="bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-shadow group">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-bold text-lg text-gray-900">{dish.name}</h3>
+                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{dish.description}</p>
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-primary"
+                              onClick={() => handleEdit(dish)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete "${dish.name}"?`)) {
+                                  deleteMutation.mutate(dish.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         );
       })}

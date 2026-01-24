@@ -48,6 +48,9 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
   const [paymentLink, setPaymentLink] = useState('');
   const [customMessage, setCustomMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [searchName, setSearchName] = useState('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const { toast } = useToast();
 
   const pageSize = limit || 10;
@@ -79,9 +82,37 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
     return new Date(y, (m || 1) - 1, d || 1);
   };
 
+  const searchCustomerEmail = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('customer') || '';
+    } catch {
+      return '';
+    }
+  })();
+  const searchQueryName = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('q') || '';
+    } catch {
+      return '';
+    }
+  })();
+  if (!searchName && searchQueryName) {
+    setSearchName(searchQueryName);
+  }
+  const filteredBookings = (bookings || [])
+    .filter((b: any) => !searchCustomerEmail || b.customer.email === searchCustomerEmail)
+    .filter((b: any) => !searchName || (b.customer.name || '').toLowerCase().includes(searchName.toLowerCase()))
+    .filter((b: any) => {
+      if (!startDate && !endDate) return true;
+      const ev = parseLocalYMD(b.eventDate).getTime();
+      const from = startDate ? parseLocalYMD(startDate).getTime() : -Infinity;
+      const to = endDate ? parseLocalYMD(endDate).getTime() : Infinity;
+      return ev >= from && ev <= to;
+    });
+
   // Paginate bookings
-  const paginatedBookings = bookings ? bookings.slice((page - 1) * pageSize, page * pageSize) : [];
-  const totalPages = bookings ? Math.ceil(bookings.length / pageSize) : 0;
+  const paginatedBookings = filteredBookings.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(filteredBookings.length / pageSize);
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -258,6 +289,57 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
 
   return (
     <>
+      {/* Filters */}
+      {!limit && (
+        <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-end md:gap-4 gap-3">
+          <div className="flex-1">
+            <Label className="mb-1 block">Search by Customer Name</Label>
+            <Input 
+              placeholder="Type customer name..."
+              value={searchName}
+              onChange={(e) => {
+                setPage(1);
+                setSearchName(e.target.value);
+              }}
+            />
+          </div>
+          <div>
+            <Label className="mb-1 block">Start Date</Label>
+            <Input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => {
+                setPage(1);
+                setStartDate(e.target.value);
+              }}
+            />
+          </div>
+          <div>
+            <Label className="mb-1 block">End Date</Label>
+            <Input 
+              type="date" 
+              value={endDate}
+              onChange={(e) => {
+                setPage(1);
+                setEndDate(e.target.value);
+              }}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => {
+                setSearchName('');
+                setStartDate('');
+                setEndDate('');
+                setPage(1);
+              }}
+            >
+              Clear Filters
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -367,7 +449,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
       {!limit && (
         <div className="px-6 py-3 border-t flex justify-between items-center">
           <div className="text-sm text-gray-500">
-            Showing {paginatedBookings.length > 0 ? (page - 1) * pageSize + 1 : 0} to {Math.min(page * pageSize, bookings?.length || 0)} of {bookings?.length || 0} entries
+            Showing {paginatedBookings.length > 0 ? (page - 1) * pageSize + 1 : 0} to {Math.min(page * pageSize, filteredBookings.length)} of {filteredBookings.length} entries
           </div>
           <div className="flex items-center space-x-2">
             <Button 
@@ -638,8 +720,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     <h4 className="font-medium text-green-800 mb-2">Booking Details</h4>
                     <div className="text-sm text-green-700 space-y-1">
                       <p>Reference: {selectedBooking.bookingReference}</p>
-                      <p>Total Price: ₱{(selectedBooking.totalPrice / 100).toLocaleString()}</p>
-                      <p>Deposit (50%): ₱{(selectedBooking.totalPrice / 200).toLocaleString()}</p>
+                      <p>Total Price: ₱{Math.round(selectedBooking.totalPrice / 100).toLocaleString("en-PH")}</p>
+                      <p>Deposit (50%): ₱{Math.round(selectedBooking.totalPrice / 200).toLocaleString("en-PH")}</p>
                     </div>
                   </div>
 

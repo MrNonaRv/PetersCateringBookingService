@@ -28,10 +28,10 @@ export default function ServicesManagement() {
   const [editedName, setEditedName] = useState<string>("");
   const [editedDescription, setEditedDescription] = useState<string>("");
   const [editedFeatured, setEditedFeatured] = useState<boolean>(false);
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const { data: services, isLoading } = useQuery({
     queryKey: ['/api/services'],
     queryFn: async () => {
@@ -42,7 +42,7 @@ export default function ServicesManagement() {
       return res.json();
     },
   });
-  
+
   const updateServiceMutation = useMutation({
     mutationFn: async (service: Partial<Service> & { id: number }) => {
       const res = await apiRequest('PUT', `/api/services/${service.id}`, service);
@@ -64,21 +64,21 @@ export default function ServicesManagement() {
       });
     },
   });
-  
+
   const handleEditService = (service: Service) => {
     setCurrentService(service);
     setEditedName(service.name);
     setEditedDescription(service.description);
-    setEditedPrice((service.basePrice / 100).toFixed(2));
+    setEditedPrice(String(Math.round(service.basePrice / 100)));
     setEditedFeatured(service.featured);
     setIsEditDialogOpen(true);
   };
-  
+
   const handleUpdateService = () => {
     if (!currentService) return;
-    
-    const priceInCents = Math.round(parseFloat(editedPrice) * 100);
-    
+
+    const priceInCents = parseInt(editedPrice, 10) * 100;
+
     if (isNaN(priceInCents)) {
       toast({
         title: "Invalid price",
@@ -87,7 +87,7 @@ export default function ServicesManagement() {
       });
       return;
     }
-    
+
     updateServiceMutation.mutate({
       id: currentService.id,
       name: editedName,
@@ -109,7 +109,7 @@ export default function ServicesManagement() {
               <Plus className="mr-2 h-4 w-4" /> Add New Service
             </Button>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {isLoading ? (
               // Skeleton loading
@@ -145,7 +145,7 @@ export default function ServicesManagement() {
                     <h3 className="text-lg font-bold mb-2">{service.name}</h3>
                     <p className="text-sm text-gray-600 mb-4">{service.description}</p>
                     <div className="flex justify-between items-center">
-                      <span className="font-medium">₱{(service.basePrice / 100).toFixed(2)}/person</span>
+                      <span className="font-medium">₱{Math.round(service.basePrice / 100).toLocaleString("en-PH")}/person</span>
                       <div className="flex gap-2">
                         <Button 
                           variant="outline" 
