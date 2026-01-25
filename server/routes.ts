@@ -458,6 +458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bookings = await storage.getBookings();
       res.json(bookings);
     } catch (error) {
+      console.error("Error fetching bookings:", error);
       res.status(500).json({ message: "Error fetching bookings" });
     }
   });

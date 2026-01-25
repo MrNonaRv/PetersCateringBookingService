@@ -164,7 +164,6 @@ export const bookings = pgTable("bookings", {
   bookingReference: text("booking_reference").notNull().unique(),
   serviceId: integer("service_id").notNull().references(() => services.id),
   packageId: integer("package_id").references(() => servicePackages.id),
-  venueId: integer("venue_id").references(() => venues.id),
   eventDate: date("event_date").notNull(),
   eventType: text("event_type").notNull(),
   eventTime: text("event_time").notNull(),
