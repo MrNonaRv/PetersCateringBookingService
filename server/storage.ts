@@ -339,7 +339,6 @@ export class MemStorage implements IStorage {
       id: bookingId,
       customerId,
       bookingReference,
-      venueId: insertBooking.venueId ?? null,
       packageId: insertBooking.packageId ?? null,
       eventDuration: insertBooking.eventDuration ?? 4,
       status: insertBooking.status || "pending_approval",
@@ -880,16 +879,6 @@ export class DatabaseStorage implements IStorage {
           packageData = pkg;
         }
 
-        // Get venue data
-        let venue = null;
-        if (booking.venueId) {
-          const [venueData] = await db
-            .select()
-            .from(venues)
-            .where(eq(venues.id, booking.venueId));
-          venue = venueData;
-        }
-
         // Get selected dishes
         const dishesResult = await db
           .select()
@@ -908,7 +897,6 @@ export class DatabaseStorage implements IStorage {
           customer,
           service,
           package: packageData,
-          venue,
           selectedDishes
         };
       })
@@ -951,16 +939,6 @@ export class DatabaseStorage implements IStorage {
       packageData = pkg;
     }
 
-    // Get venue data
-    let venue = null;
-    if (booking.venueId) {
-      const [venueData] = await db
-        .select()
-        .from(venues)
-        .where(eq(venues.id, booking.venueId));
-      venue = venueData;
-    }
-
     // Get selected dishes
     const dishesResult = await db
       .select()
@@ -978,7 +956,6 @@ export class DatabaseStorage implements IStorage {
       customer,
       service,
       package: packageData,
-      venue,
       selectedDishes
     };
   }
@@ -1017,16 +994,6 @@ export class DatabaseStorage implements IStorage {
       packageData = pkg;
     }
 
-    // Get venue data
-    let venue = null;
-    if (booking.venueId) {
-      const [venueData] = await db
-        .select()
-        .from(venues)
-        .where(eq(venues.id, booking.venueId));
-      venue = venueData;
-    }
-
     // Get selected dishes
     const dishesResult = await db
       .select()
@@ -1044,7 +1011,6 @@ export class DatabaseStorage implements IStorage {
       customer,
       service,
       package: packageData,
-      venue,
       selectedDishes
     };
   }
