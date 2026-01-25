@@ -54,10 +54,7 @@ function Calendar({
             : "[&:has([aria-selected])]:rounded-md"
         ),
         day: cn(
-          "calendar-day h-8 w-8 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground",
-          isDateDisabled
-            ? "text-muted-foreground opacity-50 cursor-not-allowed"
-            : "available"
+          "calendar-day h-8 w-8 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground"
         ),
         day_range_start: "day-range-start",
         day_range_end: "day-range-end",

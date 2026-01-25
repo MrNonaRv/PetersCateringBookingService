@@ -24,7 +24,7 @@ interface PaymentMethodsProps {
   showSelection?: boolean;
 }
 
-export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection = false }: PaymentMethodsProps) {
+export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection = false, className = "" }: PaymentMethodsProps & { className?: string }) {
   const { data: paymentMethods, isLoading } = useQuery<PaymentMethod[]>({
     queryKey: ["/api/payment-methods"],
   });
@@ -59,9 +59,9 @@ export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection =
 
   if (isLoading) {
     return (
-      <div className="py-16">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Payment Options</h2>
+      <div className={`py-16 ${className}`}>
+        <div className={showSelection ? "" : "container mx-auto px-4"}>
+          {!showSelection && <h2 className="text-3xl font-bold text-center mb-12">Payment Options</h2>}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="animate-pulse">
@@ -76,7 +76,7 @@ export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection =
 
   if (!paymentMethods || paymentMethods.length === 0) {
     return (
-      <div className="py-16">
+      <div className={`py-16 ${className}`}>
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-8">Payment Options</h2>
           <p className="text-gray-600">Payment methods are currently being updated.</p>
@@ -86,78 +86,73 @@ export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection =
   }
 
   return (
-    <div className="py-16">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Convenient Payment Options</h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Choose from multiple payment methods for your catering booking. We support popular Filipino payment options for your convenience.
-          </p>
-        </div>
-        
+    <div className={`${showSelection ? 'py-4' : 'py-16'} ${className}`}>
+      <div className={showSelection ? "" : "container mx-auto px-4"}>
+        {!showSelection && (
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Convenient Payment Options</h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Choose from multiple payment methods for your catering booking. We support popular Filipino payment options for your convenience.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {paymentMethods.map((method) => (
             <Card 
               key={method.id} 
-              className={`cursor-pointer transition-all hover:shadow-lg ${
+              className={`cursor-pointer transition-all duration-200 relative overflow-hidden ${
                 showSelection && selectedMethod === method.id 
-                  ? 'ring-2 ring-blue-500 border-blue-500' 
-                  : 'hover:border-gray-300'
+                  ? 'ring-2 ring-primary border-primary bg-primary/5 shadow-md scale-[1.02]' 
+                  : 'hover:border-primary/50 hover:shadow-md'
               }`}
               onClick={() => showSelection && onSelectMethod && onSelectMethod(method)}
             >
-              <CardHeader className="text-center">
-                <div className="flex justify-center mb-4 text-blue-600">
+              {showSelection && selectedMethod === method.id && (
+                <div className="absolute top-0 right-0 bg-primary text-white p-1 rounded-bl-lg z-10">
+                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+              )}
+              <CardHeader className="text-center pb-2">
+                <div className={`flex justify-center mb-4 ${showSelection && selectedMethod === method.id ? 'text-primary' : 'text-gray-500'}`}>
                   {getIcon(method.icon)}
                 </div>
                 <CardTitle className="text-lg font-bold">{method.name}</CardTitle>
-                <Badge variant="outline" className={getTypeColor(method.type)}>
+                <Badge variant="outline" className={`mt-2 ${getTypeColor(method.type)}`}>
                   {method.type.replace('_', ' ').toUpperCase()}
                 </Badge>
               </CardHeader>
-              
-              <CardContent className="text-center">
-                <p className="text-sm text-gray-600 mb-4">
+
+              <CardContent className="text-center pt-2">
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                   {method.description}
                 </p>
-                
+
                 {method.details && (
-                  <div className="space-y-2 text-xs bg-gray-50 p-3 rounded-lg">
+                  <div className="space-y-2 text-xs bg-gray-50 p-3 rounded-lg text-left">
                     {method.details.accountName && (
-                      <div>
-                        <span className="font-medium">Account Name:</span> {method.details.accountName}
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-500">Name:</span> 
+                        <span className="font-medium">{method.details.accountName}</span>
                       </div>
                     )}
                     {method.details.bankName && (
-                      <div>
-                        <span className="font-medium">Bank:</span> {method.details.bankName}
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-500">Bank:</span> 
+                        <span className="font-medium">{method.details.bankName}</span>
                       </div>
                     )}
                     {method.details.accountNumber && (
-                      <div>
-                        <span className="font-medium">Account #:</span> {method.details.accountNumber}
-                      </div>
-                    )}
-                    {method.details.instructions && (
-                      <div className="text-orange-600 font-medium">
-                        {method.details.instructions}
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-500">Acct #:</span> 
+                        <span className="font-medium font-mono">{method.details.accountNumber}</span>
                       </div>
                     )}
                   </div>
                 )}
-                
-                {showSelection && (
-                  <Button 
-                    variant={selectedMethod === method.id ? "default" : "outline"}
-                    className="w-full mt-4"
-                    onClick={() => onSelectMethod && onSelectMethod(method)}
-                  >
-                    {selectedMethod === method.id ? "Selected" : "Select"}
-                  </Button>
-                )}
-                
+
                 {!showSelection && method.type === "digital_wallet" && (
-                  <Button variant="outline" size="sm" className="mt-4">
+                  <Button variant="outline" size="sm" className="mt-4 w-full">
                     Learn More <ExternalLink className="w-3 h-3 ml-1" />
                   </Button>
                 )}
@@ -165,7 +160,7 @@ export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection =
             </Card>
           ))}
         </div>
-        
+
         {!showSelection && (
           <div className="mt-12 text-center">
             <p className="text-sm text-gray-500 max-w-2xl mx-auto">

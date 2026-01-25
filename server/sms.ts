@@ -87,7 +87,7 @@ export async function sendBookingApproved(params: {
   depositAmount: number;
   paymentLink?: string;
 }): Promise<SMSResult> {
-  let message = `Hi ${params.customerName}, booking ${params.bookingReference} is approved. Please check details: ${params.paymentLink || 'online'}. - Peters Catering`;
+  let message = `Hi ${params.customerName}, booking ${params.bookingReference} is APPROVED. To pay the deposit, please visit our website and enter code: ${params.bookingReference}. - Peters Catering`;
 
   return sendSMS(params.customerPhone, message);
 }

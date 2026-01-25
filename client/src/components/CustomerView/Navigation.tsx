@@ -8,11 +8,11 @@ interface NavigationProps {
 
 export default function Navigation({ onBookNow }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
-  
+
   return (
     <nav className="bg-white shadow-md sticky top-0 z-40">
       <div className="container mx-auto px-4 py-3">
@@ -29,10 +29,11 @@ export default function Navigation({ onBookNow }: NavigationProps) {
             </div>
           </div>
           <div className="hidden md:flex space-x-6 font-accent text-[#343a40]">
-            <a href="#services" className="hover:text-secondary transition">Services</a>
-            <a href="#about" className="hover:text-secondary transition">About</a>
-            <a href="#gallery" className="hover:text-secondary transition">Gallery</a>
-            <a href="#contact" className="hover:text-secondary transition">Contact</a>
+            <a href="/#services" className="hover:text-secondary transition">Services</a>
+            <a href="/#about" className="hover:text-secondary transition">About</a>
+            <a href="/#gallery" className="hover:text-secondary transition">Gallery</a>
+            <a href="/#contact" className="hover:text-secondary transition">Contact</a>
+            <a href="/pay-deposit" className="hover:text-secondary transition font-medium text-primary">Pay Deposit</a>
           </div>
           <div>
             <Button 
@@ -49,39 +50,46 @@ export default function Navigation({ onBookNow }: NavigationProps) {
           </div>
         </div>
       </div>
-      
+
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white shadow-inner">
           <div className="container mx-auto px-4 py-3">
             <div className="flex flex-col space-y-3 font-accent">
               <a 
-                href="#services" 
+                href="/#services" 
                 className="hover:text-secondary transition"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Services
               </a>
               <a 
-                href="#about" 
+                href="/#about" 
                 className="hover:text-secondary transition"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 About
               </a>
               <a 
-                href="#gallery" 
+                href="/#gallery" 
                 className="hover:text-secondary transition"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Gallery
               </a>
               <a 
-                href="#contact" 
+                href="/#contact" 
                 className="hover:text-secondary transition"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Contact
+              </a>
+              <a 
+                href="/pay-deposit" 
+                className="hover:text-secondary transition font-medium text-primary"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Pay Deposit
               </a>
             </div>
           </div>

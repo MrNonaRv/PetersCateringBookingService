@@ -18,6 +18,7 @@ import AdminSettings from "@/pages/admin/settings";
 import AdminQuotes from "@/pages/admin/quotes";
 import AdminProfile from "@/pages/admin/profile";
 import AdminAbout from "@/pages/admin/about";
+import PayDeposit from "./pages/pay-deposit";
 import Login from "@/pages/login";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/providers/ProtectedRoute";
@@ -35,6 +36,7 @@ function App() {
           <Toaster />
           <Switch>
             <Route path="/" component={Home} />
+            <Route path="/pay-deposit" component={PayDeposit} />
             <Route path="/login" component={Login} />
             <Route path="/admin" component={() => 
               <ProtectedRoute>
