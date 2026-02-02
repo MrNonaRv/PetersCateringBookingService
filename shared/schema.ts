@@ -17,7 +17,7 @@ export const users = pgTable("users", {
 // Capacity calendar for daily booking limits
 export const capacityCalendar = pgTable("capacity_calendar", {
   id: serial("id").primaryKey(),
-  date: date("date").notNull().unique(),
+  date: date("date").notNull(),
   dayType: text("day_type").notNull().default("normal"), // 'normal', 'peak', 'closed'
   maxSlots: integer("max_slots").notNull().default(7), // 7 normal, 10 peak, 0 closed
   bookedSlots: integer("booked_slots").notNull().default(0),

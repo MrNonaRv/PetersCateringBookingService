@@ -427,8 +427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Capacity Calendar - shows booked slots per date (admin only)
-  app.get("/api/capacity-calendar", isAuthenticated, async (req, res) => {
+  // Capacity Calendar - shows booked slots per date (public read)
+  app.get("/api/capacity-calendar", async (req, res) => {
     try {
       const capacity = await storage.getCapacityCalendar();
       res.json(capacity);
@@ -437,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/capacity-calendar/:date", isAuthenticated, async (req, res) => {
+  app.get("/api/capacity-calendar/:date", async (req, res) => {
     try {
       const date = req.params.date;
       const capacity = await storage.getCapacityByDate(date);
@@ -598,7 +598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         eventType: quote.eventType || "custom",
         guestCount: quote.guestCount || 0,
         venueAddress: quote.venueAddress || "",
-        budget: quote.budget || 0,
+        budget: Math.round((quote.budget || 0) * 100),
         theme: quote.theme || "",
         description: quote.description || "",
         preferences: quote.preferences || "",
@@ -732,6 +732,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ user: req.user });
     }
     res.status(401).json({ message: "Not authenticated" });
+  });
+
+  // Change password endpoint
+  app.post("/api/auth/change-password", isAuthenticated, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = (req.user as any).id;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current and new password are required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Verify current password
+      const { compare, hash } = await import('bcrypt');
+      const isMatch = await compare(currentPassword, user.password);
+
+      if (!isMatch) {
+        return res.status(400).json({ message: "Incorrect current password" });
+      }
+
+      // Hash new password
+      const hashedPassword = await hash(newPassword, 10);
+
+      // Update user password
+      await storage.updateUser(userId, { password: hashedPassword });
+
+      res.json({ success: true, message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Change password error:", error);
+      res.status(500).json({ message: "Error updating password" });
+    }
   });
 
   // Forgot password endpoint
@@ -1120,6 +1156,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const paymentData = req.body;
+
+      // Convert date strings to Date objects if present
+      if (paymentData.balancePaidAt && typeof paymentData.balancePaidAt === 'string') {
+        paymentData.balancePaidAt = new Date(paymentData.balancePaidAt);
+      }
+      if (paymentData.depositPaidAt && typeof paymentData.depositPaidAt === 'string') {
+        paymentData.depositPaidAt = new Date(paymentData.depositPaidAt);
+      }
 
       const booking = await storage.updateBookingPayment(id, paymentData);
 

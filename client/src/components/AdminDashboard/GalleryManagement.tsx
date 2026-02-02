@@ -38,7 +38,7 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
   const [currentImage, setCurrentImage] = useState<GalleryImage | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Form state
   const [uploadForm, setUploadForm] = useState({
     title: "",
@@ -184,7 +184,7 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
 
   const handleUpdateImage = () => {
     if (!currentImage) return;
-    
+
     updateMutation.mutate({
       id: currentImage.id,
       data: {
@@ -195,6 +195,34 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
       }
     });
   };
+
+  const replaceImageMutation = useMutation({
+    mutationFn: async ({ id, file }: { id: number; file: File }) => {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch(`/api/gallery-images/${id}/replace`, {
+        method: "PUT",
+        body: fd,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to replace image");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/gallery-images'] });
+      toast({
+        title: "Image replaced",
+        description: "The image file has been updated.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to replace the image. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleDeleteImage = (imageId: number) => {
     if (confirm("Are you sure you want to delete this image?")) {
@@ -240,14 +268,15 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
             <SelectTrigger className="w-64">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="general">General</SelectItem>
-              <SelectItem value="wedding">Weddings</SelectItem>
-              <SelectItem value="corporate">Corporate Events</SelectItem>
-              <SelectItem value="birthday">Birthday Parties</SelectItem>
-              <SelectItem value="private">Private Dinners</SelectItem>
-            </SelectContent>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="general">General</SelectItem>
+                <SelectItem value="about">About Section</SelectItem>
+                <SelectItem value="wedding">Weddings</SelectItem>
+                <SelectItem value="corporate">Corporate Events</SelectItem>
+                <SelectItem value="birthday">Birthday Parties</SelectItem>
+                <SelectItem value="private">Private Dinners</SelectItem>
+              </SelectContent>
           </Select>
         </CardContent>
       </Card>
@@ -275,8 +304,20 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {images?.map((image: GalleryImage) => (
-              <Card key={image.id} className={`overflow-hidden ${selectionMode ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''} ${isSelected(image.id) ? 'ring-2 ring-primary' : ''}`}>
-                <div className="relative" onClick={selectionMode ? () => handleSelectImage(image) : undefined}>
+              <Card key={image.id} className={`overflow-hidden group ${selectionMode ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''} ${isSelected(image.id) ? 'ring-2 ring-primary' : ''}`}>
+                <div
+                  className={`relative ${!selectionMode ? 'cursor-pointer' : ''}`}
+                  onClick={() => selectionMode ? handleSelectImage(image) : handleEditImage(image)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      selectionMode ? handleSelectImage(image) : handleEditImage(image);
+                    }
+                  }}
+                  role="button"
+                  aria-label={selectionMode ? 'Select image' : 'Edit image'}
+                >
                   <img
                     src={getImageUrl(image.filename)}
                     alt={image.title}
@@ -348,7 +389,7 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
           <DialogHeader>
             <DialogTitle>Upload Images</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="images">Select Images</Label>
@@ -389,13 +430,14 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="wedding">Weddings</SelectItem>
-                  <SelectItem value="corporate">Corporate Events</SelectItem>
-                  <SelectItem value="birthday">Birthday Parties</SelectItem>
-                  <SelectItem value="private">Private Dinners</SelectItem>
-                </SelectContent>
+              <SelectContent>
+                <SelectItem value="general">General</SelectItem>
+                <SelectItem value="about">About Section</SelectItem>
+                <SelectItem value="wedding">Weddings</SelectItem>
+                <SelectItem value="corporate">Corporate Events</SelectItem>
+                <SelectItem value="birthday">Birthday Parties</SelectItem>
+                <SelectItem value="private">Private Dinners</SelectItem>
+              </SelectContent>
               </Select>
             </div>
 
@@ -420,7 +462,7 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
           <DialogHeader>
             <DialogTitle>Edit Image</DialogTitle>
           </DialogHeader>
-          
+
           {currentImage && (
             <div className="space-y-4">
               <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
@@ -428,6 +470,21 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
                   src={getImageUrl(currentImage.filename)}
                   alt={currentImage.title}
                   className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="replaceFile">Replace Image</Label>
+                <Input
+                  id="replaceFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f && currentImage) {
+                      replaceImageMutation.mutate({ id: currentImage.id, file: f });
+                    }
+                  }}
                 />
               </div>
 

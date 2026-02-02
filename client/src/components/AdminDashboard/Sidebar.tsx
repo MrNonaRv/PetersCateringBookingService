@@ -28,19 +28,11 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
       <div className="p-4 border-b border-white border-opacity-20">
         {collapsed ? (
           <div className="flex justify-center">
-            <img 
-              src={logoImage} 
-              alt="Peter's Creation Logo" 
-              className="h-8 w-auto object-contain brightness-0 invert"
-            />
+            <img src={logoImage} alt="Peter's Creation Logo" className="h-8 w-auto object-contain rounded-sm" />
           </div>
         ) : (
           <div className="flex items-center">
-            <img 
-              src={logoImage} 
-              alt="Peter's Creation Logo" 
-              className="h-10 w-auto mr-3 object-contain brightness-0 invert"
-            />
+            <img src={logoImage} alt="Peter's Creation Logo" className="h-10 w-auto mr-3 object-contain rounded-sm" />
             <div>
               <h2 className="font-heading font-bold text-xl">Admin Dashboard</h2>
               <p className="text-sm text-white text-opacity-70">Peter's Creation Catering</p>
@@ -117,15 +109,7 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
           </a>
         </Link>
 
-        <Link href="/admin/about">
-          <a className={cn(
-            "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
-            isActive('/admin/about') && "bg-white bg-opacity-10"
-          )}>
-            <i className="fas fa-info-circle mr-3"></i>
-            {!collapsed && <span>About Image</span>}
-          </a>
-        </Link>
+        {/* About Image moved under Gallery via 'About Section' category */}
 
         <Link href="/admin/recent-events">
           <a className={cn(
@@ -144,6 +128,16 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
           )}>
             <i className="fas fa-file-alt mr-3"></i>
             {!collapsed && <span>Custom Quotes</span>}
+          </a>
+        </Link>
+
+        <Link href="/admin/payments">
+          <a className={cn(
+            "flex items-center px-4 py-2 hover:bg-white hover:bg-opacity-10 transition",
+            isActive('/admin/payments') && "bg-white bg-opacity-10"
+          )}>
+            <i className="fas fa-money-bill-wave mr-3"></i>
+            {!collapsed && <span>Payments</span>}
           </a>
         </Link>
 

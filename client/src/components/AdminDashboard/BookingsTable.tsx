@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -51,6 +52,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
   const [searchName, setSearchName] = useState('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending_approval' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
   const { toast } = useToast();
 
   const pageSize = limit || 10;
@@ -96,19 +98,28 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
       return '';
     }
   })();
+  const searchRef = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('ref') || '';
+    } catch {
+      return '';
+    }
+  })();
   if (!searchName && searchQueryName) {
     setSearchName(searchQueryName);
   }
   const filteredBookings = (bookings || [])
     .filter((b: any) => !searchCustomerEmail || b.customer.email === searchCustomerEmail)
     .filter((b: any) => !searchName || (b.customer.name || '').toLowerCase().includes(searchName.toLowerCase()))
+    .filter((b: any) => !searchRef || b.bookingReference === searchRef)
     .filter((b: any) => {
       if (!startDate && !endDate) return true;
       const ev = parseLocalYMD(b.eventDate).getTime();
       const from = startDate ? parseLocalYMD(startDate).getTime() : -Infinity;
       const to = endDate ? parseLocalYMD(endDate).getTime() : Infinity;
       return ev >= from && ev <= to;
-    });
+    })
+    .filter((b: any) => statusFilter === 'all' ? true : b.status === statusFilter);
 
   // Paginate bookings
   const paginatedBookings = filteredBookings.slice((page - 1) * pageSize, page * pageSize);
@@ -129,6 +140,12 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
     const pesos = Math.round(priceInCents / 100);
     return `₱${pesos.toLocaleString("en-PH")}`;
   };
+
+  const statusCounts = (bookings || []).reduce((acc: Record<string, number>, b: any) => {
+    acc[b.status] = (acc[b.status] || 0) + 1;
+    acc['all'] = (acc['all'] || 0) + 1;
+    return acc;
+  }, {});
 
   // View booking details
   const viewBooking = (booking: any) => {
@@ -280,8 +297,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
     <>
       {/* Filters */}
       {!limit && (
-        <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-end md:gap-4 gap-3">
-          <div className="flex-1">
+        <div className="px-6 py-4 border-b grid grid-cols-1 md:grid-cols-4 items-end gap-4">
+          <div className="md:col-span-2">
             <Label className="mb-1 block">Search by Customer Name</Label>
             <Input 
               placeholder="Type customer name..."
@@ -290,6 +307,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                 setPage(1);
                 setSearchName(e.target.value);
               }}
+              className="w-full"
             />
           </div>
           <div>
@@ -301,6 +319,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                 setPage(1);
                 setStartDate(e.target.value);
               }}
+              className="w-full"
             />
           </div>
           <div>
@@ -312,9 +331,10 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                 setPage(1);
                 setEndDate(e.target.value);
               }}
+              className="w-full"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 md:justify-end">
             <Button 
               variant="outline"
               onClick={() => {
@@ -322,6 +342,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                 setStartDate('');
                 setEndDate('');
                 setPage(1);
+                setStatusFilter('all');
               }}
             >
               Clear Filters
@@ -329,9 +350,54 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           </div>
         </div>
       )}
+      {!limit && (
+        <div className="px-6 py-3 border-t flex items-center gap-2 overflow-x-auto">
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'pending_approval', label: 'Pending Approval' },
+            { key: 'pending', label: 'Pending' },
+            { key: 'confirmed', label: 'Confirmed' },
+            { key: 'completed', label: 'Completed' },
+            { key: 'cancelled', label: 'Cancelled' },
+          ].map(s => (
+            <Button
+              key={s.key}
+              variant={statusFilter === (s.key as any) ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => { setPage(1); setStatusFilter(s.key as any); }}
+              className="flex items-center gap-2 min-w-[140px] justify-between"
+            >
+              <span>{s.label}</span>
+              <Badge className="bg-gray-100 text-gray-700">{statusCounts[s.key] || 0}</Badge>
+            </Button>
+          ))}
+        </div>
+      )}
+      {!limit && (
+        <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="border-l-4 border-l-orange-400">
+            <CardContent className="py-3">
+              <div className="text-xs text-gray-500">Pending Approval</div>
+              <div className="text-2xl font-bold">{statusCounts['pending_approval'] || 0}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-yellow-400">
+            <CardContent className="py-3">
+              <div className="text-xs text-gray-500">Pending</div>
+              <div className="text-2xl font-bold">{statusCounts['pending'] || 0}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="py-3">
+              <div className="text-xs text-gray-500">Confirmed</div>
+              <div className="text-2xl font-bold">{statusCounts['confirmed'] || 0}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 bg-white z-10">
             <TableRow>
               <TableHead>Booking ID</TableHead>
               <TableHead>Customer</TableHead>
@@ -403,6 +469,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                   <TableCell>
                     <Badge className={
                       booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                      booking.status === 'pending_approval' ? 'bg-orange-100 text-orange-800' :
                       booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                       'bg-blue-100 text-blue-800'
@@ -420,12 +487,24 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      onClick={() => openSmsDialog(booking, booking.status === 'pending_approval' ? 'approve' : 'custom')}
+                      onClick={() => openSmsDialog(booking, (booking.status === 'pending_approval' || booking.status === 'pending') ? 'approve' : 'custom')}
                       title="Send SMS"
                       className="text-green-600 hover:text-green-700 hover:bg-green-50"
                     >
                       <MessageSquare className="h-4 w-4" />
                     </Button>
+                  <Select value={booking.status} onValueChange={(val) => updateBookingStatus(booking.id, val)} >
+                    <SelectTrigger className="w-36 inline-flex align-middle ml-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending_approval">Pending Approval</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
                   </TableCell>
                 </TableRow>
               ))
@@ -484,7 +563,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
 
       {/* View Booking Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Booking Details</DialogTitle>
             <DialogDescription>
@@ -494,113 +573,204 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
 
           {selectedBooking && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-medium mb-4">Booking Information</h3>
-                <div className="space-y-2">
+              {/* Status Banner */}
+              <div className={`p-4 rounded-lg flex justify-between items-center ${
+                  selectedBooking.status === 'confirmed' ? 'bg-green-50 border border-green-200 text-green-800' :
+                  selectedBooking.status === 'pending' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
+                  selectedBooking.status === 'cancelled' ? 'bg-red-50 border border-red-200 text-red-800' :
+                  'bg-blue-50 border border-blue-200 text-blue-800'
+                }`}>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium opacity-80 uppercase tracking-wide">Current Status</span>
+                  <span className="text-xl font-bold">{selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1).replace('_', ' ')}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-medium opacity-80 uppercase tracking-wide">Total Amount</span>
+                  <span className="block text-xl font-bold">{formatPrice(selectedBooking.totalPrice)}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column: Event Details */}
+                <div className="space-y-6">
                   <div>
-                    <span className="font-medium">Service:</span> {selectedBooking.service?.name || 'Custom Quote'}
-                  </div>
-                  {selectedBooking.package && (
-                    <div>
-                      <span className="font-medium">Package:</span> {selectedBooking.package.name}
+                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
+                      <span className="text-primary">📅</span> Event Details
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Service Type</span>
+                        <span className="col-span-2 font-medium">{selectedBooking.service?.name || 'Custom Quote'}</span>
+                      </div>
+
+                      {selectedBooking.package && (
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <span className="text-gray-500 font-medium">Package</span>
+                          <span className="col-span-2 font-medium">{selectedBooking.package.name}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Date & Time</span>
+                        <div className="col-span-2">
+                          <div className="font-medium">{formatDate(selectedBooking.eventDate)}</div>
+                          <div className="text-gray-600">
+                            {selectedBooking.eventTime === 'breakfast' ? 'Breakfast (7:00 AM - 10:00 AM)' :
+                             selectedBooking.eventTime === 'lunch' ? 'Lunch (11:00 AM - 2:00 PM)' :
+                             selectedBooking.eventTime === 'dinner' ? 'Dinner (5:00 PM - 9:00 PM)' :
+                             selectedBooking.eventTime === 'evening' ? 'Evening (7:00 PM - 11:00 PM)' :
+                             selectedBooking.eventTime}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Event Type</span>
+                        <span className="col-span-2 font-medium capitalize">{selectedBooking.eventType}</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Guest Count</span>
+                        <span className="col-span-2 font-medium">{selectedBooking.guestCount} pax</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Theme</span>
+                        <span className="col-span-2 font-medium">{selectedBooking.theme || 'None'}</span>
+                      </div>
                     </div>
-                  )}
-                  <div>
-                    <span className="font-medium">Date:</span> {formatDate(selectedBooking.eventDate)}
                   </div>
+
                   <div>
-                    <span className="font-medium">Time:</span> {selectedBooking.eventTime === 'breakfast' ? 'Breakfast (7:00 AM - 10:00 AM)' :
-                      selectedBooking.eventTime === 'lunch' ? 'Lunch (11:00 AM - 2:00 PM)' :
-                      selectedBooking.eventTime === 'dinner' ? 'Dinner (5:00 PM - 9:00 PM)' :
-                      selectedBooking.eventTime === 'evening' ? 'Evening (7:00 PM - 11:00 PM)' : 'Custom Time'}
-                  </div>
-                  <div>
-                    <span className="font-medium">Event Type:</span> {selectedBooking.eventType}
-                  </div>
-                  <div>
-                    <span className="font-medium">Guests:</span> {selectedBooking.guestCount}
-                  </div>
-                  <div>
-                    <span className="font-medium">Menu Preference:</span> {selectedBooking.menuPreference}
-                  </div>
-                  {selectedBooking.theme && (
-                    <div>
-                      <span className="font-medium">Theme:</span> {selectedBooking.theme}
+                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
+                      <span className="text-primary">📍</span> Venue Information
+                    </h3>
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                      <p className="text-sm font-medium text-gray-900">{selectedBooking.venueAddress}</p>
                     </div>
-                  )}
-                  <div>
-                    <span className="font-medium">Service Style:</span> {selectedBooking.serviceStyle}
                   </div>
-                  {selectedBooking.additionalServices && (
-                    <div>
-                      <span className="font-medium">Additional Services:</span> {selectedBooking.additionalServices}
-                    </div>
-                  )}
-                  {selectedBooking.specialRequests && (
-                    <div>
-                      <span className="font-medium">Special Requests:</span> {selectedBooking.specialRequests}
-                    </div>
-                  )}
+                </div>
+
+                {/* Right Column: Customer & Preferences */}
+                <div className="space-y-6">
                   <div>
-                    <span className="font-medium">Status:</span> 
-                    <Badge className="ml-2">
-                      {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
-                    </Badge>
+                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
+                      <span className="text-primary">👤</span> Customer Information
+                    </h3>
+                    <div className="bg-white border rounded-lg p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                          {selectedBooking.customer.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{selectedBooking.customer.name}</p>
+                          <p className="text-sm text-gray-500">{selectedBooking.customer.company || 'Individual'}</p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Email</span>
+                          <span className="font-medium">{selectedBooking.customer.email}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Phone</span>
+                          <span className="font-medium">{selectedBooking.customer.phone}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+
                   <div>
-                    <span className="font-medium">Total Price:</span> {formatPrice(selectedBooking.totalPrice)}
+                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
+                      <span className="text-primary">🍽️</span> Preferences & Requests
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Menu Pref</span>
+                        <span className="col-span-2 font-medium">{selectedBooking.menuPreference}</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Service Style</span>
+                        <span className="col-span-2 font-medium capitalize">{selectedBooking.serviceStyle}</span>
+                      </div>
+
+                      {selectedBooking.specialRequests && (
+                        <div className="col-span-3 bg-yellow-50 p-3 rounded-md border border-yellow-100 text-sm">
+                          <span className="font-medium text-yellow-800 block mb-1">Special Requests:</span>
+                          <p className="text-yellow-700">{selectedBooking.specialRequests}</p>
+                        </div>
+                      )}
+
+                      {selectedBooking.additionalServices && (
+                        <div className="col-span-3 bg-blue-50 p-3 rounded-md border border-blue-100 text-sm">
+                          <span className="font-medium text-blue-800 block mb-1">Additional Services:</span>
+                          <p className="text-blue-700">{selectedBooking.additionalServices}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-lg font-medium mb-4">Customer Information</h3>
-                <div className="space-y-2">
-                  <div>
-                    <span className="font-medium">Name:</span> {selectedBooking.customer.name}
-                  </div>
-                  <div>
-                    <span className="font-medium">Email:</span> {selectedBooking.customer.email}
-                  </div>
-                  <div>
-                    <span className="font-medium">Phone:</span> {selectedBooking.customer.phone}
-                  </div>
-                  {selectedBooking.customer.company && (
-                    <div>
-                      <span className="font-medium">Company:</span> {selectedBooking.customer.company}
+                {/* Package Inclusions */}
+                {selectedBooking.package && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <span className="text-primary">📦</span> Package Inclusions
+                  </h3>
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <h4 className="font-semibold text-gray-900 mb-2">{selectedBooking.package.name}</h4>
+                    <p className="text-sm text-gray-600 mb-4">{selectedBooking.package.description}</p>
+
+                    {selectedBooking.package.features && selectedBooking.package.features.length > 0 && (
+                      <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                        {selectedBooking.package.features.map((feature: string, idx: number) => (
+                          <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                            <span className="text-primary mt-1">•</span>
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <div className="mt-4 pt-4 border-t flex justify-between text-sm">
+                        <span className="text-gray-500 font-medium">Base Price per Person</span>
+                        <span className="font-medium">{formatPrice(selectedBooking.package.pricePerPerson)}</span>
                     </div>
-                  )}
+                  </div>
                 </div>
+              )}
 
-                <h3 className="text-lg font-medium mt-6 mb-4">Venue Information</h3>
-                <div>
-                  <span className="font-medium">Address:</span>
-                  <p className="mt-1">{selectedBooking.venueAddress}</p>
+              {/* Menu Selection */}
+              {selectedBooking.selectedDishes && selectedBooking.selectedDishes.length > 0 && (
+                <div className="border-t pt-6">
+                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <span className="text-primary">🍳</span> Menu Selection
+                   </h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                     {Object.entries(groupDishesByCategory(selectedBooking.selectedDishes)).map(([category, dishes]) => (
+                       <Card key={category} className="border-l-4 border-l-primary shadow-sm">
+                          <CardHeader className="py-3 px-4 bg-gray-50 border-b">
+                            <CardTitle className="text-sm font-bold capitalize text-gray-900">{category}</CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-3">
+                            <ul className="space-y-2">
+                              {(dishes as any[]).map((dish, idx) => (
+                                <li key={idx} className="text-sm flex justify-between items-center group hover:bg-gray-50 p-1 rounded transition-colors">
+                                  <span className="font-medium text-gray-700">{dish.name}</span>
+                                  {dish.quantity > 1 && (
+                                    <Badge variant="secondary" className="text-xs">x{dish.quantity}</Badge>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                       </Card>
+                     ))}
+                   </div>
                 </div>
-              </div>
-            </div>
-
-            {selectedBooking.selectedDishes && selectedBooking.selectedDishes.length > 0 && (
-              <div className="mt-8 border-t pt-6">
-                 <h3 className="text-lg font-medium mb-4">Menu Selection</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                   {Object.entries(groupDishesByCategory(selectedBooking.selectedDishes)).map(([category, dishes]) => (
-                     <div key={category} className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                        <h4 className="font-semibold capitalize mb-2 text-primary">{category}</h4>
-                        <ul className="space-y-1">
-                          {(dishes as any[]).map((dish, idx) => (
-                            <li key={idx} className="text-sm flex justify-between">
-                              <span>{dish.name}</span>
-                              {dish.quantity > 1 && <span className="text-gray-500 text-xs">x{dish.quantity}</span>}
-                            </li>
-                          ))}
-                        </ul>
-                     </div>
-                   ))}
-                 </div>
-              </div>
-            )}
+              )}
             </div>
           )}
 
@@ -609,7 +779,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
             <Button onClick={() => {
               setIsViewDialogOpen(false);
               editBooking(selectedBooking);
-            }}>Edit Booking</Button>
+            }}>Response</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -718,7 +888,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="approve" disabled={selectedBooking.status !== 'pending_approval'}>
+                    <SelectItem value="approve" disabled={!(selectedBooking.status === 'pending_approval' || selectedBooking.status === 'pending')}>
                       Approve & Send Payment Details
                     </SelectItem>
                     <SelectItem value="reminder">
@@ -807,4 +977,3 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
     </>
   );
 }
-  

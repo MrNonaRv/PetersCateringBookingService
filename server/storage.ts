@@ -115,631 +115,8 @@ export interface IStorage {
   getPaymentSetting(paymentMethod: string): Promise<PaymentSetting | undefined>;
   upsertPaymentSetting(setting: InsertPaymentSetting): Promise<PaymentSetting>;
   deletePaymentSetting(id: number): Promise<boolean>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
 }
-
-// Using MemStorage temporarily until database connection is fixed
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private services: Map<number, Service>;
-  private availabilities: Map<number, Availability>;
-  private bookings: Map<number, Booking>;
-  private customers: Map<number, Customer>;
-  private venues: Map<number, Venue>;
-  private recentEvents: Map<number, RecentEvent>;
-  private currentIds: {
-    user: number;
-    service: number;
-    availability: number;
-    booking: number;
-    customer: number;
-    venue: number;
-    recentEvent: number;
-  };
-
-  constructor() {
-    this.users = new Map();
-    this.services = new Map();
-    this.availabilities = new Map();
-    this.bookings = new Map();
-    this.customers = new Map();
-    this.venues = new Map();
-    this.recentEvents = new Map();
-    this.currentIds = {
-      user: 1,
-      service: 1,
-      availability: 1,
-      booking: 1,
-      customer: 1,
-      venue: 1,
-      recentEvent: 1
-    };
-
-    // Initialize with an admin user
-    this.createUser({
-      username: "admin",
-      password: "password123", // In a real app, this would be hashed
-      name: "Admin User",
-      role: "admin",
-      email: "admin@peterscreation.com",
-      phone: "555-123-4567"
-    });
-
-    // Initialize with sample catering services
-    this.initializeServices();
-    this.initializeVenues();
-
-    // Initialize with availability for the next 60 days
-    this.initializeAvailability();
-  }
-
-  // User operations
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentIds.user++;
-    const user: User = { 
-      ...insertUser, 
-      id,
-      role: insertUser.role || "staff",
-      phone: insertUser.phone || null
-    };
-    this.users.set(id, user);
-    return user;
-  }
-
-  // Service operations
-  async getServices(): Promise<Service[]> {
-    return Array.from(this.services.values());
-  }
-
-  async getService(id: number): Promise<Service | undefined> {
-    return this.services.get(id);
-  }
-
-  async createService(insertService: InsertService): Promise<Service> {
-    const id = this.currentIds.service++;
-    const service: Service = { 
-      ...insertService, 
-      id,
-      featured: insertService.featured ?? false
-    };
-    this.services.set(id, service);
-    return service;
-  }
-
-  async updateService(id: number, serviceUpdate: Partial<InsertService>): Promise<Service | undefined> {
-    const existingService = this.services.get(id);
-    if (!existingService) return undefined;
-
-    const updatedService = { ...existingService, ...serviceUpdate };
-    this.services.set(id, updatedService);
-    return updatedService;
-  }
-
-  async deleteService(id: number): Promise<boolean> {
-    return this.services.delete(id);
-  }
-
-  // Availability operations
-  async getAvailabilities(): Promise<Availability[]> {
-    return Array.from(this.availabilities.values());
-  }
-
-  async getAvailability(dateStr: string): Promise<Availability | undefined> {
-    return Array.from(this.availabilities.values()).find(
-      (avail) => avail.date.toString() === dateStr
-    );
-  }
-
-  async setAvailability(insertAvailability: InsertAvailability): Promise<Availability> {
-    // Check if availability for this date already exists
-    const existingAvail = await this.getAvailability(insertAvailability.date.toString());
-
-    if (existingAvail) {
-      // Update existing
-      existingAvail.isAvailable = insertAvailability.isAvailable ?? null;
-      existingAvail.notes = insertAvailability.notes ?? null;
-      this.availabilities.set(existingAvail.id, existingAvail);
-      return existingAvail;
-    } else {
-      // Create new
-      const id = this.currentIds.availability++;
-      const availability: Availability = { 
-        ...insertAvailability, 
-        id,
-        isAvailable: insertAvailability.isAvailable ?? null,
-        notes: insertAvailability.notes ?? null
-      };
-      this.availabilities.set(id, availability);
-      return availability;
-    }
-  }
-
-  async updateAvailability(id: number, availabilityUpdate: Partial<InsertAvailability>): Promise<Availability | undefined> {
-    const existingAvailability = this.availabilities.get(id);
-    if (!existingAvailability) return undefined;
-
-    const updatedAvailability = { ...existingAvailability, ...availabilityUpdate };
-    this.availabilities.set(id, updatedAvailability);
-    return updatedAvailability;
-  }
-
-  // Booking operations
-  async getBookings(): Promise<BookingWithCustomer[]> {
-    return Array.from(this.bookings.values()).map(booking => {
-      const customer = this.getCustomerByBookingId(booking.id);
-      const service = this.services.get(booking.serviceId);
-      return { 
-        ...booking, 
-        customer: customer as Customer,
-        service: service as Service 
-      };
-    });
-  }
-
-  async getBooking(id: number): Promise<BookingWithCustomer | undefined> {
-    const booking = this.bookings.get(id);
-    if (!booking) return undefined;
-
-    const customer = this.getCustomerByBookingId(id);
-    const service = this.services.get(booking.serviceId);
-
-    return { 
-      ...booking, 
-      customer: customer as Customer,
-      service: service as Service 
-    };
-  }
-
-  async getBookingByReference(reference: string): Promise<BookingWithCustomer | undefined> {
-    const booking = Array.from(this.bookings.values()).find(
-      (b) => b.bookingReference === reference
-    );
-    if (!booking) return undefined;
-
-    const customer = this.getCustomerByBookingId(booking.id);
-    const service = this.services.get(booking.serviceId);
-
-    return { 
-      ...booking, 
-      customer: customer as Customer,
-      service: service as Service 
-    };
-  }
-
-  async createBooking(insertBooking: InsertBooking, insertCustomer: InsertCustomer, selectedDishes?: number[]): Promise<BookingWithCustomer> {
-    // Create customer first
-    const customerId = this.currentIds.customer++;
-    const customer: Customer = { 
-      ...insertCustomer, 
-      id: customerId,
-      company: insertCustomer.company ?? null
-    };
-
-    this.customers.set(customerId, customer);
-
-    // Create booking with customer ID
-    const bookingId = this.currentIds.booking++;
-    const bookingReference = `PCC-${Math.floor(10000 + Math.random() * 90000)}`;
-
-    const booking: Booking = { 
-      ...insertBooking, 
-      id: bookingId,
-      customerId,
-      bookingReference,
-      packageId: insertBooking.packageId ?? null,
-      eventDuration: insertBooking.eventDuration ?? 4,
-      status: insertBooking.status || "pending_approval",
-      paymentStatus: insertBooking.paymentStatus || "pending",
-      depositAmount: insertBooking.depositAmount ?? 0,
-      depositPaid: insertBooking.depositPaid ?? false,
-      depositPaymentMethod: insertBooking.depositPaymentMethod ?? null,
-      depositPaymentReference: insertBooking.depositPaymentReference ?? null,
-      depositPaidAt: insertBooking.depositPaidAt ?? null,
-      balanceAmount: insertBooking.balanceAmount ?? 0,
-      balancePaid: insertBooking.balancePaid ?? false,
-      balancePaymentMethod: insertBooking.balancePaymentMethod ?? null,
-      balancePaymentReference: insertBooking.balancePaymentReference ?? null,
-      balancePaidAt: insertBooking.balancePaidAt ?? null,
-      additionalServices: insertBooking.additionalServices ?? null,
-      specialRequests: insertBooking.specialRequests ?? null,
-      paymentMethod: insertBooking.paymentMethod ?? null,
-      paymentReference: insertBooking.paymentReference ?? null,
-      adminNotes: insertBooking.adminNotes ?? null,
-      theme: insertBooking.theme ?? null,
-      createdAt: new Date()
-    };
-
-    this.bookings.set(bookingId, booking);
-
-    // Note: selectedDishes not persisted in MemStorage (would need bookingDishes map)
-
-    const service = this.services.get(booking.serviceId) as Service;
-
-    return { 
-      ...booking, 
-      customer,
-      service
-    };
-  }
-
-  async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
-    const booking = this.bookings.get(id);
-    if (!booking) return undefined;
-
-    booking.status = status;
-    this.bookings.set(id, booking);
-    return booking;
-  }
-
-  async updateBookingPayment(id: number, paymentData: Partial<InsertBooking>): Promise<Booking | undefined> {
-    const booking = this.bookings.get(id);
-    if (!booking) return undefined;
-
-    const updatedBooking = { ...booking, ...paymentData };
-    this.bookings.set(id, updatedBooking);
-    return updatedBooking;
-  }
-
-  // Customer operations
-  async getCustomer(id: number): Promise<Customer | undefined> {
-    return this.customers.get(id);
-  }
-
-  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
-    return Array.from(this.customers.values()).find(
-      (customer) => customer.email === email
-    );
-  }
-
-  // Recent events operations
-  async getRecentEvents(): Promise<RecentEvent[]> {
-    return Array.from(this.recentEvents.values())
-      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
-  }
-
-  async getRecentEvent(id: number): Promise<RecentEvent | undefined> {
-    return this.recentEvents.get(id);
-  }
-
-  async createRecentEvent(insertEvent: InsertRecentEvent): Promise<RecentEvent> {
-    const id = this.currentIds.recentEvent++;
-    const event: RecentEvent = {
-      ...insertEvent,
-      id,
-      highlights: insertEvent.highlights ?? null,
-      featured: insertEvent.featured ?? false,
-      createdAt: new Date()
-    };
-    this.recentEvents.set(id, event);
-    return event;
-  }
-
-  async updateRecentEvent(id: number, eventUpdate: Partial<InsertRecentEvent>): Promise<RecentEvent | undefined> {
-    const existingEvent = this.recentEvents.get(id);
-    if (!existingEvent) return undefined;
-
-    const updatedEvent = { ...existingEvent, ...eventUpdate };
-    this.recentEvents.set(id, updatedEvent);
-    return updatedEvent;
-  }
-
-  async deleteRecentEvent(id: number): Promise<boolean> {
-    return this.recentEvents.delete(id);
-  }
-
-  // Helper methods
-  private getCustomerByBookingId(bookingId: number): Customer | undefined {
-    const booking = this.bookings.get(bookingId);
-    if (!booking) return undefined;
-    return this.customers.get(booking.customerId);
-  }
-
-  private initializeServices(): void {
-    // Wedding Receptions
-    this.createService({
-      name: "Wedding Receptions",
-      description: "Make your special day unforgettable with our premium wedding catering services.",
-      imageUrl: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      basePrice: 4500, // $45 per person
-      featured: true
-    });
-
-    // Corporate Events
-    this.createService({
-      name: "Corporate Events",
-      description: "Professional catering solutions for meetings, conferences, and company celebrations.",
-      imageUrl: "https://images.unsplash.com/photo-1555244162-803834f70033?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      basePrice: 3500, // $35 per person
-      featured: true
-    });
-
-    // Private Parties
-    this.createService({
-      name: "Private Parties",
-      description: "From birthdays to anniversaries, we cater to all your private celebration needs.",
-      imageUrl: "https://images.unsplash.com/photo-1528605248644-14dd04022da1?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      basePrice: 3000, // $30 per person
-      featured: true
-    });
-
-    // Holiday Events
-    this.createService({
-      name: "Holiday Events",
-      description: "Seasonal catering services with festive menus for your holiday gatherings.",
-      imageUrl: "https://images.unsplash.com/photo-1516815231560-8f41ec531527?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      basePrice: 4000, // $40 per person
-      featured: true
-    });
-
-    // Formal Dinners
-    this.createService({
-      name: "Formal Dinners",
-      description: "Elegant plated service with gourmet cuisine for sophisticated gatherings.",
-      imageUrl: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      basePrice: 5500, // $55 per person
-      featured: true
-    });
-
-    // Buffet Service
-    this.createService({
-      name: "Buffet Service",
-      description: "Versatile buffet options perfect for casual events and family gatherings.",
-      imageUrl: "https://images.unsplash.com/photo-1555244162-803834f70033?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      basePrice: 2500, // $25 per person
-      featured: true
-    });
-  }
-
-  private initializeAvailability(): void {
-    // Create availability for the next 60 days
-    const today = new Date();
-    for (let i = 0; i < 60; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-
-      // Make some random dates unavailable (for demo purposes)
-      // In a real app, this would be based on actual bookings
-      const isAvailable = Math.random() > 0.15; // 15% chance of being unavailable
-
-      this.setAvailability({
-        date: date.toISOString().split('T')[0] as any,
-        isAvailable,
-        notes: isAvailable ? "" : "Fully booked"
-      });
-    }
-  }
-
-  private initializeVenues(): void {
-    this.createVenue({
-      name: "CASA AMPARO (Occasion Venue)",
-      address: "Casa Amparo, Local City",
-      description: "Perfect for occasions, includes basic amenities.",
-      capacityMin: 80,
-      capacityMax: 100,
-      price: 500000, // 5000 pesos in cents
-      type: "venue",
-      isAvailable: true
-    });
-
-    this.createVenue({
-      name: "CASA AMPARO (Room)",
-      address: "Casa Amparo, Local City",
-      description: "Private room accommodation.",
-      capacityMin: 1,
-      capacityMax: 10,
-      price: 0, // Need to clarify price, setting to 0 for now or maybe it's an add-on?
-      type: "room",
-      isAvailable: true
-    });
-  }
-
-  // Service package operations (stub implementations)
-  async getServicePackages(): Promise<ServicePackage[]> {
-    return [];
-  }
-
-  async getServicePackagesByService(serviceId: number): Promise<ServicePackage[]> {
-    return [];
-  }
-
-  async getServicePackage(id: number): Promise<ServicePackage | undefined> {
-    return undefined;
-  }
-
-  async createServicePackage(servicePackage: InsertServicePackage): Promise<ServicePackage> {
-    throw new Error("Service packages not implemented in MemStorage");
-  }
-
-  async updateServicePackage(id: number, servicePackage: Partial<InsertServicePackage>): Promise<ServicePackage | undefined> {
-    return undefined;
-  }
-
-  async deleteServicePackage(id: number): Promise<boolean> {
-    return false;
-  }
-
-  // Gallery image operations (stub implementations)
-  async getGalleryImages(): Promise<GalleryImage[]> {
-    return [];
-  }
-
-  async getGalleryImagesByCategory(category: string): Promise<GalleryImage[]> {
-    return [];
-  }
-
-  async getGalleryImage(id: number): Promise<GalleryImage | undefined> {
-    return undefined;
-  }
-
-  async createGalleryImage(image: InsertGalleryImage): Promise<GalleryImage> {
-    throw new Error("Gallery images not implemented in MemStorage");
-  }
-
-  async updateGalleryImage(id: number, image: Partial<InsertGalleryImage>): Promise<GalleryImage | undefined> {
-    return undefined;
-  }
-
-  async deleteGalleryImage(id: number): Promise<boolean> {
-    return false;
-  }
-
-  // Capacity calendar operations (stub implementations)
-  async getCapacityCalendar(): Promise<CapacityCalendar[]> {
-    return [];
-  }
-
-  async getCapacityByDate(date: string): Promise<CapacityCalendar | undefined> {
-    return undefined;
-  }
-
-  async setCapacity(capacity: InsertCapacityCalendar): Promise<CapacityCalendar> {
-    throw new Error("Capacity calendar not implemented in MemStorage");
-  }
-
-  async updateCapacity(id: number, capacity: Partial<InsertCapacityCalendar>): Promise<CapacityCalendar | undefined> {
-    return undefined;
-  }
-
-  // Dish operations (stub implementations)
-  async getDishes(): Promise<Dish[]> {
-    return [];
-  }
-
-  async getDishesByCategory(category: string): Promise<Dish[]> {
-    return [];
-  }
-
-  async getDish(id: number): Promise<Dish | undefined> {
-    return undefined;
-  }
-
-  async createDish(dish: InsertDish): Promise<Dish> {
-    throw new Error("Dishes not implemented in MemStorage");
-  }
-
-  async updateDish(id: number, dish: Partial<InsertDish>): Promise<Dish | undefined> {
-    return undefined;
-  }
-
-  async deleteDish(id: number): Promise<boolean> {
-    return false;
-  }
-
-  // Add-on operations (stub implementations)
-  async getAddOns(): Promise<AddOn[]> {
-    return [];
-  }
-
-  async getAddOnsByCategory(category: string): Promise<AddOn[]> {
-    return [];
-  }
-
-  async getAddOn(id: number): Promise<AddOn | undefined> {
-    return undefined;
-  }
-
-  async createAddOn(addOn: InsertAddOn): Promise<AddOn> {
-    throw new Error("Add-ons not implemented in MemStorage");
-  }
-
-  async updateAddOn(id: number, addOn: Partial<InsertAddOn>): Promise<AddOn | undefined> {
-    return undefined;
-  }
-
-  async deleteAddOn(id: number): Promise<boolean> {
-    return false;
-  }
-
-  // Venue operations
-  async getVenues(): Promise<Venue[]> {
-    return Array.from(this.venues.values());
-  }
-
-  async getVenue(id: number): Promise<Venue | undefined> {
-    return this.venues.get(id);
-  }
-
-  async createVenue(insertVenue: InsertVenue): Promise<Venue> {
-    const id = this.currentIds.venue++;
-    const venue: Venue = { 
-      ...insertVenue, 
-      id,
-      description: insertVenue.description || null,
-      capacityMin: insertVenue.capacityMin || 0,
-      capacityMax: insertVenue.capacityMax || null,
-      imageUrl: insertVenue.imageUrl || null,
-      type: insertVenue.type || "venue",
-      isAvailable: insertVenue.isAvailable ?? true
-    };
-    this.venues.set(id, venue);
-    return venue;
-  }
-
-  async updateVenue(id: number, venueUpdate: Partial<InsertVenue>): Promise<Venue | undefined> {
-    const existing = this.venues.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...venueUpdate };
-    this.venues.set(id, updated);
-    return updated;
-  }
-
-  async deleteVenue(id: number): Promise<boolean> {
-    return this.venues.delete(id);
-  }
-
-  // Custom quote operations (stub implementations)
-  async getCustomQuotes(): Promise<CustomQuoteWithCustomer[]> {
-    return [];
-  }
-
-  async getCustomQuote(id: number): Promise<CustomQuoteWithCustomer | undefined> {
-    return undefined;
-  }
-
-  async getCustomQuoteByReference(reference: string): Promise<CustomQuoteWithCustomer | undefined> {
-    return undefined;
-  }
-
-  async createCustomQuote(quote: InsertCustomQuote, customer: InsertCustomer): Promise<CustomQuoteWithCustomer> {
-    throw new Error("Custom quotes not implemented in MemStorage");
-  }
-
-  async updateCustomQuoteStatus(id: number, status: string, updates?: Partial<InsertCustomQuote>): Promise<CustomQuote | undefined> {
-    return undefined;
-  }
-
-  // Payment settings operations (stub implementations)
-  async getPaymentSettings(): Promise<PaymentSetting[]> {
-    return [];
-  }
-
-  async getPaymentSetting(paymentMethod: string): Promise<PaymentSetting | undefined> {
-    return undefined;
-  }
-
-  async upsertPaymentSetting(setting: InsertPaymentSetting): Promise<PaymentSetting> {
-    throw new Error("Payment settings not implemented in MemStorage");
-  }
-
-  async deletePaymentSetting(id: number): Promise<boolean> {
-    return false;
-  }
-}
-
-// End of MemStorage class
 
 // Import the database and drizzle operators
 import { db } from "./db";
@@ -767,6 +144,15 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async updateUser(id: number, userUpdate: Partial<InsertUser>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(userUpdate)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser || undefined;
   }
 
   async getServices(): Promise<Service[]> {
@@ -1061,30 +447,7 @@ export class DatabaseStorage implements IStorage {
       await db.insert(bookingDishes).values(dishInserts);
     }
 
-    // Update capacity calendar for the event date
-    const eventDateStr = insertBooking.eventDate;
-    const [existingCapacity] = await db
-      .select()
-      .from(capacityCalendar)
-      .where(eq(capacityCalendar.date, eventDateStr));
-
-    if (existingCapacity) {
-      // Increment booked slots
-      await db
-        .update(capacityCalendar)
-        .set({ bookedSlots: existingCapacity.bookedSlots + 1 })
-        .where(eq(capacityCalendar.id, existingCapacity.id));
-    } else {
-      // Create new capacity record for this date with 1 booked slot
-      await db
-        .insert(capacityCalendar)
-        .values({
-          date: eventDateStr,
-          dayType: 'normal',
-          maxSlots: 7,
-          bookedSlots: 1
-        });
-    }
+    // Capacity reservation happens after deposit payment via webhook
 
     // Get service data
     const [service] = await db
@@ -1290,6 +653,29 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async reserveCapacityForDate(dateStr: string): Promise<CapacityCalendar> {
+    const existing = await this.getCapacityByDate(dateStr);
+    if (existing) {
+      const [updated] = await db
+        .update(capacityCalendar)
+        .set({ bookedSlots: (existing.bookedSlots || 0) + 1 })
+        .where(eq(capacityCalendar.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(capacityCalendar)
+        .values({
+          date: dateStr,
+          dayType: 'normal',
+          maxSlots: 7,
+          bookedSlots: 1
+        })
+        .returning();
+      return created;
+    }
+  }
+
   async updateCapacity(id: number, capacityUpdate: Partial<InsertCapacityCalendar>): Promise<CapacityCalendar | undefined> {
     const [updated] = await db
       .update(capacityCalendar)
@@ -1478,6 +864,14 @@ export class DatabaseStorage implements IStorage {
   async deletePaymentSetting(id: number): Promise<boolean> {
     const result = await db.delete(paymentSettings).where(eq(paymentSettings.id, id)).returning({ deletedId: paymentSettings.id });
     return result.length > 0;
+  }
+
+  async clearBookings(): Promise<boolean> {
+    await db.delete(bookingDishes);
+    await db.delete(bookingAddOns);
+    await db.delete(bookings);
+    await db.update(capacityCalendar).set({ bookedSlots: 0 });
+    return true;
   }
 }
 

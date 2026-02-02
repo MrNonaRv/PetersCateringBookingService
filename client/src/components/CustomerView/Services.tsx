@@ -43,10 +43,11 @@ interface ServicePackage {
 interface ServicesProps {
   services: Service[];
   isLoading: boolean;
-  onSelectService: (serviceId: number) => void;
+  onSelectService: (serviceId: number, packageId?: number) => void;
+  onRequestCustomQuote?: (serviceId?: number) => void;
 }
 
-export default function Services({ services, isLoading, onSelectService }: ServicesProps) {
+export default function Services({ services, isLoading, onSelectService, onRequestCustomQuote }: ServicesProps) {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   const [count, setCount] = useState(0);
@@ -184,12 +185,28 @@ export default function Services({ services, isLoading, onSelectService }: Servi
       <Dialog open={!!selectedServiceId} onOpenChange={(open) => !open && setSelectedServiceId(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-heading text-primary">
-              {selectedService?.name} Packages
-            </DialogTitle>
-            <DialogDescription>
-              Explore our available packages and pricing for {selectedService?.name}
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-2xl font-heading text-primary">
+                  {selectedService?.name} Packages
+                </DialogTitle>
+                <DialogDescription>
+                  Explore our available packages and pricing for {selectedService?.name}
+                </DialogDescription>
+              </div>
+              {onRequestCustomQuote && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const id = selectedServiceId ?? undefined;
+                    setSelectedServiceId(null);
+                    onRequestCustomQuote(id);
+                  }}
+                >
+                  Request Custom Quote
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           {isLoadingPackages ? (
@@ -233,7 +250,7 @@ export default function Services({ services, isLoading, onSelectService }: Servi
                       <Button 
                         onClick={() => {
                           setSelectedServiceId(null);
-                          onSelectService(selectedServiceId!);
+                          onSelectService(selectedServiceId!, pkg.id);
                         }}
                         className="bg-secondary hover:bg-opacity-90 text-white text-xs px-4"
                       >
@@ -248,15 +265,18 @@ export default function Services({ services, isLoading, onSelectService }: Servi
             <div className="py-12 text-center bg-gray-50 rounded-xl border border-dashed">
               <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500">No specific packages found for this service.</p>
-              <Button 
-                onClick={() => {
-                  setSelectedServiceId(null);
-                  onSelectService(selectedServiceId!);
-                }}
-                className="mt-4"
-              >
-                Request Custom Quote
-              </Button>
+              {onRequestCustomQuote ? (
+                <Button 
+                  onClick={() => {
+                    const id = selectedServiceId ?? undefined;
+                    setSelectedServiceId(null);
+                    onRequestCustomQuote(id);
+                  }}
+                  className="mt-4"
+                >
+                  Request Custom Quote
+                </Button>
+              ) : null}
             </div>
           )}
         </DialogContent>

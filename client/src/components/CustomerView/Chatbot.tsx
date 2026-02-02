@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,12 @@ interface Service {
   basePrice: number;
   imageUrl: string;
   featured: boolean;
+}
+
+interface PaymentMethod {
+  id: string;
+  name: string;
+  type: string;
 }
 
 interface ChatbotProps {
@@ -43,6 +50,11 @@ export default function Chatbot({ services }: ChatbotProps) {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch payment methods
+  const { data: paymentMethods } = useQuery<PaymentMethod[]>({
+    queryKey: ["/api/payment-methods"],
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -85,16 +97,33 @@ export default function Chatbot({ services }: ChatbotProps) {
     // Booking inquiry
     if (message.includes("book") || message.includes("reservation") || message.includes("how to order") || message.includes("make an appointment")) {
       return {
-        text: `Booking with us is easy! Here's how:\n\n1. Click 'Book Now' or select a service\n2. Choose your event date and details\n3. Provide guest count and venue information\n4. Select menu preferences and additional services\n5. Enter your contact information\n6. Submit your booking request\n\nWe'll contact you within 24 hours to confirm details and discuss your requirements. Would you like to start a booking now?`,
-        suggestions: ["Start booking now", "Check availability", "What information do you need?", "How far in advance should I book?"]
+        text: `Booking with us is simple and secure:\n\n1. Select your preferred service or package\n2. Choose your event date and provide details\n3. Submit your booking request for approval\n4. Once approved, pay the 50% downpayment to secure your date\n5. The remaining balance is due before the event\n\nWe'll review your request and get back to you within 24 hours!`,
+        suggestions: ["Start booking now", "Check availability", "Deposit requirements", "How far in advance?"]
       };
     }
 
     // Payment methods
-    if (message.includes("payment") || message.includes("pay") || message.includes("gcash") || message.includes("paypal")) {
+    if (message.includes("payment") || message.includes("pay") || message.includes("gcash") || message.includes("bank")) {
+      const methods = paymentMethods?.map(m => m.name).join(", ") || "GCash, PayMaya, and Bank Transfer";
       return {
-        text: `We accept multiple payment methods for your convenience:\n\n• GCash - Digital wallet payments\n• PayMaya - Online transactions\n• Bank Transfer - Direct bank deposits\n• Cash Payment - Pay on event day\n• Credit/Debit Cards - Secure online payments\n\nWe typically require a 50% deposit to confirm your booking, with the balance due before or on your event day.`,
-        suggestions: ["Deposit requirements", "Payment schedule", "Refund policy", "Book now"]
+        text: `We accept secure payments via ${methods}.\n\nA 50% downpayment is required to confirm your booking after approval. The remaining balance can be paid before your event date. All transactions are verified by our team.`,
+        suggestions: ["How to pay deposit", "Is it secure?", "Payment schedule", "Receipts"]
+      };
+    }
+
+    // Cancellation Policy
+    if (message.includes("cancel") || message.includes("refund") || message.includes("policy") || message.includes("terms")) {
+      return {
+        text: `Our cancellation policy ensures fairness for both parties:\n\n• Deposits secure your date and are generally non-refundable if cancelled close to the event.\n• Cancellations made well in advance may be eligible for partial refunds or rescheduling.\n• Please contact us immediately if you need to make changes to your booking.\n\nFor full details, please review our Terms & Conditions page.`,
+        suggestions: ["Contact support", "Reschedule event", "Terms & Conditions", "Force Majeure"]
+      };
+    }
+
+    // Location & Contact
+    if (message.includes("location") || message.includes("where") || message.includes("address") || message.includes("contact") || message.includes("call")) {
+      return {
+        text: `You can reach Peter's Creation Catering at:\n\n📍 Address: Casa Amparo, Local City\n📞 Phone: 0917-123-4567\n📧 Email: info@peterscreation.com\n\nOffice Hours: Monday - Saturday, 9:00 AM - 6:00 PM\n\nFeel free to visit us for a food tasting or consultation!`,
+        suggestions: ["Book consultation", "Get directions", "Email us", "Call now"]
       };
     }
 

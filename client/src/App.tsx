@@ -18,8 +18,11 @@ import AdminSettings from "@/pages/admin/settings";
 import AdminQuotes from "@/pages/admin/quotes";
 import AdminProfile from "@/pages/admin/profile";
 import AdminAbout from "@/pages/admin/about";
+import AdminPayments from "@/pages/admin/payments";
 import PayDeposit from "./pages/pay-deposit";
 import Login from "@/pages/login";
+import Packages from "@/pages/packages";
+import Terms from "@/pages/terms";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/providers/ProtectedRoute";
 
@@ -36,6 +39,8 @@ function App() {
           <Toaster />
           <Switch>
             <Route path="/" component={Home} />
+            <Route path="/packages" component={Packages} />
+            <Route path="/terms" component={Terms} />
             <Route path="/pay-deposit" component={PayDeposit} />
             <Route path="/login" component={Login} />
             <Route path="/admin" component={() => 
@@ -101,6 +106,11 @@ function App() {
             <Route path="/admin/quotes" component={() => 
               <ProtectedRoute>
                 <AdminQuotes />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/payments" component={() => 
+              <ProtectedRoute>
+                <AdminPayments />
               </ProtectedRoute>
             } />
             <Route component={NotFound} />

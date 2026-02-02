@@ -17,6 +17,8 @@ import CustomQuotesManagement from "./CustomQuotesManagement";
 import AdminProfile from "./Profile";
 import AboutManagement from "./AboutManagement";
 
+import PaymentMonitoring from "./PaymentMonitoring";
+
 interface AdminDashboardProps {
   currentPage: string;
 }
@@ -98,6 +100,9 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
 
       case "quotes":
         return <CustomQuotesManagement />;
+
+      case "payments":
+        return <PaymentMonitoring />;
 
       case "about":
         return <AboutManagement />;

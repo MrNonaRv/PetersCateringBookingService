@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 export default function PayDeposit() {
   const [bookingReference, setBookingReference] = useState("");
   const [searchedReference, setSearchedReference] = useState("");
-  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<string | null>("gcash");
   const [currentStep, setCurrentStep] = useState(1);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -44,6 +44,17 @@ export default function PayDeposit() {
     }
   }, [booking]);
 
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref");
+      if (ref) {
+        setBookingReference(ref);
+        setSearchedReference(ref);
+      }
+    } catch {}
+  }, []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!bookingReference.trim()) {
@@ -55,11 +66,11 @@ export default function PayDeposit() {
       return;
     }
     setSearchedReference(bookingReference.trim());
-    setSelectedMethod(null);
+    setSelectedMethod("gcash");
   };
 
   const processPaymentMutation = useMutation({
-    mutationFn: async (data: { bookingId: number, paymentMethod: string }) => {
+    mutationFn: async (data: { bookingId: number, paymentMethod: string, successUrl?: string, cancelUrl?: string }) => {
       // Create checkout session
       const res = await fetch("/api/paymongo/create-checkout", {
         method: "POST",
@@ -67,6 +78,8 @@ export default function PayDeposit() {
         body: JSON.stringify({
           bookingId: data.bookingId,
           paymentType: "deposit",
+          successUrl: data.successUrl,
+          cancelUrl: data.cancelUrl,
         }),
       });
 
@@ -120,13 +133,17 @@ export default function PayDeposit() {
     if (selectedMethod === 'gcash' || selectedMethod === 'paymaya' || selectedMethod === 'grab_pay') {
        processPaymentMutation.mutate({
         bookingId: booking.id,
-        paymentMethod: selectedMethod
+        paymentMethod: selectedMethod,
+        successUrl: `${window.location.origin}/?booking=${encodeURIComponent(booking.bookingReference)}&paid=1`,
+        cancelUrl: `${window.location.origin}/?booking=${encodeURIComponent(booking.bookingReference)}&paid=0`
       });
     } else {
       // Fallback to PayMongo for others
       processPaymentMutation.mutate({
         bookingId: booking.id,
-        paymentMethod: selectedMethod
+        paymentMethod: selectedMethod,
+        successUrl: `${window.location.origin}/?booking=${encodeURIComponent(booking.bookingReference)}&paid=1`,
+        cancelUrl: `${window.location.origin}/?booking=${encodeURIComponent(booking.bookingReference)}&paid=0`
       });
     }
   };
@@ -134,7 +151,7 @@ export default function PayDeposit() {
   const handleReset = () => {
     setSearchedReference("");
     setBookingReference("");
-    setSelectedMethod(null);
+    setSelectedMethod("gcash");
     setCurrentStep(1);
     refetch(); // Clear query cache basically
   };
@@ -200,7 +217,7 @@ export default function PayDeposit() {
                         value={bookingReference}
                         onChange={(e) => setBookingReference(e.target.value.toUpperCase())}
                         className="h-14 text-lg text-center tracking-widest uppercase placeholder:normal-case placeholder:tracking-normal"
-                        maxLength={20}
+                        maxLength={50}
                       />
                     </div>
                     <Button type="submit" size="lg" className="w-full h-12 text-lg font-medium shadow-md transition-transform hover:scale-[1.02]" disabled={isLoading}>
@@ -233,10 +250,10 @@ export default function PayDeposit() {
 
           {/* Step 2 & 3: Details & Payment */}
           {currentStep >= 2 && booking && (
-            <div className="grid lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-8 duration-500">
+            <div className="grid grid-cols-1 gap-8 animate-in slide-in-from-bottom-8 duration-500">
 
-              {/* Left Column: Booking Summary (Receipt Style) */}
-              <div className="lg:col-span-1">
+              {/* Booking Summary (Receipt Style) */}
+              <div className="col-span-1">
                 <div className="sticky top-24">
                   <Button variant="ghost" onClick={handleReset} className="mb-4 pl-0 hover:pl-2 transition-all text-gray-500 hover:text-primary">
                     <ChevronLeft className="w-4 h-4 mr-1" />
@@ -256,43 +273,72 @@ export default function PayDeposit() {
                     </div>
 
                     <CardContent className="p-0">
-                      <div className="p-6 space-y-6">
-                        {/* Event Details */}
-                        <div className="space-y-4">
-                          <div className="flex items-start gap-3">
-                            <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-500">Event Date</p>
-                              <p className="font-semibold text-gray-900">{formatDate(booking.eventDate)}</p>
+                      <div className="p-6">
+                        {/* Event Details Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-4">
+                            <h4 className="font-semibold text-gray-900 border-b pb-2">Event Information</h4>
+                            <div className="flex items-start gap-3">
+                              <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-500">Event Date</p>
+                                <p className="font-semibold text-gray-900">{formatDate(booking.eventDate)}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-3">
+                              <Utensils className="w-5 h-5 text-gray-400 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-500">Event Type</p>
+                                <p className="font-semibold text-gray-900 capitalize">{booking.eventType}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-3">
+                              <Users className="w-5 h-5 text-gray-400 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-500">Guest Count</p>
+                                <p className="font-semibold text-gray-900">{booking.guestCount} Guests</p>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-start gap-3">
-                            <Utensils className="w-5 h-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-500">Event Type</p>
-                              <p className="font-semibold text-gray-900 capitalize">{booking.eventType}</p>
-                            </div>
-                          </div>
+                          {/* Package Details */}
+                          {booking.package && (
+                            <div className="space-y-4">
+                              <h4 className="font-semibold text-gray-900 border-b pb-2">Package Details</h4>
+                              <div className="flex items-start gap-3">
+                                <CreditCard className="w-5 h-5 text-gray-400 mt-0.5" />
+                                <div className="w-full">
+                                  <p className="text-sm font-medium text-gray-500">Package Included</p>
+                                  <p className="font-semibold text-gray-900">{booking.package.name}</p>
+                                  <p className="text-xs text-gray-500 mt-1 mb-2">{booking.package.description}</p>
 
-                          <div className="flex items-start gap-3">
-                            <Users className="w-5 h-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-500">Guest Count</p>
-                              <p className="font-semibold text-gray-900">{booking.guestCount} Guests</p>
+                                  {booking.package.features && booking.package.features.length > 0 && (
+                                    <div className="bg-gray-50 p-3 rounded-md">
+                                      <p className="text-xs font-medium text-gray-500 mb-1">Includes:</p>
+                                      <ul className="text-xs text-gray-600 list-disc list-inside grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                        {booking.package.features.map((feature: string, idx: number) => (
+                                          <li key={idx} className="truncate">{feature}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
-                        <Separator />
+                        <Separator className="my-6" />
 
                         {/* Price Breakdown */}
-                        <div className="space-y-3">
+                        <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Total Price</span>
                             <span className="font-medium">₱{(booking.totalPrice / 100).toLocaleString()}</span>
                           </div>
-                          <div className="flex justify-between text-lg font-bold pt-2 border-t border-dashed">
+                          <div className="flex justify-between text-lg font-bold pt-2 border-t border-dashed border-gray-300">
                             <span className="text-primary">Deposit Due (50%)</span>
                             <span className="text-primary">₱{Math.round((booking.totalPrice * 0.5) / 100).toLocaleString()}</span>
                           </div>
@@ -301,7 +347,12 @@ export default function PayDeposit() {
 
                       {/* Payment Status Footer */}
                       <div className="bg-gray-50 p-4 border-t text-center">
-                        {booking.depositPaid ? (
+                        {booking.status === 'completed' ? (
+                           <div className="flex items-center justify-center text-blue-700 font-medium">
+                              <CheckCircle2 className="w-5 h-5 mr-2" />
+                              Event Completed
+                           </div>
+                        ) : booking.depositPaid ? (
                            <div className="flex items-center justify-center text-green-700 font-medium">
                               <CheckCircle2 className="w-5 h-5 mr-2" />
                               Deposit Paid
@@ -318,9 +369,24 @@ export default function PayDeposit() {
                 </div>
               </div>
 
-              {/* Right Column: Payment Methods & Action */}
-              <div className="lg:col-span-2 space-y-8">
-                {booking.depositPaid ? (
+              {/* Payment Methods & Action */}
+              <div className="col-span-1">
+                {booking.status === 'completed' ? (
+                   <Card className="border-blue-200 bg-blue-50 shadow-sm">
+                     <CardContent className="pt-6 text-center py-12">
+                       <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                         <CheckCircle2 className="w-8 h-8 text-blue-600" />
+                       </div>
+                       <h2 className="text-2xl font-bold text-blue-800 mb-2">Booking Completed!</h2>
+                       <p className="text-blue-700 max-w-md mx-auto">
+                         This event has been successfully completed. We hope you enjoyed our service! Thank you for choosing Peter's Creation Catering.
+                       </p>
+                       <Button className="mt-6 bg-blue-600 hover:bg-blue-700" onClick={() => setLocation("/")}>
+                         Return to Home
+                       </Button>
+                     </CardContent>
+                   </Card>
+                ) : booking.depositPaid ? (
                    <Card className="border-green-200 bg-green-50 shadow-sm">
                      <CardContent className="pt-6 text-center py-12">
                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -345,6 +411,7 @@ export default function PayDeposit() {
 
                       <PaymentMethods 
                         showSelection={true} 
+                        collapsed={true}
                         selectedMethod={selectedMethod || undefined}
                         onSelectMethod={(method) => {
                           setSelectedMethod(method.id);

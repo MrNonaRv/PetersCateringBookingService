@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,11 +41,11 @@ export default function ServicesManagement() {
   const queryClient = useQueryClient();
 
   const { data: services, isLoading } = useQuery({
-    queryKey: ['/api/services'],
+    queryKey: ["/api/services"],
     queryFn: async () => {
-      const res = await fetch('/api/services');
+      const res = await fetch("/api/services");
       if (!res.ok) {
-        throw new Error('Failed to fetch services');
+        throw new Error("Failed to fetch services");
       }
       return res.json();
     },
@@ -47,11 +53,15 @@ export default function ServicesManagement() {
 
   const updateServiceMutation = useMutation({
     mutationFn: async (service: Partial<Service> & { id: number }) => {
-      const res = await apiRequest('PUT', `/api/services/${service.id}`, service);
+      const res = await apiRequest(
+        "PUT",
+        `/api/services/${service.id}`,
+        service,
+      );
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/services'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
         title: "Service updated",
         description: "The service has been updated successfully.",
@@ -69,11 +79,11 @@ export default function ServicesManagement() {
 
   const createServiceMutation = useMutation({
     mutationFn: async (service: Omit<Service, "id">) => {
-      const res = await apiRequest('POST', `/api/services`, service);
+      const res = await apiRequest("POST", `/api/services`, service);
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/services'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
         title: "Service created",
         description: "The new service has been added successfully.",
@@ -91,11 +101,11 @@ export default function ServicesManagement() {
 
   const deleteServiceMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest('DELETE', `/api/services/${id}`);
+      const res = await apiRequest("DELETE", `/api/services/${id}`);
       return res.text();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/services'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
         title: "Service deleted",
         description: "The service has been removed.",
@@ -197,7 +207,9 @@ export default function ServicesManagement() {
     <>
       <Card>
         <CardHeader className="px-6 py-4 border-b">
-          <CardTitle className="text-lg font-medium">Catering Services</CardTitle>
+          <CardTitle className="text-lg font-medium">
+            Catering Services
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <div className="mb-4 flex justify-end">
@@ -207,68 +219,74 @@ export default function ServicesManagement() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {isLoading ? (
-              // Skeleton loading
-              Array(6).fill(0).map((_, index) => (
-                <Card key={index} className="overflow-hidden">
-                  <Skeleton className="h-48 w-full" />
-                  <CardContent className="p-6">
-                    <Skeleton className="h-6 w-3/4 mb-2" />
-                    <Skeleton className="h-4 w-full mb-4" />
-                    <div className="flex justify-between items-center">
-                      <Skeleton className="h-4 w-1/3" />
-                      <Skeleton className="h-9 w-20" />
+            {isLoading
+              ? // Skeleton loading
+                Array(6)
+                  .fill(0)
+                  .map((_, index) => (
+                    <Card key={index} className="overflow-hidden">
+                      <Skeleton className="h-48 w-full" />
+                      <CardContent className="p-6">
+                        <Skeleton className="h-6 w-3/4 mb-2" />
+                        <Skeleton className="h-4 w-full mb-4" />
+                        <div className="flex justify-between items-center">
+                          <Skeleton className="h-4 w-1/3" />
+                          <Skeleton className="h-9 w-20" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+              : services &&
+                services.map((service: any) => (
+                  <Card key={service.id} className="overflow-hidden">
+                    <div className="relative h-48 w-full">
+                      <img
+                        src={service.imageUrl}
+                        alt={service.name}
+                        className="h-full w-full object-cover"
+                      />
+                      {service.featured && (
+                        <div className="absolute top-2 right-2 bg-secondary text-white px-2 py-1 rounded text-xs">
+                          Featured
+                        </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              services && services.map((service: any) => (
-                <Card key={service.id} className="overflow-hidden">
-                  <div className="relative h-48 w-full">
-                    <img 
-                      src={service.imageUrl} 
-                      alt={service.name}
-                      className="h-full w-full object-cover"
-                    />
-                    {service.featured && (
-                      <div className="absolute top-2 right-2 bg-secondary text-white px-2 py-1 rounded text-xs">
-                        Featured
+                    <CardContent className="p-6">
+                      <h3 className="text-lg font-bold mb-2">{service.name}</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        {service.description}
+                      </p>
+                      <div className="flex justify-end items-center">
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditService(service)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Delete service "${service.name}"? This cannot be undone.`,
+                                )
+                              ) {
+                                deleteServiceMutation.mutate(service.id);
+                              }
+                            }}
+                            disabled={deleteServiceMutation.isPending}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  <CardContent className="p-6">
-                    <h3 className="text-lg font-bold mb-2">{service.name}</h3>
-                    <p className="text-sm text-gray-600 mb-4">{service.description}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">₱{Math.round(service.basePrice / 100).toLocaleString("en-PH")}/person</span>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleEditService(service)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => {
-                            if (confirm(`Delete service "${service.name}"? This cannot be undone.`)) {
-                              deleteServiceMutation.mutate(service.id);
-                            }
-                          }}
-                          disabled={deleteServiceMutation.isPending}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
+                    </CardContent>
+                  </Card>
+                ))}
           </div>
         </CardContent>
       </Card>
@@ -276,7 +294,9 @@ export default function ServicesManagement() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{currentService ? "Edit Service" : "Add Service"}</DialogTitle>
+            <DialogTitle>
+              {currentService ? "Edit Service" : "Add Service"}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
@@ -302,9 +322,7 @@ export default function ServicesManagement() {
               />
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right">
-                Image
-              </Label>
+              <Label className="text-right">Image</Label>
               <div className="col-span-3 space-y-3">
                 {editedImageUrl && (
                   <img
@@ -316,12 +334,16 @@ export default function ServicesManagement() {
                 <Input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null)}
+                  onChange={(e) =>
+                    handleImageFileChange(e.target.files?.[0] ?? null)
+                  }
                 />
                 <p className="text-xs text-gray-500">
                   Upload replaces current image. Max 5MB. JPEG/PNG/GIF/WebP.
                 </p>
-                {uploadingImage && <span className="text-sm">Uploading...</span>}
+                {uploadingImage && (
+                  <span className="text-sm">Uploading...</span>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -334,7 +356,7 @@ export default function ServicesManagement() {
                 value={editedPrice}
                 onChange={(e) => setEditedPrice(e.target.value)}
                 className="col-span-3"
-                placeholder="Price per person"
+                placeholder="Price"
                 step="0.01"
                 min="0"
               />
@@ -347,7 +369,9 @@ export default function ServicesManagement() {
                 <Checkbox
                   id="featured"
                   checked={editedFeatured}
-                  onCheckedChange={(checked) => setEditedFeatured(checked as boolean)}
+                  onCheckedChange={(checked) =>
+                    setEditedFeatured(checked as boolean)
+                  }
                 />
                 <label htmlFor="featured" className="ml-2 text-sm">
                   Show as featured service
@@ -356,19 +380,27 @@ export default function ServicesManagement() {
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               onClick={handleUpdateService}
-              disabled={updateServiceMutation.isPending || createServiceMutation.isPending}
+              disabled={
+                updateServiceMutation.isPending ||
+                createServiceMutation.isPending
+              }
             >
-              {updateServiceMutation.isPending || createServiceMutation.isPending ? "Saving..." : (currentService ? "Save Changes" : "Create Service")}
+              {updateServiceMutation.isPending ||
+              createServiceMutation.isPending
+                ? "Saving..."
+                : currentService
+                  ? "Save Changes"
+                  : "Create Service"}
             </Button>
           </DialogFooter>
         </DialogContent>

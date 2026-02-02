@@ -119,18 +119,19 @@ function parseLocalYMD(dateString: string) {
 
 const bookingFormSchema = z
   .object({
-    bookingType: z.enum(["standard", "custom"]),
+    bookingType: z.enum(["standard", "custom", "room"]),
     serviceId: z.number().optional(),
     packageId: z.number().optional(),
     eventDate: z.date({ required_error: "Please select a date" }),
-    eventType: z.string().min(1, "Please select event type"),
-    eventTime: z.string().min(1, "Please select event time"),
+    eventType: z.string().optional(),
+    eventTime: z.string().optional(),
     guestCount: z
       .number()
-      .min(10, "Minimum 10 guests")
+      .min(1, "Minimum 1 guest")
       .max(500, "Maximum 500 guests"),
-    venueAddress: z.string().min(5, "Please enter the venue address"),
+    venueAddress: z.string().optional(),
     venueId: z.number().optional(),
+    casaReceptionAddon: z.boolean().default(false),
     name: z.string().min(2, "Name is required"),
     email: z.string().email("Valid email is required"),
     phone: z.string().min(10, "Valid phone number is required"),
@@ -144,6 +145,44 @@ const bookingFormSchema = z
     termsAgreed: z.boolean().refine((val) => val === true, {
       message: "You must agree to the terms and conditions",
     }),
+  })
+  .superRefine((data, ctx) => {
+    if (data.bookingType !== "room") {
+      const et = (data.eventType || "").trim();
+      if (!et) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please select event type",
+          path: ["eventType"],
+        });
+      }
+      const tm = (data.eventTime || "").trim();
+      if (!tm) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please select event time",
+          path: ["eventTime"],
+        });
+      }
+    }
+    if (data.bookingType === "standard" && data.guestCount < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Minimum 10 guests",
+        path: ["guestCount"],
+      });
+    }
+    const requireAddress = !data.casaReceptionAddon && data.bookingType !== "room";
+    if (requireAddress) {
+      const addr = (data.venueAddress || "").trim();
+      if (!addr || addr.length < 5) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter the venue address",
+          path: ["venueAddress"],
+        });
+      }
+    }
   })
   .refine(
     (data) => {
@@ -180,6 +219,8 @@ interface BookingModalProps {
   onClose: () => void;
   services: Service[];
   selectedServiceId: number | null;
+  initialPackageId?: number | null;
+  initialBookingType?: "standard" | "custom" | "room";
   onBookingSubmitted: (reference: string) => void;
 }
 
@@ -199,6 +240,11 @@ const STEP_CONFIG = {
     { id: 3, label: "Info", icon: User },
     { id: 4, label: "Details", icon: FileText },
     { id: 5, label: "Review", icon: ClipboardCheck },
+  ],
+  room: [
+    { id: 1, label: "Date", icon: CalendarIcon },
+    { id: 2, label: "Info", icon: User },
+    { id: 3, label: "Review", icon: ClipboardCheck },
   ],
 };
 
@@ -233,12 +279,12 @@ export default function BookingModal({
   onClose,
   services,
   selectedServiceId,
+  initialPackageId,
+  initialBookingType = "standard",
   onBookingSubmitted,
 }: BookingModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [bookingType, setBookingType] = useState<"standard" | "custom">(
-    "standard",
-  );
+  const [bookingType, setBookingType] = useState<"standard" | "custom" | "room">(initialBookingType);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -262,12 +308,24 @@ export default function BookingModal({
   const selectedPackageId = form.watch("packageId");
   const guestCount = form.watch("guestCount");
   const selectedDishes = form.watch("selectedDishes") || [];
+  const casaAddon = form.watch("casaReceptionAddon");
+  const [expandedPackageId, setExpandedPackageId] = useState<number | null>(null);
 
   const { data: availabilities = [] } = useQuery<Availability[]>({
     queryKey: ["/api/availability"],
     enabled: isOpen,
     staleTime: 0,
     gcTime: 0,
+  });
+  const selectedDateStr = form.watch("eventDate") ? formatLocalYMD(form.watch("eventDate") as Date) : "";
+  const { data: capacity } = useQuery<any>({
+    queryKey: ["/api/capacity-calendar", selectedDateStr],
+    queryFn: async () => {
+      const res = await fetch(`/api/capacity-calendar/${selectedDateStr}`);
+      if (!res.ok) throw new Error("Failed to fetch capacity");
+      return res.json();
+    },
+    enabled: isOpen && !!selectedDateStr,
   });
 
   const { data: packages = [] } = useQuery<ServicePackage[]>({
@@ -295,11 +353,30 @@ export default function BookingModal({
 
   useEffect(() => {
     if (isOpen) {
-      setCurrentStep(1);
-      setBookingType("standard");
+      const mode = initialBookingType || "standard";
+      setBookingType(mode);
+      const initialStep = mode === "room" ? 1 : (initialPackageId ? 2 : 1);
+      setCurrentStep(initialStep);
+
+      let autoEventType = "";
+      if (selectedServiceId) {
+        const service = services.find(s => s.id === selectedServiceId);
+        if (service) {
+          const matchedType = EVENT_TYPES.find(
+            t => service.name.toLowerCase().includes(t.value) || 
+                 service.name.toLowerCase().includes(t.label.toLowerCase()) ||
+                 t.label.toLowerCase().includes(service.name.toLowerCase())
+          );
+          if (matchedType) {
+            autoEventType = matchedType.value;
+          }
+        }
+      }
+
       form.reset({
-        bookingType: "standard",
+        bookingType: mode,
         serviceId: selectedServiceId || 0,
+        packageId: initialPackageId || undefined,
         guestCount: 100,
         selectedDishes: [],
         preferredContactMethod: "phone",
@@ -308,16 +385,36 @@ export default function BookingModal({
         email: "",
         phone: "",
         alternateContact: "",
+        casaReceptionAddon: false,
+        eventType: autoEventType,
       });
     }
-  }, [isOpen, selectedServiceId, form]);
+  }, [isOpen, selectedServiceId, initialPackageId, form, services]);
+
+  useEffect(() => {
+    if (isOpen && bookingType === "room" && venues.length > 0) {
+      const casa = venues.find((v) => v.name.toLowerCase().includes("amparo"));
+      if (casa) {
+        form.setValue("venueId", casa.id);
+        form.setValue("venueAddress", casa.address);
+      }
+    }
+  }, [isOpen, bookingType, venues, form]);
+  useEffect(() => {
+    if (casaAddon) {
+      const addr = (form.getValues("venueAddress") || "").toLowerCase();
+      if (!addr.includes("amparo")) {
+        form.setValue("venueAddress", "Casa Amparo Events Place");
+      }
+    }
+  }, [casaAddon, form]);
 
   const unavailableDates = availabilities
     .filter((a: Availability) => !a.isAvailable)
     .map((a: Availability) => parseLocalYMD(a.date));
 
-  const steps = STEP_CONFIG[bookingType];
-  const totalSteps = steps.length;
+  const stepsConfig = (STEP_CONFIG as Record<string, { id: number; label: string; icon: any }[]>)[bookingType] || STEP_CONFIG.standard;
+  const totalSteps = stepsConfig.length;
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: BookingFormValues) => {
@@ -332,6 +429,9 @@ export default function BookingModal({
       if (selectedVenue) {
         totalPrice += selectedVenue.price;
       }
+      if (data.casaReceptionAddon) {
+        totalPrice += 500000;
+      }
 
       const selectedDishNames = dishes
         .filter((d) => data.selectedDishes.includes(d.id))
@@ -340,6 +440,10 @@ export default function BookingModal({
       const dishesNote =
         selectedDishNames.length > 0
           ? `\n\nSelected Menu Items: ${selectedDishNames.join(", ")}`
+          : "";
+      const casaNote =
+        data.casaReceptionAddon
+          ? `\n\nAdd-on: Casa Amparo Event Reception (₱5,000)`
           : "";
 
       if (!data.serviceId || !data.packageId) {
@@ -353,7 +457,7 @@ export default function BookingModal({
         packageId: data.packageId,
         eventDate: formatLocalYMD(data.eventDate),
         eventType: data.eventType,
-        eventTime: data.eventTime,
+        eventTime: data.eventTime || "Fixed",
         guestCount: data.guestCount,
         venueAddress: data.venueAddress,
         venueId: data.venueId,
@@ -361,7 +465,7 @@ export default function BookingModal({
         serviceStyle: "buffet",
         additionalServices: "",
         theme: data.theme || "",
-        specialRequests: (data.specialRequests || "") + dishesNote,
+        specialRequests: (data.specialRequests || "") + dishesNote + casaNote,
         totalPrice,
         status: "pending_approval",
         paymentStatus: "pending",
@@ -441,6 +545,20 @@ export default function BookingModal({
   const nextStep = async () => {
     let fieldsToValidate: (keyof BookingFormValues)[] = [];
 
+    if (bookingType === "room") {
+      if (currentStep === 1) {
+        fieldsToValidate = ["eventDate"];
+      } else if (currentStep === 2) {
+        fieldsToValidate = ["name", "email", "phone"];
+      }
+      const isValidRoom = await form.trigger(fieldsToValidate);
+      if (!isValidRoom) return;
+      if (currentStep < totalSteps) {
+        setCurrentStep(currentStep + 1);
+      }
+      return;
+    }
+
     if (currentStep === 1) {
       fieldsToValidate = ["bookingType"];
     } else if (currentStep === 2) {
@@ -455,6 +573,17 @@ export default function BookingModal({
       ];
       if (bookingType === "custom") {
         fieldsToValidate.push("guestCount");
+      }
+      if (bookingType === "room") {
+        fieldsToValidate = ["eventTime"];
+        const venueId = form.getValues("venueId");
+        if (!venueId) {
+          form.setError("venueId", { message: "Please select a room" });
+          return;
+        }
+      }
+      if (form.getValues("casaReceptionAddon")) {
+        fieldsToValidate = fieldsToValidate.filter((f) => f !== "venueAddress");
       }
     } else if (currentStep === 5 && bookingType === "standard") {
       fieldsToValidate = ["serviceId", "packageId"];
@@ -486,13 +615,29 @@ export default function BookingModal({
     if (!isValid) return;
 
     if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1);
+      let next = currentStep + 1;
+      if (
+        bookingType === "standard" &&
+        currentStep === 4 &&
+        !!form.getValues("packageId")
+      ) {
+        next = 6; // Skip step 5 (Package) if a package is already selected
+      }
+      setCurrentStep(next);
     }
   };
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      let prev = currentStep - 1;
+      if (
+        bookingType === "standard" &&
+        currentStep === 6 &&
+        !!form.getValues("packageId")
+      ) {
+        prev = 4; // Skip back over step 5 if it was skipped
+      }
+      setCurrentStep(prev);
     }
   };
 
@@ -608,6 +753,9 @@ export default function BookingModal({
     if (selectedVenue) {
       totalPrice += selectedVenue.price;
     }
+    if (form.getValues("casaReceptionAddon")) {
+      totalPrice += 500000;
+    }
 
     const selectedDishNames = dishes
       .filter((d) => selectedDishes.includes(d.id))
@@ -635,18 +783,22 @@ export default function BookingModal({
                     day: "numeric",
                   })}
                 </p>
-                <p>
-                  <span className="text-gray-500">Time:</span>{" "}
-                  {form.getValues("eventTime")}
-                </p>
-                <p>
-                  <span className="text-gray-500">Type:</span>{" "}
-                  {
-                    EVENT_TYPES.find(
-                      (t) => t.value === form.getValues("eventType"),
-                    )?.label
-                  }
-                </p>
+                {bookingType !== "room" && (
+                  <p>
+                    <span className="text-gray-500">Time:</span>{" "}
+                    {form.getValues("eventTime")}
+                  </p>
+                )}
+                {bookingType !== "room" && form.getValues("eventType") && (
+                  <p>
+                    <span className="text-gray-500">Type:</span>{" "}
+                    {
+                      EVENT_TYPES.find(
+                        (t) => t.value === form.getValues("eventType"),
+                      )?.label
+                    }
+                  </p>
+                )}
                 <p>
                   <span className="text-gray-500">Guests:</span> {guestCount}
                 </p>
@@ -701,10 +853,10 @@ export default function BookingModal({
               </div>
             )}
 
-            {bookingType === "standard" && selectedVenue && (
+            {(bookingType === "standard" || bookingType === "room") && selectedVenue && (
               <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
                 <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  SELECTED VENUE
+                  {bookingType === "room" ? "SELECTED ROOM" : "SELECTED VENUE"}
                 </h4>
                 <p className="font-bold text-lg">{selectedVenue.name}</p>
                 {selectedVenue.description && (
@@ -716,6 +868,36 @@ export default function BookingModal({
                 <p className="text-2xl font-bold text-primary mt-2">
                   {formatCents(selectedVenue.price)}
                 </p>
+              </div>
+            )}
+
+            {bookingType === "room" && selectedVenue && (
+              <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-lg">
+                <h4 className="font-bold text-sm text-gray-500 mb-2">ROOM BOOKING</h4>
+                <div className="text-sm space-y-1">
+                  <p><span className="text-gray-500">Room:</span> {selectedVenue.name}</p>
+                  <p><span className="text-gray-500">Address:</span> {selectedVenue.address}</p>
+                  <p>
+                    <span className="text-gray-500">Add-on:</span>{" "}
+                    {form.getValues("casaReceptionAddon") ? "Casa Amparo Event Reception (₱5,000)" : "None"}
+                  </p>
+                </div>
+                <div className="mt-3 text-sm">
+                  <div className="flex justify-between">
+                    <span>Room Rental</span>
+                    <span className="font-medium">{formatCents(selectedVenue.price)}</span>
+                  </div>
+                  {form.getValues("casaReceptionAddon") && (
+                    <div className="flex justify-between">
+                      <span>Reception Add-on</span>
+                      <span className="font-medium">{formatCents(500000)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-2 mt-2">
+                    <span className="font-bold">Total</span>
+                    <span className="font-bold text-primary">{formatCents(totalPrice)}</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -786,7 +968,24 @@ export default function BookingModal({
           </div>
         </div>
 
-        {bookingType === "standard" && (
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h4 className="font-bold text-sm text-gray-500 mb-2">Terms & Conditions</h4>
+          <details className="text-sm text-gray-700">
+            <summary className="cursor-pointer text-primary">View Terms</summary>
+            <ul className="mt-2 list-disc list-inside space-y-1">
+              <li>Room rental covers venue space only; catering services are separate.</li>
+              <li>Casa Amparo Event Reception add-on provides reception setup/services and is optional.</li>
+              <li>Add-on fee: ₱5,000. Applicable when venue is Casa Amparo or address indicates Casa Amparo.</li>
+              <li>Deposit is required upon approval to secure the date.</li>
+              <li>Changes to event details may affect pricing and availability.</li>
+            </ul>
+            <p className="mt-2">
+              Need more details? <a href="/terms" className="text-primary hover:underline">Read full Terms & Conditions</a>
+            </p>
+          </details>
+        </div>
+
+            {bookingType !== "custom" && (
           <div className="border-t pt-4 mt-6">
             <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
               <div>
@@ -813,10 +1012,8 @@ export default function BookingModal({
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel className="cursor-pointer">
-                  I agree to the{" "}
-                  <a href="#" className="text-primary hover:underline">
-                    terms and conditions
-                  </a>{" "}
+                  I have read and agree to the terms and conditions{" "}
+                  <a href="/terms" className="text-primary hover:underline">View full terms</a>{" "}
                   *
                 </FormLabel>
                 <FormMessage />
@@ -831,6 +1028,69 @@ export default function BookingModal({
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
+        if (bookingType === "room") {
+          return (
+            <div className="space-y-6">
+              <h3 className="text-xl font-heading text-primary mb-4">
+                Select Date
+              </h3>
+              <div className="flex flex-col items-center">
+                <FormField
+                  control={form.control}
+                  name="eventDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col items-center">
+                      <FormControl>
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date: Date) => {
+                            return (
+                              date < new Date(new Date().setHours(0, 0, 0, 0)) ||
+                              unavailableDates.some(
+                                (unavailableDate: Date) =>
+                                  unavailableDate.getDate() === date.getDate() &&
+                                  unavailableDate.getMonth() ===
+                                    date.getMonth() &&
+                                  unavailableDate.getFullYear() ===
+                                    date.getFullYear(),
+                              )
+                            );
+                          }}
+                          className="rounded-md border"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {form.getValues("eventDate") && (
+                <div className="mt-6 bg-gray-50 p-4 rounded-lg text-center">
+                  <p className="text-sm">
+                    Selected Date:{" "}
+                    <span className="font-medium">
+                      {form.getValues("eventDate")?.toLocaleDateString("en-US", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </p>
+                  {capacity && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Slots available: <span className="font-bold">{Math.max(0, (capacity.maxSlots || 0) - (capacity.bookedSlots || 0))}</span> of {capacity.maxSlots}
+                      {capacity.dayType ? ` • ${capacity.dayType}` : ""}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        }
         return (
           <div className="space-y-6">
             <h3 className="text-xl font-heading text-primary mb-4">
@@ -908,6 +1168,69 @@ export default function BookingModal({
         );
 
       case 2:
+        if (bookingType === "room") {
+          return (
+            <div className="space-y-6" key="step-personal-info">
+              <h3 className="text-xl font-heading text-primary mb-4">
+                Personal Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Juan Dela Cruz" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email *</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="juan@email.com" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0912 345 6789" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="alternateContact"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alternate Contact</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Optional" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="space-y-6">
             <h3 className="text-xl font-heading text-primary mb-4">
@@ -980,6 +1303,9 @@ export default function BookingModal({
         );
 
       case 3:
+      if (bookingType === "room") {
+        return renderReviewStep();
+      }
       return (
         <div className="space-y-6" key="step-personal-info"> {/* Add unique key here */}
           <h3 className="text-xl font-heading text-primary mb-4">
@@ -1198,13 +1524,48 @@ export default function BookingModal({
                         <Input
                           placeholder="House No., Street, Barangay, City"
                           {...field}
-                          disabled={!!form.getValues("venueId")}
+                          disabled={!!form.getValues("venueId") || !!form.getValues("casaReceptionAddon")}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {(() => {
+                  const v = venues.find((vv) => vv.id === form.getValues("venueId"));
+                  const bySelect = v?.name?.toLowerCase().includes("amparo");
+                  const byAddress = (form.getValues("venueAddress") || "").toLowerCase().includes("amparo");
+                  const isCasa = bySelect || byAddress;
+                  return (
+                    <FormField
+                      control={form.control}
+                      name="casaReceptionAddon"
+                      render={({ field }) => (
+                        <FormItem className="mt-2">
+                          <FormLabel>Casa Amparo Event Reception Add-on (₱5,000)</FormLabel>
+                          <FormControl>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                              <span className="text-sm text-gray-600">
+                                Add reception setup and services for any event
+                                {!isCasa && " — Fee applies only when the venue is Casa Amparo"}
+                              </span>
+                            </div>
+                          </FormControl>
+                          {!isCasa && (
+                            <p className="text-xs text-gray-500">
+                              You can preselect this add-on now; the ₱5,000 fee will be applied only if the venue is Casa Amparo.
+                            </p>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  );
+                })()}
               </div>
 
               {bookingType === "custom" && (
@@ -1289,7 +1650,7 @@ export default function BookingModal({
         );
 
       case 5:
-        if (bookingType === "custom") {
+        if (bookingType === "custom" || bookingType === "room") {
           return renderReviewStep();
         }
 
@@ -1357,29 +1718,51 @@ export default function BookingModal({
                         <p className="text-sm text-gray-600 mb-2">
                           {pkg.description}
                         </p>
-                        {pkg.features && pkg.features.length > 0 && (
-                          <ul className="space-y-1 mt-2">
-                            {pkg.features.map((feature, idx) => (
-                              <li
-                                key={idx}
-                                className="flex items-start gap-2 text-sm text-gray-700"
-                              >
-                                <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                                <span>{feature}</span>
-                              </li>
-                            ))}
-                          </ul>
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedPackageId(expandedPackageId === pkg.id ? null : pkg.id);
+                            }}
+                          >
+                            {expandedPackageId === pkg.id ? "Hide Details" : "See More"}
+                          </Button>
+                          <Button
+                            type="button"
+                            className="text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              form.setValue("packageId", pkg.id);
+                            }}
+                          >
+                            Select
+                          </Button>
+                        </div>
+                        {expandedPackageId === pkg.id && (
+                          <div className="mt-4">
+                            {pkg.features && pkg.features.length > 0 && (
+                              <ul className="space-y-1">
+                                {pkg.features.map((feature, idx) => (
+                                  <li
+                                    key={idx}
+                                    className="flex items-start gap-2 text-sm text-gray-700"
+                                  >
+                                    <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                    <span>{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            <div className="text-xs text-gray-500 mt-2">
+                              Min. {pkg.minGuests} guests{pkg.maxGuests ? ` • Max. ${pkg.maxGuests}` : ""}
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <div className="text-right flex-shrink-0 ml-4">
-                        <div className="text-xl font-bold text-primary">
-                          {formatCents(pkg.pricePerPerson)}
-                        </div>
-                        <div className="text-xs text-gray-500">package price</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {pkg.minGuests}-{pkg.maxGuests || "500+"} guests
-                        </div>
-                      </div>
+                      <div className="text-right flex-shrink-0 ml-4"></div>
                     </div>
                   </div>
                 ))}
@@ -1444,24 +1827,15 @@ export default function BookingModal({
         if (bookingType === "standard") {
           const selectedPackage = packages.find(p => p.id === selectedPackageId);
 
-          const parseRequirement = (categoryLabel: string) => {
-            const lowerLabel = categoryLabel.toLowerCase();
-            const feature = selectedPackage?.features?.find(f => 
-              f.toLowerCase().includes(lowerLabel) && /\d/.test(f)
-            );
-            if (feature) {
-              const match = feature.match(/(\d+)/);
-              return match ? parseInt(match[1]) : 1;
-            }
-            return 1;
-          };
-          const parseGroupRequirement = (key: string, fallback: number) => {
-            const feature = selectedPackage?.features?.find(f => 
-              f.toLowerCase().includes(key.toLowerCase()) && /\d/.test(f)
-            );
-            if (feature) {
-              const match = feature.match(/(\d+)/);
-              return match ? parseInt(match[1]) : fallback;
+          const extractRequirement = (label: string, fallback: number) => {
+            const features = selectedPackage?.features || [];
+            for (const f of features) {
+              const m = f.match(new RegExp(`^\\s*${label}\\s*(?:[:\\-])?\\s*(\\d+)`, "i"));
+              if (m) {
+                const n = parseInt(m[1], 10);
+                if (Number.isFinite(n) && n > 0 && n <= 20) return n;
+                return fallback;
+              }
             }
             return fallback;
           };
@@ -1475,9 +1849,9 @@ export default function BookingModal({
           const inclusionDishes = getDishesByCategory("Standard Inclusions");
           const amenityDishes = getDishesByCategory("Freebies (Amenities)");
 
-          const mainCourseRequired = parseGroupRequirement("Main Courses", 4);
-          const vegetableRequired = parseGroupRequirement("Vegetable", 1);
-          const dessertRequired = parseGroupRequirement("Dessert", 1);
+          const mainCourseRequired = extractRequirement("Main Courses", 4);
+          const vegetableRequired = extractRequirement("Vegetable", 1);
+          const dessertRequired = extractRequirement("Dessert", 1);
 
           const mainCourseCategories = ["pork","chicken","beef","fish"];
           const countSelectedInCats = (cats: string[]) => {
@@ -1535,16 +1909,7 @@ export default function BookingModal({
 
               {selectedPackage && (
                 <div className="bg-primary/5 border border-primary/10 p-4 rounded-lg mb-4">
-                  <p className="text-sm font-medium text-primary flex items-center gap-2">
-                    <Info className="h-4 w-4" />
-                    {selectedPackage.name} Requirements:
-                  </p>
-                  <ul className="text-xs text-primary/80 mt-2 list-disc list-inside">
-                    {selectedPackage.features?.map((feature, idx) => (
-                      <li key={idx}>{feature}</li>
-                    ))}
-                  </ul>
-                  <div className="mt-2 text-xs text-gray-600">
+                  <div className="text-xs text-gray-600 font-medium">
                     <span className="mr-4">Main Courses: {mainSelectedCount}/{mainCourseRequired}</span>
                     <span className="mr-4">Vegetable: {vegSelectedCount}/{vegetableRequired}</span>
                     <span>Dessert: {dessertSelectedCount}/{dessertRequired}</span>
@@ -1643,7 +2008,7 @@ export default function BookingModal({
   const renderStepIndicator = () => {
     return (
       <div className="flex items-center w-full overflow-x-auto pb-2">
-        {steps.map((step, index) => (
+        {stepsConfig.map((step, index) => (
           <div key={step.id} className="flex items-center">
             <div className="relative flex flex-col items-center text-center min-w-[60px]">
               <div
@@ -1669,7 +2034,7 @@ export default function BookingModal({
               </div>
             </div>
 
-            {index < steps.length - 1 && (
+            {index < stepsConfig.length - 1 && (
               <div className="w-8 md:w-12 h-1 bg-gray-200 mx-1">
                 <div
                   className="h-1 bg-primary transition-all duration-300"
@@ -1694,7 +2059,9 @@ export default function BookingModal({
           <DialogTitle className="text-2xl font-heading font-bold text-primary">
             {bookingType === "custom"
               ? "Request a Custom Quote"
-              : "Book Your Catering Service"}
+              : bookingType === "room"
+                ? "Book Your Room"
+                : "Book Your Catering Service"}
           </DialogTitle>
           <DialogDescription asChild>
             <div className="mt-6 mb-4">{renderStepIndicator()}</div>

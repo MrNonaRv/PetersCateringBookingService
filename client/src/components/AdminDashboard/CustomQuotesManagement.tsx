@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -32,7 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Eye, Edit, FileText, Loader2 } from "lucide-react";
+import { Eye, Edit, FileText, Loader2, Package, Building, Calculator } from "lucide-react";
 
 interface CustomQuote {
   id: number;
@@ -66,11 +66,29 @@ export default function CustomQuotesManagement() {
   const [editStatus, setEditStatus] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editQuotedPrice, setEditQuotedPrice] = useState("");
+  const [editServiceId, setEditServiceId] = useState<number | null>(null);
+  const [editPackageId, setEditPackageId] = useState<number | null>(null);
+  const [editVenueId, setEditVenueId] = useState<number | null>(null);
+  const [depositPercent, setDepositPercent] = useState<number>(50);
+  const [extraChargesPesos, setExtraChargesPesos] = useState<string>("");
+  const [menuType, setMenuType] = useState<"package" | "custom">("package");
+  const [customPackageName, setCustomPackageName] = useState<string>("");
+  const [customPerPersonPesos, setCustomPerPersonPesos] = useState<string>("");
+  const [customFeatures, setCustomFeatures] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: quotes = [], isLoading } = useQuery<CustomQuote[]>({
     queryKey: ["/api/custom-quotes"],
+  });
+  const { data: services = [] } = useQuery<any[]>({
+    queryKey: ["/api/services"],
+  });
+  const { data: allPackages = [] } = useQuery<any[]>({
+    queryKey: ["/api/service-packages"],
+  });
+  const { data: venues = [] } = useQuery<any[]>({
+    queryKey: ["/api/venues"],
   });
 
   const updateMutation = useMutation({
@@ -144,6 +162,15 @@ export default function CustomQuotesManagement() {
     setEditStatus(quote.status);
     setEditNotes(quote.adminNotes || "");
     setEditQuotedPrice(quote.proposedPrice ? (quote.proposedPrice / 100).toString() : "");
+    setEditServiceId(null);
+    setEditPackageId(null);
+    setEditVenueId(null);
+    setDepositPercent(50);
+    setExtraChargesPesos("");
+    setMenuType("package");
+    setCustomPackageName("");
+    setCustomPerPersonPesos("");
+    setCustomFeatures("");
     setIsEditDialogOpen(true);
   };
 
@@ -156,6 +183,145 @@ export default function CustomQuotesManagement() {
       notes: editNotes || undefined,
     });
   };
+
+  const filteredPackages = useMemo(() => {
+    if (!editServiceId) return allPackages;
+    return allPackages.filter((p: any) => p.serviceId === editServiceId);
+  }, [editServiceId, allPackages]);
+
+  const calculatedTotals = useMemo(() => {
+    const guestCount = selectedQuote?.guestCount || 0;
+    let total = 0;
+    const pkg = editPackageId ? filteredPackages.find((p: any) => p.id === editPackageId) : null;
+    const svc = editServiceId ? services.find((s: any) => s.id === editServiceId) : null;
+    const v = editVenueId ? venues.find((vv: any) => vv.id === editVenueId) : null;
+    if (menuType === "custom") {
+      const cpp = customPerPersonPesos ? Math.round(parseFloat(customPerPersonPesos) * 100) : 0;
+      total += cpp * guestCount;
+    } else if (pkg) {
+      total += pkg.pricePerPerson || 0;
+    } else if (svc) {
+      total += (svc.basePrice || 0) * guestCount;
+    }
+    if (v) {
+      total += v.price || 0;
+    }
+    const extra = extraChargesPesos ? Math.round(parseFloat(extraChargesPesos) * 100) : 0;
+    total += extra;
+    const deposit = Math.round(total * (depositPercent / 100));
+    return { total, deposit };
+  }, [menuType, customPerPersonPesos, editPackageId, editServiceId, editVenueId, venues, services, filteredPackages, selectedQuote, depositPercent, extraChargesPesos]);
+
+  const finalServiceId = useMemo(() => {
+    if (editServiceId) return editServiceId;
+    if (editPackageId) {
+      const pkg = allPackages.find((p: any) => p.id === editPackageId);
+      return pkg ? pkg.serviceId : null;
+    }
+    const fallback = services.length > 0 ? services[0].id : null;
+    return fallback;
+  }, [editServiceId, editPackageId, allPackages, services]);
+
+  const applyCalculatedToQuote = () => {
+    if (calculatedTotals.total > 0) {
+      setEditQuotedPrice((calculatedTotals.total / 100).toString());
+      const pkg = editPackageId ? filteredPackages.find((p: any) => p.id === editPackageId) : null;
+      const svc = editServiceId ? services.find((s: any) => s.id === editServiceId) : null;
+      const v = editVenueId ? venues.find((vv: any) => vv.id === editVenueId) : null;
+      const lines = [
+        "Proposed Package:",
+        menuType === "custom"
+          ? `• Custom: ${customPackageName || "Custom Package"} (₱${customPerPersonPesos || "0"} x ${selectedQuote?.guestCount} guests)`
+          : pkg
+            ? `• Package: ${pkg.name} (${formatPrice(pkg.pricePerPerson)})`
+            : svc
+              ? `• Service: ${svc.name} (₱${Math.round((svc.basePrice || 0) / 100)} x ${selectedQuote?.guestCount} guests)`
+              : "• Service: Custom",
+        menuType === "custom" && customFeatures ? `• Includes: ${customFeatures}` : "",
+        v ? `• Venue: ${v.name} (${formatPrice(v.price)})` : "• Venue: Client-provided",
+        extraChargesPesos ? `• Extra: ₱${extraChargesPesos}` : "",
+        `Total: ${formatPrice(calculatedTotals.total)}`,
+        `Deposit (${depositPercent}%): ${formatPrice(calculatedTotals.deposit)}`
+      ].filter(Boolean);
+      setEditNotes(lines.join("\n"));
+    }
+  };
+
+  const applyClientBudget = () => {
+    if (!selectedQuote || !selectedQuote.budget) return;
+    const guestCount = selectedQuote.guestCount || 0;
+    const budgetPesos = Math.round(selectedQuote.budget / 100);
+    if (menuType === "custom" && guestCount > 0) {
+      const perPerson = Math.floor(budgetPesos / guestCount);
+      setCustomPerPersonPesos(perPerson.toString());
+    }
+    setEditQuotedPrice(budgetPesos.toString());
+    const lines = [
+      "Proposed Package:",
+      menuType === "custom"
+        ? `• Custom: ${customPackageName || "Custom Package"} (₱${customPerPersonPesos || "0"} x ${selectedQuote?.guestCount} guests)`
+        : "• Based on client budget",
+      `Total (client budget): ${formatPrice(selectedQuote.budget)}`,
+      `Deposit (${depositPercent}%): ${formatPrice(Math.round(selectedQuote.budget * (depositPercent / 100)))}`
+    ].filter(Boolean);
+    setEditNotes(lines.join("\n"));
+  };
+
+  const createBookingMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedQuote) throw new Error("No quote selected");
+      if (!finalServiceId) throw new Error("Service is required");
+      const totalCents = editQuotedPrice ? Math.round(parseFloat(editQuotedPrice) * 100) : (selectedQuote.proposedPrice || 0);
+      const depositCents = Math.round(totalCents * (depositPercent / 100));
+      const bookingPayload = {
+        booking: {
+          serviceId: finalServiceId,
+          packageId: editPackageId || undefined,
+          eventDate: selectedQuote.eventDate,
+          eventType: selectedQuote.eventType,
+          eventTime: selectedQuote.eventTime || "Fixed",
+          guestCount: selectedQuote.guestCount,
+          venueAddress: selectedQuote.venueAddress,
+          venueId: editVenueId || undefined,
+          menuPreference: menuType,
+          serviceStyle: "buffet",
+          theme: selectedQuote.theme || "",
+          specialRequests: selectedQuote.specialRequests || "",
+          totalPrice: totalCents,
+          depositAmount: depositCents,
+          status: "pending_approval",
+          paymentStatus: "pending",
+          additionalServices: menuType === "custom" ? (customFeatures || "") : "",
+          adminNotes: editNotes || "",
+        },
+        customer: {
+          name: selectedQuote.customer.name,
+          email: selectedQuote.customer.email,
+          phone: selectedQuote.customer.phone,
+          company: "",
+        },
+        selectedDishes: [],
+      };
+      const res = await apiRequest("POST", "/api/bookings", bookingPayload);
+      return res.json();
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking Created",
+        description: `Reference: ${created.bookingReference}. Share this with client to pay the deposit.`,
+      });
+      setIsEditDialogOpen(false);
+    },
+    onError: (error: any) => {
+      const msg = error?.message || "Could not create booking from quote.";
+      toast({
+        title: "Creation Failed",
+        description: msg.includes("Service is required") ? "Please select a service or a package." : msg,
+        variant: "destructive",
+      });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -299,8 +465,8 @@ export default function CustomQuotesManagement() {
               )}
               {selectedQuote.adminNotes && (
                 <div className="col-span-2">
-                  <h4 className="font-medium text-sm text-gray-500 mb-1">Admin Notes</h4>
-                  <p className="text-sm">{selectedQuote.adminNotes}</p>
+                  <h4 className="font-medium text-sm text-gray-500 mb-1">Admin Response</h4>
+                  <p className="text-sm whitespace-pre-wrap">{selectedQuote.adminNotes}</p>
                 </div>
               )}
             </div>
@@ -315,7 +481,7 @@ export default function CustomQuotesManagement() {
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Update Quote</DialogTitle>
             <DialogDescription>
@@ -323,45 +489,162 @@ export default function CustomQuotesManagement() {
             </DialogDescription>
           </DialogHeader>
           {selectedQuote && (
-            <div className="space-y-4">
-              <div>
-                <Label>Status</Label>
-                <Select value={editStatus} onValueChange={setEditStatus}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="reviewing">Reviewing</SelectItem>
-                    <SelectItem value="quoted">Quoted</SelectItem>
-                    <SelectItem value="accepted">Accepted</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label>Menu Type</Label>
+                    <Select value={menuType} onValueChange={(v) => setMenuType((v as "package" | "custom") || "package")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="package">Package</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Service</Label>
+                    <Select value={(editServiceId ?? "").toString()} onValueChange={(v) => { if (v === "none") { setEditServiceId(null); setEditPackageId(null); } else { const id = parseInt(v); setEditServiceId(isNaN(id) ? null : id); setEditPackageId(null); } }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a service (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {services.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Package</Label>
+                    <Select value={(editPackageId ?? "").toString()} onValueChange={(v) => { if (v === "none") { setEditPackageId(null); } else { const id = parseInt(v); setEditPackageId(isNaN(id) ? null : id); } }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a package (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {filteredPackages.map((p: any) => (
+                          <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Venue</Label>
+                    <Select value={(editVenueId ?? "").toString()} onValueChange={(v) => { if (v === "none") { setEditVenueId(null); } else { const id = parseInt(v); setEditVenueId(isNaN(id) ? null : id); } }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a venue (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Client-provided</SelectItem>
+                        {venues.map((vv: any) => (
+                          <SelectItem key={vv.id} value={vv.id.toString()}>{vv.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {menuType === "custom" && (
+                    <>
+                      <div>
+                        <Label>Custom Package Name</Label>
+                        <Input type="text" placeholder="e.g., Birthday Deluxe" value={customPackageName} onChange={(e) => setCustomPackageName(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Custom Price Per Person (₱)</Label>
+                        <Input type="number" placeholder="0" value={customPerPersonPesos} onChange={(e) => setCustomPerPersonPesos(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Custom Package Includes</Label>
+                        <Textarea placeholder="List inclusions, menu items, decorations, equipment..." value={customFeatures} onChange={(e) => setCustomFeatures(e.target.value)} rows={3} />
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <Label>Extra Charges (₱)</Label>
+                    <Input type="number" placeholder="0" value={extraChargesPesos} onChange={(e) => setExtraChargesPesos(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Status</Label>
+                    <Select value={editStatus} onValueChange={setEditStatus}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="reviewing">Reviewing</SelectItem>
+                        <SelectItem value="quoted">Quoted</SelectItem>
+                        <SelectItem value="accepted">Accepted</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                        <SelectItem value="expired">Expired</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="rounded-lg border p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="h-4 w-4 text-primary" />
+                      <span className="font-medium">Pricing Summary</span>
+                    </div>
+                    <div className="text-sm">
+                      <p>Guests: {selectedQuote.guestCount}</p>
+                      <p>Total: <span className="font-bold text-primary">{formatPrice(calculatedTotals.total)}</span></p>
+                      <p>Deposit ({depositPercent}%): <span className="font-bold text-secondary">{formatPrice(calculatedTotals.deposit)}</span></p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Deposit Percent</Label>
+                    <Input type="number" min="0" max="100" value={depositPercent} onChange={(e) => setDepositPercent(parseInt(e.target.value) || 0)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quoted Price (₱)</Label>
+                    <Input
+                      type="number"
+                      placeholder="Enter your quoted price"
+                      value={editQuotedPrice}
+                      onChange={(e) => setEditQuotedPrice(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={applyCalculatedToQuote}>
+                      <Calculator className="h-4 w-4 mr-2" />
+                      Apply Calculated Proposal
+                    </Button>
+                    <Button variant="outline" onClick={applyClientBudget} disabled={!selectedQuote?.budget}>
+                      Use Client Budget
+                    </Button>
+                  </div>
+                </div>
               </div>
               <div>
-                <Label>Quoted Price (₱)</Label>
-                <Input
-                  type="number"
-                  placeholder="Enter your quoted price"
-                  value={editQuotedPrice}
-                  onChange={(e) => setEditQuotedPrice(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Notes</Label>
+                <Label>Admin Response</Label>
                 <Textarea
-                  placeholder="Add notes about this quote..."
+                  placeholder="Describe the package/services you can offer based on their request..."
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  rows={3}
+                  rows={5}
                 />
+                <p className="text-xs text-gray-500 mt-1">This message will be sent to the client.</p>
               </div>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            {(editStatus === "accepted" || editStatus === "quoted") && (editQuotedPrice || selectedQuote?.proposedPrice) && (
+              <Button onClick={() => createBookingMutation.mutate()} disabled={createBookingMutation.isPending || !finalServiceId}>
+                {createBookingMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Booking"
+                )}
+              </Button>
+            )}
             <Button onClick={handleUpdate} disabled={updateMutation.isPending}>
               {updateMutation.isPending ? (
                 <>

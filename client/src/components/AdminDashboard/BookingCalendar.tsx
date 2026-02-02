@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, MapPin, Clock } from "lucide-react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, addMonths, subMonths, getDay } from "date-fns";
 
@@ -42,6 +43,7 @@ export default function BookingCalendar() {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   const { data: bookings = [] } = useQuery<Booking[]>({
     queryKey: ['/api/bookings'],
@@ -230,7 +232,11 @@ export default function BookingCalendar() {
               {selectedDateBookings.map((booking) => (
                 <div
                   key={booking.id}
-                  className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50"
+                      className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        setIsDialogOpen(false);
+                        setLocation(`/admin/bookings?ref=${encodeURIComponent(booking.bookingReference)}`);
+                      }}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>

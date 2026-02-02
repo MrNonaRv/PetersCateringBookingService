@@ -45,6 +45,9 @@ app.use((req, res, next) => {
     console.error("Failed to initialize database, continuing anyway:", error);
   }
 
+  // Start cron jobs
+  startBookingCleanupJob();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,12 +23,15 @@ interface PaymentMethodsProps {
   selectedMethod?: string;
   onSelectMethod?: (method: PaymentMethod) => void;
   showSelection?: boolean;
+  collapsed?: boolean;
 }
 
-export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection = false, className = "" }: PaymentMethodsProps & { className?: string }) {
+export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection = false, collapsed = false, className = "" }: PaymentMethodsProps & { className?: string }) {
   const { data: paymentMethods, isLoading } = useQuery<PaymentMethod[]>({
     queryKey: ["/api/payment-methods"],
   });
+
+  const [isExpanded, setIsExpanded] = useState(!collapsed);
 
   const getIcon = (iconName: string) => {
     switch (iconName) {
@@ -98,7 +102,7 @@ export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection =
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {paymentMethods.map((method) => (
+          {(isExpanded ? paymentMethods : paymentMethods.filter(m => m.id === selectedMethod)).map((method) => (
             <Card 
               key={method.id} 
               className={`cursor-pointer transition-all duration-200 relative overflow-hidden ${
@@ -160,6 +164,14 @@ export function PaymentMethods({ selectedMethod, onSelectMethod, showSelection =
             </Card>
           ))}
         </div>
+
+        {!isExpanded && showSelection && (
+          <div className="mt-6 text-center">
+             <Button variant="outline" onClick={() => setIsExpanded(true)}>
+               Show Other Payment Options
+             </Button>
+          </div>
+        )}
 
         {!showSelection && (
           <div className="mt-12 text-center">
