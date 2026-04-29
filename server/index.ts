@@ -9,10 +9,14 @@ import createMemoryStore from "memorystore";
 import { setupAuthentication } from "./auth";
 
 const MemoryStore = createMemoryStore(session);
+const PostgresStore = (await import("connect-pg-simple")).default(session);
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Export app for Vercel
+export { app };
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -45,6 +49,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  const { pool } = await import("./db");
+
   // Initialize database tables on startup
   try {
     await initializeDatabase();
@@ -58,8 +64,12 @@ app.use((req, res, next) => {
     secret: process.env.SESSION_SECRET || "peters-catering-secret",
     resave: false,
     saveUninitialized: false,
-    store: new MemoryStore({
-      checkPeriod: 86400000 // prune expired entries every 24h
+    store: pool ? new PostgresStore({
+      pool,
+      tableName: 'session',
+      createTableIfMissing: false // We'll handle this in initDatabase
+    }) : new MemoryStore({
+      checkPeriod: 86400000
     }),
     cookie: {
       secure: app.get("env") === "production",
@@ -92,25 +102,24 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 3000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  // ONLY listen if we are not on Vercel
+  if (!process.env.VERCEL) {
+    const port = Number(process.env.PORT) || 3000;
+    server.listen({
+      port,
+      host: "0.0.0.0",
+    }, () => {
+      log(`serving on port ${port}`);
+    });
 
-
-
-  server.on("error", (error: any) => {
-    if (error.code === 'EADDRINUSE') {
-      log(`Port ${port} is in use, please check if another instance is running.`);
-    } else {
-      log(`Server error: ${error.message}`);
-    }
-  });
+    server.on("error", (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        log(`Port ${port} is in use, please check if another instance is running.`);
+      } else {
+        log(`Server error: ${error.message}`);
+      }
+    });
+  }
 })();
+
 
