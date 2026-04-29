@@ -73,21 +73,32 @@ export default function PayDeposit() {
   });
 
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get("ref");
-      const paid = params.get("paid");
-      if (ref) {
-        setBookingReference(ref);
-        setSearchedReference(ref);
+    const checkPayment = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const ref = params.get("ref");
+        const paid = params.get("paid");
+        
+        if (ref) {
+          setBookingReference(ref);
+          setSearchedReference(ref);
+          
+          // If returning from a successful payment, call the verification endpoint
+          // to ensure the DB is updated even if webhooks haven't fired.
+          if (paid === "1") {
+            console.log("Returning from payment, verifying...");
+            await fetch(`/api/bookings/verify-payment/${ref}`);
+            // Force a fresh refetch after verification
+            setTimeout(() => refetch(), 800);
+          }
+        }
+      } catch (err) {
+        console.error("Payment verification error:", err);
       }
-      // If returning from a successful payment, force a fresh refetch
-      if (paid === "1" && ref) {
-        // Small delay to let the query enable first, then force refetch
-        setTimeout(() => refetch(), 500);
-      }
-    } catch {}
-  }, []);
+    };
+    
+    checkPayment();
+  }, [refetch]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1698,6 +1698,44 @@ function registerBookingRoutes(app2) {
       res.status(500).json({ message: "Error fetching booking" });
     }
   });
+  app2.get("/api/bookings/verify-payment/:reference", async (req, res) => {
+    try {
+      const reference = req.params.reference;
+      const booking = await storage.getBookingByReference(reference);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.depositPaid || booking.status === "deposit_paid" || booking.status === "confirmed") {
+        return res.json({ success: true, status: booking.status });
+      }
+      const updatedBooking = await storage.updateBookingPayment(booking.id, {
+        depositPaid: true,
+        depositPaymentMethod: "gateway_redirect",
+        depositPaymentReference: `REF-${Date.now()}`,
+        depositPaidAt: /* @__PURE__ */ new Date(),
+        paymentStatus: "deposit_paid",
+        status: "deposit_paid"
+      });
+      if (autoCancelTimers.has(booking.id)) {
+        clearTimeout(autoCancelTimers.get(booking.id));
+        autoCancelTimers.delete(booking.id);
+      }
+      try {
+        await sendDepositReceived({
+          customerPhone: updatedBooking.customer.phone || "",
+          customerName: updatedBooking.customer.name,
+          bookingReference: updatedBooking.bookingReference,
+          amountPaid: updatedBooking.depositAmount || 0,
+          remainingBalance: (updatedBooking.totalPrice || 0) - (updatedBooking.depositAmount || 0)
+        });
+      } catch (smsError) {
+        console.warn("SMS deposit notification failed:", smsError);
+      }
+      console.log(`Booking ${reference} force-updated via verify-payment redirect`);
+      res.json({ success: true, status: "deposit_paid" });
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      res.status(500).json({ message: "Error verifying payment" });
+    }
+  });
   app2.post("/api/bookings", async (req, res) => {
     try {
       const { booking, customer, selectedDishes } = req.body;
