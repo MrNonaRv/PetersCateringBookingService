@@ -4,10 +4,12 @@ const { Pool } = pg;
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
 if (!connectionString) {
-  console.warn("DATABASE_URL is not set. Running in in-memory mode.");
+  console.warn("Neither DATABASE_URL nor POSTGRES_URL is set. Running in in-memory mode.");
+} else {
+  console.log("Database connection string detected.");
 }
 
 // Use SSL for external databases (like Supabase, Neon)
