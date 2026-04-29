@@ -1,0 +1,17 @@
+{
+  "booking": {
+    "eventDate": "2026-05-01",
+    "eventTime": "12:00 PM",
+    "eventType": "Wedding",
+    "guestCount": 100,
+    "venueAddress": "Test Venue",
+    "totalPrice": 150000,
+    "serviceId": 2,
+    "packageId": 1
+  },
+  "customer": {
+    "name": "Test User",
+    "email": "test@example.com",
+    "phone": "09123456789"
+  }
+}

@@ -1,8 +1,16 @@
 import { db } from "./db";
-import { users, services, availability, customers, bookings, recentEvents } from "@shared/schema";
+import { users, services, availability, customers, bookings, recentEvents, dishes, servicePackages, packageDishes, addOns, venues } from "@shared/schema";
 import { hash } from "bcrypt";
+import { sql } from "drizzle-orm";
+import path from "path";
+import { fileURLToPath } from 'url';
 
-async function seed() {
+export async function seed() {
+  if (!db) {
+    console.log("⚠️ Database connection not available, skipping seeding.");
+    return;
+  }
+
   console.log("🌱 Seeding database...");
   
   // Create admin user
@@ -182,20 +190,103 @@ async function seed() {
   } else {
     console.log(`Recent events already exist (${recentEventsCount.length} found)`);
   }
+
+  // Create sample dishes (menus)
+  const dishesCount = await db.select().from(dishes);
+  let createdDishes: any[] = [];
+  
+  if (dishesCount.length === 0) {
+    createdDishes = await db.insert(dishes).values([
+      { name: "Crispy Pork Belly (Lechon Kawali)", description: "Deep-fried pork belly, crispy on the outside, tender on the inside.", category: "main", tags: ["pork", "filipino", "popular"], additionalCost: 0 },
+      { name: "Beef Kare-Kare", description: "Oxtail and tripe peanut stew with vegetables.", category: "main", tags: ["beef", "filipino", "peanut"], additionalCost: 5000 },
+      { name: "Chicken Cordon Bleu", description: "Breaded chicken breast stuffed with ham and cheese.", category: "main", tags: ["chicken", "western"], additionalCost: 0 },
+      { name: "Pancit Canton", description: "Stir-fried egg noodles with vegetables, pork, and shrimp.", category: "side", tags: ["noodles", "filipino"], additionalCost: 0 },
+      { name: "Lumpia Shanghai", description: "Mini meat spring rolls served with sweet and sour sauce.", category: "appetizer", tags: ["pork", "popular", "finger-food"], additionalCost: 0 },
+      { name: "Buko Pandan", description: "Young coconut and pandan jelly in sweetened cream.", category: "dessert", tags: ["sweet", "filipino", "popular"], additionalCost: 0 },
+      { name: "Leche Flan", description: "Rich caramel custard dessert.", category: "dessert", tags: ["sweet", "filipino"], additionalCost: 0 },
+      { name: "Bottomless Iced Tea", description: "House blend sweet iced tea.", category: "beverage", tags: ["cold", "refreshing"], additionalCost: 0 },
+    ]).returning();
+    console.log("Created sample dishes");
+  } else {
+    console.log(`Dishes already exist (${dishesCount.length} found)`);
+    createdDishes = dishesCount;
+  }
+
+  // Create sample packages
+  const packagesCount = await db.select().from(servicePackages);
+  
+  if (packagesCount.length === 0) {
+    const allServices = await db.select().from(services);
+    const weddingService = allServices.find(s => s.name === "Wedding Receptions");
+    
+    if (weddingService) {
+      const createdPackages = await db.insert(servicePackages).values([
+        {
+          serviceId: weddingService.id,
+          name: "Silver Wedding Package",
+          description: "Essential catering package perfect for intimate weddings.",
+          pricePerPerson: 85000, // ₱850
+          minGuests: 50,
+          features: ["Choice of 2 main dishes", "1 appetizer", "1 dessert", "Bottomless Iced Tea", "Basic table setup"],
+          hasThemedCake: false
+        },
+        {
+          serviceId: weddingService.id,
+          name: "Gold Wedding Package",
+          description: "Our most popular package with premium dish selections and elegant setup.",
+          pricePerPerson: 120000, // ₱1,200
+          minGuests: 100,
+          features: ["Choice of 3 main dishes", "2 appetizers", "2 desserts", "Premium beverage station", "Elegant table setup", "Basic floral centerpiece"],
+          hasThemedCake: true
+        }
+      ]).returning();
+      console.log("Created sample packages");
+
+      // Assign dishes to packages if both exist
+      if (createdPackages.length > 0 && createdDishes.length > 0) {
+        const pdRelations = [];
+        for (const pkg of createdPackages) {
+          for (let i = 0; i < Math.min(6, createdDishes.length); i++) {
+            pdRelations.push({
+              packageId: pkg.id,
+              dishId: createdDishes[i].id,
+              isRequired: false,
+              maxSelections: 1
+            });
+          }
+        }
+        await db.insert(packageDishes).values(pdRelations);
+        console.log("Assigned dishes to packages");
+      }
+    }
+  } else {
+    console.log(`Packages already exist (${packagesCount.length} found)`);
+  }
+
+  // Create sample add-ons
+  const addOnsCount = await db.select().from(addOns);
+  if (addOnsCount.length === 0) {
+    await db.insert(addOns).values([
+      { name: "Chocolate Fountain", description: "3-tier chocolate fountain with fruits and marshmallows", category: "service", priceType: "fixed", price: 500000 },
+      { name: "Extra Waiter", description: "Additional serving staff for your event", category: "service", priceType: "fixed", price: 150000 },
+      { name: "Tiffany Chairs Upgrade", description: "Upgrade standard chairs to elegant Tiffany chairs", category: "equipment", priceType: "per_person", price: 10000 },
+    ]);
+    console.log("Created sample add-ons");
+  } else {
+    console.log(`Add-ons already exist (${addOnsCount.length} found)`);
+  }
   
   console.log("✅ Database seeded successfully");
 }
 
-// Import for SQL template literals
-import { sql } from "drizzle-orm";
-
-// Run the seed function
-seed()
-  .catch(error => {
-    console.error("Error seeding database:", error);
-    process.exit(1);
-  })
-  .finally(() => {
-    // Close the database connection
-    process.exit(0);
-  });
+// Run the seed function if this script is executed directly
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  seed()
+    .catch(error => {
+      console.error("Error seeding database:", error);
+      process.exit(1);
+    })
+    .finally(() => {
+      process.exit(0);
+    });
+}

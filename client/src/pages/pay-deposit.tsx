@@ -11,12 +11,15 @@ import { useToast } from "../hooks/use-toast";
 import { PaymentMethods } from "../components/CustomerView/PaymentMethods";
 import { Loader2, Search, CheckCircle2, ArrowRight, Calendar, Users, Utensils, CreditCard, ChevronLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 export default function PayDeposit() {
   const [bookingReference, setBookingReference] = useState("");
   const [searchedReference, setSearchedReference] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<string | null>("gcash");
   const [currentStep, setCurrentStep] = useState(1);
+  const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -43,6 +46,29 @@ export default function PayDeposit() {
       setCurrentStep(2);
     }
   }, [booking]);
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async (data: { id: number; eventDate: string; eventTime: string }) => {
+      const res = await fetch(`/api/bookings/${data.id}/reschedule`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventDate: data.eventDate, eventTime: data.eventTime }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Failed to reschedule");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Booking rescheduled successfully." });
+      setIsRescheduleOpen(false);
+      refetch();
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  });
 
   useEffect(() => {
     try {
@@ -283,6 +309,20 @@ export default function PayDeposit() {
                               <div>
                                 <p className="text-sm font-medium text-gray-500">Event Date</p>
                                 <p className="font-semibold text-gray-900">{formatDate(booking.eventDate)}</p>
+                                {booking.status !== 'completed' && booking.status !== 'cancelled' && (
+                                  <Button 
+                                    variant="link" 
+                                    size="sm" 
+                                    className="h-auto p-0 text-primary mt-1" 
+                                    onClick={() => {
+                                      setNewDate(new Date(booking.eventDate).toISOString().split('T')[0]);
+                                      setNewTime(booking.eventTime);
+                                      setIsRescheduleOpen(true);
+                                    }}
+                                  >
+                                    Reschedule Date
+                                  </Button>
+                                )}
                               </div>
                             </div>
 
@@ -452,6 +492,50 @@ export default function PayDeposit() {
             </div>
           )}
         </div>
+        {/* Reschedule Dialog */}
+        <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Reschedule Booking</DialogTitle>
+              <DialogDescription>
+                Select a new date and time for your event.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="date">New Event Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={newDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setNewDate(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="time">New Event Time</Label>
+                <Input
+                  id="time"
+                  type="time"
+                  value={newTime}
+                  onChange={(e) => setNewTime(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsRescheduleOpen(false)} disabled={rescheduleMutation.isPending}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => rescheduleMutation.mutate({ id: booking?.id || 0, eventDate: newDate, eventTime: newTime })}
+                disabled={!newDate || !newTime || rescheduleMutation.isPending}
+              >
+                {rescheduleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm Reschedule
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
       <Footer />
     </div>

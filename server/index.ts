@@ -1,7 +1,14 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeDatabase } from "./initDatabase";
+import { seed } from "./seed";
+import session from "express-session";
+import createMemoryStore from "memorystore";
+import { setupAuthentication } from "./auth";
+
+const MemoryStore = createMemoryStore(session);
 
 const app = express();
 app.use(express.json());
@@ -41,12 +48,31 @@ app.use((req, res, next) => {
   // Initialize database tables on startup
   try {
     await initializeDatabase();
+    await seed();
   } catch (error) {
-    console.error("Failed to initialize database, continuing anyway:", error);
+    console.error("Failed to initialize or seed database, continuing anyway:", error);
   }
 
-  // Start cron jobs
-  startBookingCleanupJob();
+  // Session configuration
+  const sessionSettings: session.SessionOptions = {
+    secret: process.env.SESSION_SECRET || "peters-catering-secret",
+    resave: false,
+    saveUninitialized: false,
+    store: new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    }),
+    cookie: {
+      secure: app.get("env") === "production",
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  };
+
+  if (app.get("env") === "production") {
+    app.set("trust proxy", 1);
+  }
+
+  app.use(session(sessionSettings));
+  setupAuthentication(app);
 
   const server = await registerRoutes(app);
 
@@ -69,12 +95,22 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = 3000;
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
   });
+
+
+
+  server.on("error", (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      log(`Port ${port} is in use, please check if another instance is running.`);
+    } else {
+      log(`Server error: ${error.message}`);
+    }
+  });
 })();
+

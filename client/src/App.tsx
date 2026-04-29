@@ -20,6 +20,7 @@ import AdminProfile from "@/pages/admin/profile";
 import AdminAbout from "@/pages/admin/about";
 import AdminPayments from "@/pages/admin/payments";
 import PayDeposit from "./pages/pay-deposit";
+import MockPayment from "./pages/mock-payment";
 import Login from "@/pages/login";
 import Packages from "@/pages/packages";
 import Terms from "@/pages/terms";
@@ -42,6 +43,7 @@ function App() {
             <Route path="/packages" component={Packages} />
             <Route path="/terms" component={Terms} />
             <Route path="/pay-deposit" component={PayDeposit} />
+            <Route path="/mock-payment" component={MockPayment} />
             <Route path="/login" component={Login} />
             <Route path="/admin" component={() => 
               <ProtectedRoute>

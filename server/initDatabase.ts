@@ -1,7 +1,12 @@
 import { pool } from "./db";
 
 export async function initializeDatabase() {
+  if (!pool) {
+    console.warn("Database pool is null, skipping initialization (running in in-memory mode)");
+    return;
+  }
   const client = await pool.connect();
+
 
   try {
     await client.query(`

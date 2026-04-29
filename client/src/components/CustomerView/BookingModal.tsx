@@ -105,17 +105,14 @@ interface Availability {
   notes?: string;
 }
 
-function formatLocalYMD(date: Date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function parseLocalYMD(dateString: string) {
-  const [y, m, d] = dateString.split("-").map((v) => parseInt(v, 10));
-  return new Date(y, (m || 1) - 1, d || 1);
-}
+import { 
+  formatPesos, 
+  formatCents, 
+  formatLocalYMD, 
+  parseLocalYMD 
+} from "@/lib/utils";
+import { EVENT_TYPES, TIME_SLOTS } from "@/lib/constants";
+import { BookingReview } from "./Booking/BookingReview";
 
 const bookingFormSchema = z
   .object({
@@ -248,31 +245,7 @@ const STEP_CONFIG = {
   ],
 };
 
-const TIME_SLOTS = [
-  "10:00 AM",
-  "11:00 AM",
-  "12:00 PM",
-  "1:00 PM",
-  "2:00 PM",
-  "3:00 PM",
-  "4:00 PM",
-  "5:00 PM",
-  "6:00 PM",
-  "7:00 PM",
-  "8:00 PM",
-];
-
-const EVENT_TYPES = [
-  { value: "wedding", label: "Wedding" },
-  { value: "debut", label: "Debut (18th Birthday)" },
-  { value: "birthday", label: "Birthday Party" },
-  { value: "baptism", label: "Baptism/Christening" },
-  { value: "corporate", label: "Corporate Event" },
-  { value: "anniversary", label: "Anniversary" },
-  { value: "graduation", label: "Graduation" },
-  { value: "holiday", label: "Holiday Party" },
-  { value: "other", label: "Other" },
-];
+// EVENT_TYPES moved to @/lib/constants
 
 export default function BookingModal({
   isOpen,
@@ -355,7 +328,7 @@ export default function BookingModal({
     if (isOpen) {
       const mode = initialBookingType || "standard";
       setBookingType(mode);
-      const initialStep = mode === "room" ? 1 : (initialPackageId ? 2 : 1);
+      const initialStep = mode === "room" ? 1 : (initialPackageId || mode === "custom" ? 2 : 1);
       setCurrentStep(initialStep);
 
       let autoEventType = "";
@@ -628,6 +601,9 @@ export default function BookingModal({
   };
 
   const prevStep = () => {
+    if (initialBookingType === "custom" && currentStep === 2) {
+      return;
+    }
     if (currentStep > 1) {
       let prev = currentStep - 1;
       if (
@@ -647,13 +623,6 @@ export default function BookingModal({
     } else {
       createBookingMutation.mutate(data);
     }
-  };
-
-  const formatPesos = (pesos: number) => {
-    return `₱${Math.round(pesos).toLocaleString("en-PH")}`;
-  };
-  const formatCents = (cents: number) => {
-    return formatPesos(cents / 100);
   };
 
   const isStepComplete = (step: number) => step < currentStep;
@@ -746,15 +715,15 @@ export default function BookingModal({
     );
     const selectedVenue = venues.find((v) => v.id === form.getValues("venueId"));
 
-    let totalPrice = selectedPackage
+    let totalPriceCalc = selectedPackage
       ? selectedPackage.pricePerPerson
       : (selectedService?.basePrice || 0) * guestCount;
 
     if (selectedVenue) {
-      totalPrice += selectedVenue.price;
+      totalPriceCalc += selectedVenue.price;
     }
     if (form.getValues("casaReceptionAddon")) {
-      totalPrice += 500000;
+      totalPriceCalc += 500000;
     }
 
     const selectedDishNames = dishes
@@ -763,242 +732,15 @@ export default function BookingModal({
 
     return (
       <div className="space-y-6">
-        <h3 className="text-xl font-heading text-primary mb-4">
-          Review Your {bookingType === "custom" ? "Quote Request" : "Booking"}
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-bold text-sm text-gray-500 mb-2">
-                EVENT DETAILS
-              </h4>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <span className="text-gray-500">Date:</span>{" "}
-                  {form.getValues("eventDate")?.toLocaleDateString("en-US", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-                {bookingType !== "room" && (
-                  <p>
-                    <span className="text-gray-500">Time:</span>{" "}
-                    {form.getValues("eventTime")}
-                  </p>
-                )}
-                {bookingType !== "room" && form.getValues("eventType") && (
-                  <p>
-                    <span className="text-gray-500">Type:</span>{" "}
-                    {
-                      EVENT_TYPES.find(
-                        (t) => t.value === form.getValues("eventType"),
-                      )?.label
-                    }
-                  </p>
-                )}
-                <p>
-                  <span className="text-gray-500">Guests:</span> {guestCount}
-                </p>
-                <p>
-                  <span className="text-gray-500">Venue:</span>{" "}
-                  {form.getValues("venueAddress")}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-bold text-sm text-gray-500 mb-2">
-                CONTACT INFORMATION
-              </h4>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <span className="text-gray-500">Name:</span>{" "}
-                  <span className="whitespace-pre-wrap break-words">
-                    {form.getValues("name")}
-                  </span>
-                </p>
-                <p>
-                  <span className="text-gray-500">Email:</span>{" "}
-                  {form.getValues("email")}
-                </p>
-                <p>
-                  <span className="text-gray-500">Phone:</span>{" "}
-                  {form.getValues("phone")}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {bookingType === "standard" && selectedPackage && (
-              <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  SELECTED PACKAGE
-                </h4>
-                <p className="font-bold text-lg">{selectedPackage.name}</p>
-                <p className="text-sm text-gray-600 mt-1 mb-2">{selectedPackage.description}</p>
-                {selectedPackage.features && selectedPackage.features.length > 0 && (
-                  <ul className="text-xs text-gray-600 list-disc list-inside mb-3 space-y-1">
-                    {selectedPackage.features.map((feature, idx) => (
-                      <li key={idx}>{feature}</li>
-                    ))}
-                  </ul>
-                )}
-                <p className="text-2xl font-bold text-primary mt-2">
-                  {formatCents(selectedPackage.pricePerPerson)}
-                </p>
-              </div>
-            )}
-
-            {(bookingType === "standard" || bookingType === "room") && selectedVenue && (
-              <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  {bookingType === "room" ? "SELECTED ROOM" : "SELECTED VENUE"}
-                </h4>
-                <p className="font-bold text-lg">{selectedVenue.name}</p>
-                {selectedVenue.description && (
-                  <p className="text-sm text-gray-600 mt-1">{selectedVenue.description}</p>
-                )}
-                <div className="text-xs text-gray-500 mt-2 mb-2">
-                  <p>Capacity: {selectedVenue.capacityMin} - {selectedVenue.capacityMax || "Unlimited"} pax</p>
-                </div>
-                <p className="text-2xl font-bold text-primary mt-2">
-                  {formatCents(selectedVenue.price)}
-                </p>
-              </div>
-            )}
-
-            {bookingType === "room" && selectedVenue && (
-              <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">ROOM BOOKING</h4>
-                <div className="text-sm space-y-1">
-                  <p><span className="text-gray-500">Room:</span> {selectedVenue.name}</p>
-                  <p><span className="text-gray-500">Address:</span> {selectedVenue.address}</p>
-                  <p>
-                    <span className="text-gray-500">Add-on:</span>{" "}
-                    {form.getValues("casaReceptionAddon") ? "Casa Amparo Event Reception (₱5,000)" : "None"}
-                  </p>
-                </div>
-                <div className="mt-3 text-sm">
-                  <div className="flex justify-between">
-                    <span>Room Rental</span>
-                    <span className="font-medium">{formatCents(selectedVenue.price)}</span>
-                  </div>
-                  {form.getValues("casaReceptionAddon") && (
-                    <div className="flex justify-between">
-                      <span>Reception Add-on</span>
-                      <span className="font-medium">{formatCents(500000)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t pt-2 mt-2">
-                    <span className="font-bold">Total</span>
-                    <span className="font-bold text-primary">{formatCents(totalPrice)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {bookingType === "standard" && selectedDishNames.length > 0 && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  SELECTED MENU ({selectedDishNames.length} items)
-                </h4>
-                <div className="flex flex-wrap gap-1">
-                  {selectedDishNames.map((name, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
-                      {name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {form.getValues("theme") && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  {bookingType === "standard" ? "CAKE THEME" : "EVENT THEME"}
-                </h4>
-                <p className="text-sm">{form.getValues("theme")}</p>
-              </div>
-            )}
-
-            {bookingType === "custom" && form.getValues("description") && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  EVENT DESCRIPTION
-                </h4>
-                <p className="text-sm whitespace-pre-wrap">{form.getValues("description")}</p>
-              </div>
-            )}
-
-            {bookingType === "custom" && form.getValues("budget") && (
-              <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  YOUR BUDGET
-                </h4>
-                <p className="text-2xl font-bold text-secondary">
-                  {formatPesos(form.getValues("budget") || 0)}
-                </p>
-              </div>
-            )}
-
-            {form.getValues("specialRequests") && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-bold text-sm text-gray-500 mb-2">
-                  SPECIAL REQUESTS
-                </h4>
-                <p className="text-sm">{form.getValues("specialRequests")}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-primary/10 p-4 rounded-lg flex items-start gap-2">
-          <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-medium">What happens next?</p>
-            <p className="text-gray-600 mt-1">
-              {bookingType === "custom"
-                ? "Your quote request will be reviewed by our team. We'll prepare a custom proposal and contact you within 24-48 hours."
-                : "Your booking request will be reviewed by our team. Once approved, you'll receive payment instructions for the deposit to secure your date."}
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-bold text-sm text-gray-500 mb-2">Terms & Conditions</h4>
-          <details className="text-sm text-gray-700">
-            <summary className="cursor-pointer text-primary">View Terms</summary>
-            <ul className="mt-2 list-disc list-inside space-y-1">
-              <li>Room rental covers venue space only; catering services are separate.</li>
-              <li>Casa Amparo Event Reception add-on provides reception setup/services and is optional.</li>
-              <li>Add-on fee: ₱5,000. Applicable when venue is Casa Amparo or address indicates Casa Amparo.</li>
-              <li>Deposit is required upon approval to secure the date.</li>
-              <li>Changes to event details may affect pricing and availability.</li>
-            </ul>
-            <p className="mt-2">
-              Need more details? <a href="/terms" className="text-primary hover:underline">Read full Terms & Conditions</a>
-            </p>
-          </details>
-        </div>
-
-            {bookingType !== "custom" && (
-          <div className="border-t pt-4 mt-6">
-            <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
-              <div>
-                <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Estimated Total Price</p>
-                <p className="text-xs text-gray-400">Final price will be confirmed upon review</p>
-              </div>
-              <p className="text-3xl font-bold text-primary">
-                {formatCents(totalPrice)}
-              </p>
-            </div>
-          </div>
-        )}
-
+        <BookingReview
+          bookingType={bookingType}
+          formValues={form.getValues()}
+          selectedService={selectedService}
+          selectedPackage={selectedPackage}
+          selectedVenue={selectedVenue}
+          selectedDishNames={selectedDishNames}
+          totalPrice={totalPriceCalc}
+        />
         <FormField
           control={form.control}
           name="termsAgreed"
@@ -1013,7 +755,9 @@ export default function BookingModal({
               <div className="space-y-1 leading-none">
                 <FormLabel className="cursor-pointer">
                   I have read and agree to the terms and conditions{" "}
-                  <a href="/terms" className="text-primary hover:underline">View full terms</a>{" "}
+                  <a href="/terms" className="text-primary hover:underline">
+                    View full terms
+                  </a>{" "}
                   *
                 </FormLabel>
                 <FormMessage />
@@ -2074,7 +1818,7 @@ export default function BookingModal({
 
         <div className="bg-gray-50 px-4 sm:px-6 py-4 flex flex-col gap-3 sm:flex-row sm:justify-between items-stretch sm:items-center">
           <div>
-            {currentStep > 1 && (
+            {currentStep > (initialBookingType === "custom" ? 2 : 1) && (
               <Button
                 variant="outline"
                 onClick={prevStep}

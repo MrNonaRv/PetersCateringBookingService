@@ -63,7 +63,11 @@ export default function BookingCalendar() {
 
   const getBookingsForDate = (date: Date): Booking[] => {
     const dateString = format(date, 'yyyy-MM-dd');
-    return bookings.filter((booking) => booking.eventDate === dateString);
+    const validStatuses = ['deposit_paid', 'fully_paid', 'confirmed', 'completed'];
+    return bookings.filter((booking) => 
+      booking.eventDate === dateString && 
+      validStatuses.includes(booking.status)
+    );
   };
 
   const getCapacityForDate = (date: Date) => {

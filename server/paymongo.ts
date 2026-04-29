@@ -1,12 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
 
-const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
-const PAYMONGO_PUBLIC_KEY = process.env.PAYMONGO_PUBLIC_KEY;
-
 let paymongoApi: AxiosInstance | null = null;
 
 function getPaymongoApi(): AxiosInstance {
-  if (!PAYMONGO_SECRET_KEY) {
+  const secretKey = process.env.PAYMONGO_SECRET_KEY;
+  if (!secretKey) {
     throw new Error('Paymongo is not configured. PAYMONGO_SECRET_KEY is missing.');
   }
   
@@ -15,7 +13,7 @@ function getPaymongoApi(): AxiosInstance {
       baseURL: 'https://api.paymongo.com/v1',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}`
+        'Authorization': `Basic ${Buffer.from(secretKey + ':').toString('base64')}`
       }
     });
   }
@@ -24,11 +22,11 @@ function getPaymongoApi(): AxiosInstance {
 }
 
 export function isPaymongoConfigured(): boolean {
-  return !!PAYMONGO_SECRET_KEY;
+  return !!process.env.PAYMONGO_SECRET_KEY;
 }
 
 export function getPaymongoPublicKey(): string | null {
-  return PAYMONGO_PUBLIC_KEY || null;
+  return process.env.PAYMONGO_PUBLIC_KEY || null;
 }
 
 export interface CreateCheckoutSessionParams {
