@@ -70,18 +70,14 @@ async function startServer() {
     PostgresStore = ConnectPg(session);
   }
 
-  // Initialize database tables on startup (only in development or non-Vercel environments)
-  if (!process.env.VERCEL || app.get("env") === "development") {
-    try {
-      console.log("Initializing database...");
-      await initializeDatabase();
-      await seed();
-      console.log("Database initialization complete.");
-    } catch (error) {
-      console.error("Failed to initialize or seed database:", error);
-    }
-  } else {
-    console.log("Production environment (Vercel) detected, skipping auto-init/seed.");
+  // Initialize database tables and seed on startup
+  try {
+    console.log("Initializing database...");
+    await initializeDatabase();
+    await seed();
+    console.log("Database initialization complete.");
+  } catch (error) {
+    console.error("Failed to initialize or seed database:", error);
   }
 
   // Session configuration
@@ -92,12 +88,13 @@ async function startServer() {
     store: pool ? new PostgresStore({
       pool,
       tableName: 'session',
-      createTableIfMissing: false
+      createTableIfMissing: true
     }) : new MemoryStore({
       checkPeriod: 86400000
     }),
     cookie: {
-      secure: app.get("env") === "production",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   };

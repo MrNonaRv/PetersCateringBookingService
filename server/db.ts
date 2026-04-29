@@ -17,11 +17,17 @@ const isExternalDb = connectionString?.includes('supabase.com') ||
                      connectionString?.includes('pooler.supabase.com') || 
                      connectionString?.includes('neon.tech');
 
+// Strip sslmode from URL so we can control SSL via config object (ensures rejectUnauthorized:false works)
+const cleanConnectionString = connectionString?.replace(/[?&]sslmode=[^&]+/, (match) => {
+  // Remove the param, clean up leading ? or &
+  return match.startsWith('?') ? '' : '';
+}).replace(/[?&]$/, '') ?? connectionString;
+
 let pool: any = null;
 try {
-  pool = connectionString ? new Pool({ 
-    connectionString,
-    ssl: isExternalDb ? { rejectUnauthorized: false } : false,
+  pool = cleanConnectionString ? new Pool({ 
+    connectionString: cleanConnectionString,
+    ssl: isExternalDb ? { rejectUnauthorized: false } : undefined,
     connectionTimeoutMillis: 10000, // 10s timeout
   }) : null;
 
@@ -35,4 +41,4 @@ try {
 }
 
 export { pool };
-export const db = pool ? drizzle(pool, { schema }) : null;
+export const db = pool ? drizzle(pool, { schema }) : null;
