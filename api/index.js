@@ -2829,6 +2829,7 @@ async function startServer() {
   return server;
 }
 var serverPromise = startServer();
+var index_prod_default = app;
 export {
-  app
+  index_prod_default as default
 };

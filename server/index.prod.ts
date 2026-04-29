@@ -27,9 +27,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Export app for Vercel
-export { app };
-
 // Middleware to ensure the server is initialized before handling requests
 app.use(async (req, res, next) => {
   try {
@@ -133,3 +130,6 @@ async function startServer() {
 }
 
 const serverPromise = startServer();
+
+// Default export required by Vercel serverless functions
+export default app;
