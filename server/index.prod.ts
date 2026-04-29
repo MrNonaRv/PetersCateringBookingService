@@ -1,6 +1,11 @@
+// Production server entry point for Vercel
+// This file intentionally does NOT import server/vite.ts
+// to avoid bundling vite/rollup into the production function
+
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import path from "path";
+import fs from "fs";
 import { initializeDatabase } from "./initDatabase";
 import { seed } from "./seed";
 import session from "express-session";
@@ -8,8 +13,15 @@ import createMemoryStore from "memorystore";
 
 const MemoryStore = createMemoryStore(session);
 
-// We'll import these dynamically inside the startup to avoid top-level await issues in some environments
-let PostgresStore: any;
+function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
 
 const app = express();
 app.use(express.json());
@@ -18,7 +30,7 @@ app.use(express.urlencoded({ extended: false }));
 // Export app for Vercel
 export { app };
 
-// Middleware to ensure the server is initialized before handling requests (especially on Vercel)
+// Middleware to ensure the server is initialized before handling requests
 app.use(async (req, res, next) => {
   try {
     await serverPromise;
@@ -46,11 +58,9 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
@@ -58,19 +68,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Setup function for both local and Vercel
 async function startServer() {
-  // Dynamically import vite helpers to prevent bundling vite/rollup in production
-  const { log, setupVite, serveStatic } = await import("./vite");
-
   const { pool } = await import("./db");
   const { setupAuthentication } = await import("./auth");
   const { registerRoutes } = await import("./routes");
-  
-  if (!PostgresStore) {
-    const ConnectPg = (await import("connect-pg-simple")).default;
-    PostgresStore = ConnectPg(session);
-  }
+
+  let PostgresStore: any;
+  const ConnectPg = (await import("connect-pg-simple")).default;
+  PostgresStore = ConnectPg(session);
 
   // Initialize database tables and seed on startup
   try {
@@ -95,16 +100,13 @@ async function startServer() {
       checkPeriod: 86400000
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: true,
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   };
 
-  if (app.get("env") === "production") {
-    app.set("trust proxy", 1);
-  }
-
+  app.set("trust proxy", 1);
   app.use(session(sessionSettings));
   setupAuthentication(app);
 
@@ -116,28 +118,18 @@ async function startServer() {
     res.status(status).json({ message });
   });
 
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
+  // Serve static files from dist/
+  const distPath = path.resolve(process.cwd(), "dist");
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.use("*", (_req, res) => {
+      res.sendFile(path.resolve(distPath, "index.html"));
+    });
   } else {
-    serveStatic(app);
+    console.log("dist/ not found - static serving disabled");
   }
 
   return server;
 }
 
-// Start immediately for local, or handle for Vercel
 const serverPromise = startServer();
-
-if (!process.env.VERCEL) {
-  serverPromise.then((server) => {
-    const port = Number(process.env.PORT) || 3000;
-    server.listen({
-      port,
-      host: "0.0.0.0",
-    }, () => {
-      log(`serving on port ${port}`);
-    });
-  });
-}
-
-

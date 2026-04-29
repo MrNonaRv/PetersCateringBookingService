@@ -8,45 +8,6 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// vite.config.ts
-var vite_config_exports = {};
-__export(vite_config_exports, {
-  default: () => vite_config_default
-});
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-var vite_config_default;
-var init_vite_config = __esm({
-  async "vite.config.ts"() {
-    "use strict";
-    vite_config_default = defineConfig({
-      plugins: [
-        react(),
-        runtimeErrorOverlay(),
-        ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
-          await import("@replit/vite-plugin-cartographer").then(
-            (m) => m.cartographer()
-          )
-        ] : []
-      ],
-      resolve: {
-        alias: {
-          "@": path.resolve(import.meta.dirname, "client", "src"),
-          "@shared": path.resolve(import.meta.dirname, "shared"),
-          "@assets": path.resolve(import.meta.dirname, "attached_assets")
-        }
-      },
-      root: path.resolve(import.meta.dirname, "client"),
-      build: {
-        outDir: path.resolve(import.meta.dirname, "dist"),
-        emptyOutDir: true
-      }
-    });
-  }
-});
-
 // shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
@@ -2003,8 +1964,8 @@ var init_bookings = __esm({
 
 // server/routes/services.ts
 import multer from "multer";
-import path4 from "path";
-import fs2 from "fs";
+import path2 from "path";
+import fs from "fs";
 function registerServiceRoutes(app2) {
   app2.get("/api/services", async (req, res) => {
     try {
@@ -2092,16 +2053,16 @@ function registerServiceRoutes(app2) {
       res.status(400).json({ message: "Invalid add-on data" });
     }
   });
-  const uploadDir = path4.join(process.cwd(), "public", "uploads");
-  if (!fs2.existsSync(uploadDir)) {
-    fs2.mkdirSync(uploadDir, { recursive: true });
+  const uploadDir = path2.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
   }
   const upload = multer({
     storage: multer.diskStorage({
       destination: (req, file, cb) => cb(null, uploadDir),
       filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        cb(null, file.fieldname + "-" + uniqueSuffix + path4.extname(file.originalname));
+        cb(null, file.fieldname + "-" + uniqueSuffix + path2.extname(file.originalname));
       }
     }),
     limits: { fileSize: 5 * 1024 * 1024 }
@@ -2322,81 +2283,11 @@ var init_routes2 = __esm({
   }
 });
 
-// server/index.ts
+// server/index.prod.ts
 import "dotenv/config";
-import express2 from "express";
-
-// server/vite.ts
 import express from "express";
-import fs from "fs";
-import path2 from "path";
-function log(message, source = "express") {
-  const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true
-  });
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-async function setupVite(app2, server) {
-  const { createServer: createViteServer, createLogger } = await import("vite");
-  const { nanoid } = await import("nanoid");
-  const viteConfig = (await init_vite_config().then(() => vite_config_exports)).default;
-  const viteLogger = createLogger();
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true
-  };
-  const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      }
-    },
-    server: serverOptions,
-    appType: "custom"
-  });
-  app2.use(vite.middlewares);
-  app2.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-    try {
-      const clientTemplate = path2.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html"
-      );
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e);
-      next(e);
-    }
-  });
-}
-function serveStatic(app2) {
-  const distPath = path2.resolve(import.meta.dirname, "..", "dist");
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
-    );
-  }
-  app2.use(express.static(distPath));
-  app2.use("*", (_req, res) => {
-    res.sendFile(path2.resolve(distPath, "index.html"));
-  });
-}
+import path3 from "path";
+import fs2 from "fs";
 
 // server/initDatabase.ts
 init_db();
@@ -2574,7 +2465,7 @@ init_db();
 init_schema();
 import { hash } from "bcrypt";
 import { sql } from "drizzle-orm";
-import path3 from "path";
+import path from "path";
 import { fileURLToPath } from "url";
 async function seed() {
   if (!db) {
@@ -2827,7 +2718,7 @@ async function seed() {
   }
   console.log("\u2705 Database seeded successfully");
 }
-if (process.argv[1] && fileURLToPath(import.meta.url) === path3.resolve(process.argv[1])) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   seed().catch((error) => {
     console.error("Error seeding database:", error);
     process.exit(1);
@@ -2836,14 +2727,22 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path3.resolve(process.
   });
 }
 
-// server/index.ts
+// server/index.prod.ts
 import session from "express-session";
 import createMemoryStore from "memorystore";
 var MemoryStore = createMemoryStore(session);
-var PostgresStore;
-var app = express2();
-app.use(express2.json());
-app.use(express2.urlencoded({ extended: false }));
+function log(message, source = "express") {
+  const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+var app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(async (req, res, next) => {
   try {
     await serverPromise;
@@ -2854,7 +2753,7 @@ app.use(async (req, res, next) => {
 });
 app.use((req, res, next) => {
   const start = Date.now();
-  const path5 = req.path;
+  const path4 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -2863,8 +2762,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path5.startsWith("/api")) {
-      let logLine = `${req.method} ${path5} ${res.statusCode} in ${duration}ms`;
+    if (path4.startsWith("/api")) {
+      let logLine = `${req.method} ${path4} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -2880,10 +2779,9 @@ async function startServer() {
   const { pool: pool2 } = await Promise.resolve().then(() => (init_db(), db_exports));
   const { setupAuthentication: setupAuthentication2 } = await Promise.resolve().then(() => (init_auth(), auth_exports));
   const { registerRoutes: registerRoutes2 } = await Promise.resolve().then(() => (init_routes2(), routes_exports));
-  if (!PostgresStore) {
-    const ConnectPg = (await import("connect-pg-simple")).default;
-    PostgresStore = ConnectPg(session);
-  }
+  let PostgresStore;
+  const ConnectPg = (await import("connect-pg-simple")).default;
+  PostgresStore = ConnectPg(session);
   try {
     console.log("Initializing database...");
     await initializeDatabase();
@@ -2904,15 +2802,13 @@ async function startServer() {
       checkPeriod: 864e5
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: true,
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1e3
       // 24 hours
     }
   };
-  if (app.get("env") === "production") {
-    app.set("trust proxy", 1);
-  }
+  app.set("trust proxy", 1);
   app.use(session(sessionSettings));
   setupAuthentication2(app);
   const server = await registerRoutes2(app);
@@ -2921,25 +2817,18 @@ async function startServer() {
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
   });
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
+  const distPath = path3.resolve(process.cwd(), "dist");
+  if (fs2.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.use("*", (_req, res) => {
+      res.sendFile(path3.resolve(distPath, "index.html"));
+    });
   } else {
-    serveStatic(app);
+    console.log("dist/ not found - static serving disabled");
   }
   return server;
 }
 var serverPromise = startServer();
-if (!process.env.VERCEL) {
-  serverPromise.then((server) => {
-    const port = Number(process.env.PORT) || 3e3;
-    server.listen({
-      port,
-      host: "0.0.0.0"
-    }, () => {
-      log(`serving on port ${port}`);
-    });
-  });
-}
 export {
   app
 };
