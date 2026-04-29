@@ -425,20 +425,20 @@ export default function PayDeposit() {
                      </CardContent>
                    </Card>
                 ) : booking.depositPaid ? (
-                   <Card className="border-green-200 bg-green-50 shadow-sm">
-                     <CardContent className="pt-6 text-center py-12">
-                       <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                         <CheckCircle2 className="w-8 h-8 text-green-600" />
-                       </div>
-                       <h2 className="text-2xl font-bold text-green-800 mb-2">Deposit Successfully Paid!</h2>
-                       <p className="text-green-700 max-w-md mx-auto">
-                         Thank you for your payment. Your booking is now confirmed. We will contact you shortly for further details regarding your event.
-                       </p>
-                       <Button className="mt-6 bg-green-600 hover:bg-green-700" onClick={() => setLocation("/")}>
-                         Return to Home
-                       </Button>
-                     </CardContent>
-                   </Card>
+                    <Card className="border-green-200 bg-green-50 shadow-sm">
+                      <CardContent className="pt-6 text-center py-12">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <CheckCircle2 className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-green-800 mb-2">Downpayment success and ready for the event!</h2>
+                        <p className="text-green-700 max-w-md mx-auto">
+                          Thank you for your payment. Your booking is now secured and ready for the event. We will contact you shortly for further details.
+                        </p>
+                        <Button className="mt-6 bg-green-600 hover:bg-green-700" onClick={() => setLocation("/")}>
+                          Return to Home
+                        </Button>
+                      </CardContent>
+                    </Card>
                 ) : (
                   <>
                     <div className="bg-white rounded-xl shadow-sm border p-6">
