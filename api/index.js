@@ -2931,9 +2931,6 @@ if (!process.env.VERCEL) {
     });
   });
 }
-
-// api/index.ts
-var index_default = app;
 export {
-  index_default as default
+  app
 };
