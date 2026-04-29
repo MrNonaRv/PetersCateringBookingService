@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, Edit, ChevronLeft, ChevronRight, MessageSquare, Send, Loader2 } from "lucide-react";
+import { Eye, Edit, ChevronLeft, ChevronRight, MessageSquare, Send, Loader2, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface BookingsTableProps {
@@ -52,7 +52,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
   const [searchName, setSearchName] = useState('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending_approval' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending_approval' | 'pending' | 'deposit_paid' | 'confirmed' | 'completed' | 'cancelled'>('all');
   const { toast } = useToast();
 
   const pageSize = limit || 10;
@@ -355,7 +355,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           {[
             { key: 'all', label: 'All' },
             { key: 'pending_approval', label: 'Pending Approval' },
-            { key: 'pending', label: 'Pending' },
+            { key: 'pending', label: 'Awaiting Deposit' },
+            { key: 'deposit_paid', label: 'Deposit Paid' },
             { key: 'confirmed', label: 'Confirmed' },
             { key: 'completed', label: 'Completed' },
             { key: 'cancelled', label: 'Cancelled' },
@@ -471,40 +472,74 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                       booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                       booking.status === 'pending_approval' ? 'bg-orange-100 text-orange-800' :
                       booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      booking.status === 'deposit_paid' ? 'bg-purple-100 text-purple-800' :
+                      booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
                       booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                      'bg-blue-100 text-blue-800'
+                      'bg-gray-100 text-gray-800'
                     }>
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      {booking.status === 'deposit_paid' ? '✓ Deposit Paid' :
+                       booking.status === 'pending_approval' ? 'Pending Approval' :
+                       booking.status === 'pending' ? 'Awaiting Deposit' :
+                       booking.status.charAt(0).toUpperCase() + booking.status.slice(1).replace(/_/g, ' ')}
                     </Badge>
                   </TableCell>
-                  <TableCell className="space-x-1">
-                    <Button variant="ghost" size="icon" onClick={() => viewBooking(booking)} title="View Details">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => editBooking(booking)} title="Edit Status">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => openSmsDialog(booking, (booking.status === 'pending_approval' || booking.status === 'pending') ? 'approve' : 'custom')}
-                      title="Send SMS"
-                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                    </Button>
-                  <Select value={booking.status} onValueChange={(val) => updateBookingStatus(booking.id, val)} >
-                    <SelectTrigger className="w-36 inline-flex align-middle ml-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {/* View & Edit icons always visible */}
+                      <Button variant="ghost" size="icon" onClick={() => viewBooking(booking)} title="View Details">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => editBooking(booking)} title="Edit Status">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openSmsDialog(booking, (booking.status === 'pending_approval' || booking.status === 'pending') ? 'approve' : 'custom')}
+                        title="Send SMS"
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+
+                      {/* Context-aware primary action button */}
+                      {booking.status === 'pending_approval' && (
+                        <Button
+                          size="sm"
+                          className="bg-orange-500 hover:bg-orange-600 text-white text-xs px-3"
+                          onClick={() => openSmsDialog(booking, 'approve')}
+                          title="Approve booking and notify customer"
+                        >
+                          Approve
+                        </Button>
+                      )}
+
+                      {booking.status === 'pending' && (
+                        <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 flex items-center gap-1 px-2 py-1">
+                          <Clock className="h-3 w-3" />
+                          Awaiting Deposit
+                        </Badge>
+                      )}
+
+                      {(booking.status === 'deposit_paid' || booking.depositPaid) && booking.status !== 'confirmed' && booking.status !== 'completed' && booking.status !== 'cancelled' && (
+                        <Button
+                          size="sm"
+                          className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 flex items-center gap-1"
+                          onClick={() => updateBookingStatus(booking.id, 'confirmed')}
+                          title="Deposit received — confirm this booking"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Confirm
+                        </Button>
+                      )}
+
+                      {booking.status === 'confirmed' && (
+                        <Badge className="bg-green-100 text-green-800 border border-green-300 flex items-center gap-1 px-2 py-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Confirmed
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -796,33 +831,65 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
 
           {selectedBooking && (
             <div className="space-y-4">
+              {/* Payment Status Banner */}
+              {(selectedBooking.depositPaid || selectedBooking.status === 'deposit_paid') && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-purple-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-purple-800">Deposit Payment Received</p>
+                    <p className="text-xs text-purple-600">
+                      {selectedBooking.depositPaymentMethod ? `via ${selectedBooking.depositPaymentMethod.toUpperCase()}` : ''}
+                      {selectedBooking.depositPaymentReference ? ` · Ref: ${selectedBooking.depositPaymentReference}` : ''}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <h3 className="font-medium mb-2">Current Status</h3>
                 <Badge className={
                   selectedBooking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                  selectedBooking.status === 'deposit_paid' ? 'bg-purple-100 text-purple-800' :
                   selectedBooking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  selectedBooking.status === 'pending_approval' ? 'bg-orange-100 text-orange-800' :
                   selectedBooking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                   'bg-blue-100 text-blue-800'
                 }>
-                  {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
+                  {selectedBooking.status === 'deposit_paid' ? '✓ Deposit Paid' :
+                   selectedBooking.status === 'pending' ? 'Awaiting Deposit' :
+                   selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1).replace(/_/g, ' ')}
                 </Badge>
               </div>
+
+              {/* Confirm Booking — highlighted when deposit is paid */}
+              {(selectedBooking.depositPaid || selectedBooking.status === 'deposit_paid') && selectedBooking.status !== 'confirmed' && selectedBooking.status !== 'completed' && selectedBooking.status !== 'cancelled' && (
+                <div className="bg-purple-50 border-2 border-purple-400 rounded-lg p-4">
+                  <p className="text-sm text-purple-700 mb-3 font-medium">💰 Deposit has been paid — ready to confirm this booking!</p>
+                  <Button
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
+                    onClick={() => updateBookingStatus(selectedBooking.id, 'confirmed')}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Confirm Booking
+                  </Button>
+                </div>
+              )}
 
               <div>
                 <h3 className="font-medium mb-2">Change Status To</h3>
                 <div className="space-y-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => updateBookingStatus(selectedBooking.id, 'pending')}
                     disabled={selectedBooking.status === 'pending'}
                   >
-                    <Badge className="bg-yellow-100 text-yellow-800 mr-2">Pending</Badge>
-                    Awaiting confirmation
+                    <Badge className="bg-yellow-100 text-yellow-800 mr-2">Awaiting Deposit</Badge>
+                    Approved, waiting for deposit
                   </Button>
 
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => updateBookingStatus(selectedBooking.id, 'confirmed')}
                     disabled={selectedBooking.status === 'confirmed'}
@@ -831,8 +898,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     Booking is confirmed
                   </Button>
 
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => updateBookingStatus(selectedBooking.id, 'completed')}
                     disabled={selectedBooking.status === 'completed'}
@@ -841,8 +908,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     Event has taken place
                   </Button>
 
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => updateBookingStatus(selectedBooking.id, 'cancelled')}
                     disabled={selectedBooking.status === 'cancelled'}
