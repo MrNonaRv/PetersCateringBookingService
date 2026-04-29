@@ -9,7 +9,8 @@
     "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 drizzle-kit push --force"
+    "db:push": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 drizzle-kit push --force",
+    "build:vercel": "vite build && esbuild api/index.ts --bundle --platform=node --packages=external --format=esm --outfile=api/index.js --alias:@shared=./shared --alias:@assets=./attached_assets"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
