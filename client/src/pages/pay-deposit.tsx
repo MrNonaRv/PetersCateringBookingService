@@ -38,6 +38,8 @@ export default function PayDeposit() {
     },
     enabled: !!searchedReference,
     retry: false,
+    staleTime: 0,           // Always treat as stale so it refetches on mount
+    refetchOnMount: 'always', // Force refetch when returning from payment gateway
   });
 
   // Effect to advance step when booking is found
@@ -74,9 +76,15 @@ export default function PayDeposit() {
     try {
       const params = new URLSearchParams(window.location.search);
       const ref = params.get("ref");
+      const paid = params.get("paid");
       if (ref) {
         setBookingReference(ref);
         setSearchedReference(ref);
+      }
+      // If returning from a successful payment, force a fresh refetch
+      if (paid === "1" && ref) {
+        // Small delay to let the query enable first, then force refetch
+        setTimeout(() => refetch(), 500);
       }
     } catch {}
   }, []);
@@ -155,23 +163,13 @@ export default function PayDeposit() {
       return;
     }
 
-    // Check if selected method is digital wallet (likely PayMongo supported)
-    if (selectedMethod === 'gcash' || selectedMethod === 'paymaya' || selectedMethod === 'grab_pay') {
-       processPaymentMutation.mutate({
-        bookingId: booking.id,
-        paymentMethod: selectedMethod,
-        successUrl: `${window.location.origin}/?booking=${encodeURIComponent(booking.bookingReference)}&paid=1`,
-        cancelUrl: `${window.location.origin}/?booking=${encodeURIComponent(booking.bookingReference)}&paid=0`
-      });
-    } else {
-      // Fallback to PayMongo for others
-      processPaymentMutation.mutate({
-        bookingId: booking.id,
-        paymentMethod: selectedMethod,
-        successUrl: `${window.location.origin}/?booking=${encodeURIComponent(booking.bookingReference)}&paid=1`,
-        cancelUrl: `${window.location.origin}/?booking=${encodeURIComponent(booking.bookingReference)}&paid=0`
-      });
-    }
+    // Send to payment gateway — successUrl brings them back here with paid=1
+    processPaymentMutation.mutate({
+      bookingId: booking.id,
+      paymentMethod: selectedMethod,
+      successUrl: `${window.location.origin}/pay-deposit?ref=${encodeURIComponent(booking.bookingReference)}&paid=1`,
+      cancelUrl: `${window.location.origin}/pay-deposit?ref=${encodeURIComponent(booking.bookingReference)}&paid=0`,
+    });
   };
 
   const handleReset = () => {
