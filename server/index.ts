@@ -6,10 +6,11 @@ import { initializeDatabase } from "./initDatabase";
 import { seed } from "./seed";
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import { setupAuthentication } from "./auth";
 
 const MemoryStore = createMemoryStore(session);
-const PostgresStore = (await import("connect-pg-simple")).default(session);
+
+// We'll import these dynamically inside the startup to avoid top-level await issues in some environments
+let PostgresStore: any;
 
 const app = express();
 app.use(express.json());
@@ -17,6 +18,16 @@ app.use(express.urlencoded({ extended: false }));
 
 // Export app for Vercel
 export { app };
+
+// Middleware to ensure the server is initialized before handling requests (especially on Vercel)
+app.use(async (req, res, next) => {
+  try {
+    await serverPromise;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -48,15 +59,23 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
+// Setup function for both local and Vercel
+async function startServer() {
   const { pool } = await import("./db");
+  const { setupAuthentication } = await import("./auth");
+  const { registerRoutes } = await import("./routes");
+  
+  if (!PostgresStore) {
+    const ConnectPg = (await import("connect-pg-simple")).default;
+    PostgresStore = ConnectPg(session);
+  }
 
   // Initialize database tables on startup
   try {
     await initializeDatabase();
     await seed();
   } catch (error) {
-    console.error("Failed to initialize or seed database, continuing anyway:", error);
+    console.error("Failed to initialize or seed database:", error);
   }
 
   // Session configuration
@@ -67,7 +86,7 @@ app.use((req, res, next) => {
     store: pool ? new PostgresStore({
       pool,
       tableName: 'session',
-      createTableIfMissing: false // We'll handle this in initDatabase
+      createTableIfMissing: false
     }) : new MemoryStore({
       checkPeriod: 86400000
     }),
@@ -89,21 +108,23 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ONLY listen if we are not on Vercel
-  if (!process.env.VERCEL) {
+  return server;
+}
+
+// Start immediately for local, or handle for Vercel
+const serverPromise = startServer();
+
+if (!process.env.VERCEL) {
+  serverPromise.then((server) => {
     const port = Number(process.env.PORT) || 3000;
     server.listen({
       port,
@@ -111,15 +132,7 @@ app.use((req, res, next) => {
     }, () => {
       log(`serving on port ${port}`);
     });
-
-    server.on("error", (error: any) => {
-      if (error.code === 'EADDRINUSE') {
-        log(`Port ${port} is in use, please check if another instance is running.`);
-      } else {
-        log(`Server error: ${error.message}`);
-      }
-    });
-  }
-})();
+  });
+}
 
 

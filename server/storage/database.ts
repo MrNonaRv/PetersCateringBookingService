@@ -20,7 +20,8 @@ import {
   type BookingWithCustomer,
   type CustomQuoteWithCustomer
 } from "@shared/schema";
-import { db } from "../db";
+import { db as baseDb } from "../db";
+const db = baseDb!;
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { IStorage } from "./index";
 
