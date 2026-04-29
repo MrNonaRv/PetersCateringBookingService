@@ -17,9 +17,22 @@ const isExternalDb = connectionString?.includes('supabase.com') ||
                      connectionString?.includes('pooler.supabase.com') || 
                      connectionString?.includes('neon.tech');
 
-export const pool = connectionString ? new Pool({ 
-  connectionString,
-  ssl: isExternalDb ? { rejectUnauthorized: false } : false
-}) : null;
+let pool: any = null;
+try {
+  pool = connectionString ? new Pool({ 
+    connectionString,
+    ssl: isExternalDb ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10000, // 10s timeout
+  }) : null;
 
+  if (pool) {
+    pool.on('error', (err: any) => {
+      console.error('Unexpected error on idle client', err);
+    });
+  }
+} catch (error) {
+  console.error("Failed to create database pool:", error);
+}
+
+export { pool };
 export const db = pool ? drizzle(pool, { schema }) : null;
