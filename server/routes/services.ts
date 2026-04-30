@@ -36,12 +36,14 @@ export function registerServiceRoutes(app: Express) {
   app.put("/api/services/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const serviceData = insertServiceSchema.partial().parse(req.body);
+      const { id: _, ...updateData } = req.body;
+      const serviceData = insertServiceSchema.partial().parse(updateData);
       const service = await storage.updateService(id, serviceData);
       if (!service) return res.status(404).json({ message: "Service not found" });
       res.json(service);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid service data" });
+    } catch (error: any) {
+      console.error("PUT /api/services error:", error);
+      res.status(400).json({ message: "Invalid service data", error: error.message });
     }
   });
 
@@ -51,8 +53,9 @@ export function registerServiceRoutes(app: Express) {
       const success = await storage.deleteService(id);
       if (!success) return res.status(404).json({ message: "Service not found" });
       res.status(200).send("Deleted");
-    } catch (error) {
-      res.status(500).json({ message: "Error deleting service" });
+    } catch (error: any) {
+      console.error("DELETE /api/services error:", error);
+      res.status(500).json({ message: "Error deleting service. It may be in use by bookings." });
     }
   });
 
@@ -85,12 +88,14 @@ export function registerServiceRoutes(app: Express) {
   app.put("/api/dishes/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const dishData = insertDishSchema.partial().parse(req.body);
+      const { id: _, ...updateData } = req.body;
+      const dishData = insertDishSchema.partial().parse(updateData);
       const dish = await storage.updateDish(id, dishData);
       if (!dish) return res.status(404).json({ message: "Dish not found" });
       res.json(dish);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid dish data" });
+    } catch (error: any) {
+      console.error("PUT /api/dishes error:", error);
+      res.status(400).json({ message: "Invalid dish data", error: error.message });
     }
   });
 
@@ -100,8 +105,9 @@ export function registerServiceRoutes(app: Express) {
       const success = await storage.deleteDish(id);
       if (!success) return res.status(404).json({ message: "Dish not found" });
       res.status(200).send("Deleted");
-    } catch (error) {
-      res.status(500).json({ message: "Error deleting dish" });
+    } catch (error: any) {
+      console.error("DELETE /api/dishes error:", error);
+      res.status(500).json({ message: "Error deleting dish." });
     }
   });
 
@@ -134,12 +140,14 @@ export function registerServiceRoutes(app: Express) {
   app.put("/api/service-packages/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const packageData = insertServicePackageSchema.partial().parse(req.body);
+      const { id: _, ...updateData } = req.body;
+      const packageData = insertServicePackageSchema.partial().parse(updateData);
       const servicePackage = await storage.updateServicePackage(id, packageData);
       if (!servicePackage) return res.status(404).json({ message: "Package not found" });
       res.json(servicePackage);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid service package data" });
+    } catch (error: any) {
+      console.error("PUT /api/service-packages error:", error);
+      res.status(400).json({ message: "Invalid service package data", error: error.message });
     }
   });
 
@@ -149,8 +157,9 @@ export function registerServiceRoutes(app: Express) {
       const success = await storage.deleteServicePackage(id);
       if (!success) return res.status(404).json({ message: "Package not found" });
       res.status(200).send("Deleted");
-    } catch (error) {
-      res.status(500).json({ message: "Error deleting service package" });
+    } catch (error: any) {
+      console.error("DELETE /api/service-packages error:", error);
+      res.status(500).json({ message: "Error deleting service package. It may be in use by bookings." });
     }
   });
 
@@ -183,12 +192,14 @@ export function registerServiceRoutes(app: Express) {
   app.put("/api/add-ons/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const addOnData = insertAddOnSchema.partial().parse(req.body);
+      const { id: _, ...updateData } = req.body;
+      const addOnData = insertAddOnSchema.partial().parse(updateData);
       const addOn = await storage.updateAddOn(id, addOnData);
       if (!addOn) return res.status(404).json({ message: "Add-on not found" });
       res.json(addOn);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid add-on data" });
+    } catch (error: any) {
+      console.error("PUT /api/add-ons error:", error);
+      res.status(400).json({ message: "Invalid add-on data", error: error.message });
     }
   });
 
@@ -198,8 +209,9 @@ export function registerServiceRoutes(app: Express) {
       const success = await storage.deleteAddOn(id);
       if (!success) return res.status(404).json({ message: "Add-on not found" });
       res.status(200).send("Deleted");
-    } catch (error) {
-      res.status(500).json({ message: "Error deleting add-on" });
+    } catch (error: any) {
+      console.error("DELETE /api/add-ons error:", error);
+      res.status(500).json({ message: "Error deleting add-on." });
     }
   });
 
@@ -255,6 +267,52 @@ export function registerServiceRoutes(app: Express) {
       res.status(201).json(uploadedImages);
     } catch (error) {
       res.status(400).json({ message: "Error uploading images" });
+    }
+  });
+
+  app.put("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { id: _, ...updateData } = req.body;
+      const imageData = insertGalleryImageSchema.partial().parse(updateData);
+      const image = await storage.updateGalleryImage(id, imageData);
+      if (!image) return res.status(404).json({ message: "Image not found" });
+      res.json(image);
+    } catch (error: any) {
+      console.error("PUT /api/gallery-images error:", error);
+      res.status(400).json({ message: "Invalid image data", error: error.message });
+    }
+  });
+
+  app.delete("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteGalleryImage(id);
+      if (!success) return res.status(404).json({ message: "Image not found" });
+      res.status(200).send("Deleted");
+    } catch (error: any) {
+      console.error("DELETE /api/gallery-images error:", error);
+      res.status(500).json({ message: "Error deleting image" });
+    }
+  });
+
+  app.put("/api/gallery-images/:id/replace", isAuthenticated, upload.single('image'), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No image uploaded" });
+
+      const image = await storage.updateGalleryImage(id, {
+        filename: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size
+      });
+      if (!image) return res.status(404).json({ message: "Image not found" });
+      res.json(image);
+    } catch (error: any) {
+      console.error("PUT /api/gallery-images/replace error:", error);
+      res.status(500).json({ message: "Error replacing image" });
     }
   });
 }

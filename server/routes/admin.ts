@@ -70,6 +70,32 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
+  app.put("/api/recent-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { id: _, ...updateData } = req.body;
+      const eventData = insertRecentEventSchema.partial().parse(updateData);
+      const event = await storage.updateRecentEvent(id, eventData);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      res.json(event);
+    } catch (error: any) {
+      console.error("PUT /api/recent-events error:", error);
+      res.status(400).json({ message: "Invalid event data", error: error.message });
+    }
+  });
+
+  app.delete("/api/recent-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteRecentEvent(id);
+      if (!success) return res.status(404).json({ message: "Event not found" });
+      res.status(200).send("Deleted");
+    } catch (error: any) {
+      console.error("DELETE /api/recent-events error:", error);
+      res.status(500).json({ message: "Error deleting event" });
+    }
+  });
+
   // Paymongo Integration
   app.get("/api/paymongo/status", (req, res) => {
     res.json({ 
