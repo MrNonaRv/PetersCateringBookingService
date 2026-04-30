@@ -395,14 +395,17 @@ export default function BookingModal({
       const currentSelectedService = services.find((s) => s.id === data.serviceId);
       const selectedVenue = venues.find((v) => v.id === data.venueId);
 
+      // Correctly multiply package price by guest count if it's a standard per-person package
+      // NOTE: Some packages might be fixed price, but the system generally expects per-person
       let totalPrice = selectedPackage
-        ? (selectedPackage.pricePerPerson * data.guestCount)
+        ? selectedPackage.pricePerPerson * data.guestCount
         : (currentSelectedService?.basePrice || 0) * data.guestCount;
 
       if (selectedVenue) {
         totalPrice += selectedVenue.price;
       }
       if (data.casaReceptionAddon) {
+        // Corrected: 500,000 cents = ₱5,000 (Consistent with other cents values)
         totalPrice += 500000;
       }
 
@@ -463,11 +466,11 @@ export default function BookingModal({
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       onBookingSubmitted(data.bookingReference);
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error.message || "There was an error creating your booking. Please try again.";
       toast({
         title: "Booking Failed",
-        description:
-          "There was an error creating your booking. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -716,7 +719,7 @@ export default function BookingModal({
     const selectedVenue = venues.find((v) => v.id === form.getValues("venueId"));
 
     let totalPriceCalc = selectedPackage
-      ? (selectedPackage.pricePerPerson * guestCount)
+      ? selectedPackage.pricePerPerson * guestCount
       : (selectedService?.basePrice || 0) * guestCount;
 
     if (selectedVenue) {

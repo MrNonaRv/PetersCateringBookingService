@@ -1,9 +1,14 @@
-const IPROGSMS_API_TOKEN = process.env.IPROGSMS_API_TOKEN;
 const IPROGSMS_API_URL = 'https://www.iprogsms.com/api/v1/sms_messages';
-const IPROGSMS_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME || 'IPROGSMS';
+
+function getSmsConfig() {
+  return {
+    apiToken: process.env.IPROGSMS_API_TOKEN,
+    senderName: process.env.IPROGSMS_SENDER_NAME || 'IPROGSMS'
+  };
+}
 
 export function isSMSConfigured(): boolean {
-  return !!IPROGSMS_API_TOKEN;
+  return !!process.env.IPROGSMS_API_TOKEN;
 }
 
 export interface SMSResult {
@@ -13,7 +18,9 @@ export interface SMSResult {
 }
 
 export async function sendSMS(to: string, message: string): Promise<SMSResult> {
-  if (!IPROGSMS_API_TOKEN) {
+  const { apiToken, senderName } = getSmsConfig();
+
+  if (!apiToken) {
     console.warn('iProgSMS not configured. Skipping SMS:', { to, message: message.substring(0, 50) + '...' });
     return { success: false, error: 'iProgSMS API token not configured' };
   }
@@ -29,10 +36,10 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        api_token: IPROGSMS_API_TOKEN,
+        api_token: apiToken,
         phone_number: formattedNumber,
         message: message,
-        sender_name: IPROGSMS_SENDER_NAME,
+        sender_name: senderName,
       }),
     });
 

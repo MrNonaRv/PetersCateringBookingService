@@ -189,28 +189,41 @@ export function registerBookingRoutes(app: Express) {
       const bookingReference = `PCB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
       // Prepare booking data with all required fields
-      const bookingWithDefaults = {
-        ...booking,
+      // Extract only valid booking fields to avoid database errors with unknown columns (like venueId)
+      const { 
+        serviceId, packageId, eventDate, eventType, eventTime, 
+        guestCount, venueAddress, menuPreference, serviceStyle,
+        additionalServices, theme, specialRequests, totalPrice,
+        status, paymentStatus, paymentMethod, paymentReference
+      } = booking;
+
+      const bookingToParse = {
+        serviceId,
+        packageId,
+        eventDate,
+        eventType,
+        eventTime: eventTime || "Fixed",
+        guestCount,
+        venueAddress,
+        menuPreference: menuPreference || "package",
+        serviceStyle: serviceStyle || "buffet",
+        additionalServices: additionalServices || "",
+        theme: theme || "",
+        specialRequests: specialRequests || "",
+        totalPrice: totalPrice || 0,
+        status: status || "pending_approval",
+        paymentStatus: paymentStatus || "pending",
+        paymentMethod: paymentMethod || null,
+        paymentReference: paymentReference || null,
         bookingReference,
-        customerId: 0,
-        totalPrice: booking.totalPrice || 0,
-        paymentStatus: booking.paymentStatus || "pending",
-        status: booking.status || "pending_approval",
-        additionalServices: booking.additionalServices || "",
-        specialRequests: booking.specialRequests || "",
-        paymentMethod: booking.paymentMethod || null,
-        paymentReference: booking.paymentReference || null,
-        menuPreference: booking.menuPreference || "package",
-        serviceStyle: booking.serviceStyle || "buffet"
+        customerId: 0 // Placeholder, will be updated in storage
       };
 
-      const customerWithDefaults = {
+      const bookingData = insertBookingSchema.parse(bookingToParse);
+      const customerData = insertCustomerSchema.parse({
         ...customer,
         company: customer.company || ""
-      };
-
-      const bookingData = insertBookingSchema.parse(bookingWithDefaults);
-      const customerData = insertCustomerSchema.parse(customerWithDefaults);
+      });
 
       const createdBooking = await storage.createBooking(bookingData, customerData, selectedDishes);
       
@@ -238,7 +251,7 @@ export function registerBookingRoutes(app: Express) {
       } catch (e) {}
 
       res.status(400).json({ 
-        message: "Invalid booking data",
+        message: error.message || "Invalid booking data",
         error: error.message || "Unknown error",
         details: error.errors || error // For Zod errors
       });
