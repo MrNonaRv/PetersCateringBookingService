@@ -67,9 +67,9 @@ export default function ServicePackageManagement() {
 
   // Fetch services
   const { data: services } = useQuery({
-    queryKey: ['/api/services'],
+    queryKey: ['/api/services?all=true'],
     queryFn: async () => {
-      const res = await fetch('/api/services');
+      const res = await fetch('/api/services?all=true');
       if (!res.ok) throw new Error('Failed to fetch services');
       return res.json();
     },
@@ -77,9 +77,9 @@ export default function ServicePackageManagement() {
 
   // Fetch all service packages
   const { data: packages, isLoading } = useQuery({
-    queryKey: ['/api/service-packages'],
+    queryKey: ['/api/service-packages?all=true'],
     queryFn: async () => {
-      const res = await fetch('/api/service-packages');
+      const res = await fetch('/api/service-packages?all=true');
       if (!res.ok) throw new Error('Failed to fetch service packages');
       return res.json();
     },
@@ -91,7 +91,7 @@ export default function ServicePackageManagement() {
       return apiRequest('POST', '/api/service-packages', packageData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/service-packages'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/service-packages?all=true'] });
       toast({
         title: "Package created",
         description: "The service package has been created successfully.",
@@ -114,7 +114,7 @@ export default function ServicePackageManagement() {
       return apiRequest('PUT', `/api/service-packages/${currentPackage?.id}`, packageData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/service-packages'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/service-packages?all=true'] });
       toast({
         title: "Package updated",
         description: "The service package has been updated successfully.",
@@ -137,7 +137,7 @@ export default function ServicePackageManagement() {
       return apiRequest('DELETE', `/api/service-packages/${packageId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/service-packages'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/service-packages?all=true'] });
       toast({
         title: "Package deleted",
         description: "The service package has been deleted successfully.",

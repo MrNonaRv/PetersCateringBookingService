@@ -25,6 +25,7 @@ interface Service {
   imageUrl: string;
   basePrice: number;
   featured: boolean;
+  isActive: boolean;
 }
 
 export default function ServicesManagement() {
@@ -34,6 +35,7 @@ export default function ServicesManagement() {
   const [editedName, setEditedName] = useState<string>("");
   const [editedDescription, setEditedDescription] = useState<string>("");
   const [editedFeatured, setEditedFeatured] = useState<boolean>(false);
+  const [editedIsActive, setEditedIsActive] = useState<boolean>(true);
   const [editedImageUrl, setEditedImageUrl] = useState<string>("");
   const [uploadingImage, setUploadingImage] = useState<boolean>(false);
 
@@ -41,9 +43,9 @@ export default function ServicesManagement() {
   const queryClient = useQueryClient();
 
   const { data: services, isLoading } = useQuery({
-    queryKey: ["/api/services"],
+    queryKey: ["/api/services?all=true"],
     queryFn: async () => {
-      const res = await fetch("/api/services");
+      const res = await fetch("/api/services?all=true");
       if (!res.ok) {
         throw new Error("Failed to fetch services");
       }
@@ -61,7 +63,7 @@ export default function ServicesManagement() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services?all=true"] });
       toast({
         title: "Service updated",
         description: "The service has been updated successfully.",
@@ -83,7 +85,7 @@ export default function ServicesManagement() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services?all=true"] });
       toast({
         title: "Service created",
         description: "The new service has been added successfully.",
@@ -102,13 +104,13 @@ export default function ServicesManagement() {
   const deleteServiceMutation = useMutation({
     mutationFn: async (id: number) => {
       const res = await apiRequest("DELETE", `/api/services/${id}`);
-      return res.text();
+      return res.json().catch(() => ({}));
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
-      toast({
-        title: "Service deleted",
-        description: "The service has been removed.",
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services?all=true"] });
+       toast({
+        title: data.deactivated ? "Service Deactivated" : "Service Deleted",
+        description: data.message || "The service has been removed.",
       });
     },
     onError: (error: Error) => {
@@ -126,6 +128,7 @@ export default function ServicesManagement() {
     setEditedDescription(service.description);
     setEditedPrice(String(Math.round(service.basePrice / 100)));
     setEditedFeatured(service.featured);
+    setEditedIsActive(service.isActive);
     setEditedImageUrl(service.imageUrl);
     setIsEditDialogOpen(true);
   };
@@ -136,6 +139,7 @@ export default function ServicesManagement() {
     setEditedDescription("");
     setEditedPrice("");
     setEditedFeatured(false);
+    setEditedIsActive(true);
     setEditedImageUrl("");
     setIsEditDialogOpen(true);
   };
@@ -160,6 +164,7 @@ export default function ServicesManagement() {
         imageUrl: editedImageUrl,
         basePrice: priceInCents,
         featured: editedFeatured,
+        isActive: editedIsActive,
       });
     } else {
       createServiceMutation.mutate({
@@ -168,6 +173,7 @@ export default function ServicesManagement() {
         imageUrl: editedImageUrl,
         basePrice: priceInCents,
         featured: editedFeatured,
+        isActive: editedIsActive,
       });
     }
   };
@@ -245,12 +251,17 @@ export default function ServicesManagement() {
                         alt={service.name}
                         className="h-full w-full object-cover"
                       />
-                      {service.featured && (
-                        <div className="absolute top-2 right-2 bg-secondary text-white px-2 py-1 rounded text-xs">
-                          Featured
-                        </div>
-                      )}
-                    </div>
+                        {service.featured && (
+                          <div className="absolute top-2 right-2 bg-secondary text-white px-2 py-1 rounded text-xs">
+                            Featured
+                          </div>
+                        )}
+                        {!service.isActive && (
+                          <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">
+                            Inactive
+                          </div>
+                        )}
+                      </div>
                     <CardContent className="p-6">
                       <h3 className="text-lg font-bold mb-2">{service.name}</h3>
                       <p className="text-sm text-gray-600 mb-4">
@@ -375,6 +386,23 @@ export default function ServicesManagement() {
                 />
                 <label htmlFor="featured" className="ml-2 text-sm">
                   Show as featured service
+                </label>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="active" className="text-right">
+                Active
+              </Label>
+              <div className="col-span-3 flex items-center">
+                <Checkbox
+                  id="active"
+                  checked={editedIsActive}
+                  onCheckedChange={(checked) =>
+                    setEditedIsActive(checked as boolean)
+                  }
+                />
+                <label htmlFor="active" className="ml-2 text-sm">
+                  Service is visible to customers
                 </label>
               </div>
             </div>

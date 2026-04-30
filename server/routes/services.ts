@@ -48,8 +48,13 @@ export function registerServiceRoutes(app: Express) {
   // Services
   app.get("/api/services", async (req, res) => {
     try {
-      const services = await storage.getServices();
-      res.json(services);
+      const all = req.query.all === "true";
+      const servicesList = await storage.getServices();
+      if (all) {
+        res.json(servicesList);
+      } else {
+        res.json(servicesList.filter(s => s.isActive));
+      }
     } catch (error) {
       res.status(500).json({ message: "Error fetching services" });
     }
@@ -82,12 +87,31 @@ export function registerServiceRoutes(app: Express) {
   app.delete("/api/services/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const success = await storage.deleteService(id);
-      if (!success) return res.status(404).json({ message: "Service not found" });
-      res.status(200).send("Deleted");
+      
+      // Try to hard delete first
+      try {
+        const success = await storage.deleteService(id);
+        if (!success) return res.status(404).json({ message: "Service not found" });
+        return res.status(200).send("Deleted");
+      } catch (dbError: any) {
+        // If it's a foreign key constraint error (PostgreSQL error code 23503)
+        // or if it fails because of bookings/packages dependencies
+        console.log(`Hard delete failed for service ${id}, attempting deactivation instead.`);
+        
+        // Check if the service exists
+        const service = await storage.getService(id);
+        if (!service) return res.status(404).json({ message: "Service not found" });
+
+        // Deactivate instead
+        await storage.updateService(id, { isActive: false });
+        return res.status(200).json({ 
+          message: "Service is being used by existing bookings, so it was deactivated instead of deleted to preserve history.",
+          deactivated: true 
+        });
+      }
     } catch (error: any) {
       console.error("DELETE /api/services error:", error);
-      res.status(500).json({ message: "Error deleting service. It may be in use by bookings." });
+      res.status(500).json({ message: "Error processing deletion request." });
     }
   });
 
@@ -146,13 +170,22 @@ export function registerServiceRoutes(app: Express) {
   // Service Packages
   app.get("/api/service-packages", async (req, res) => {
     try {
-      const { serviceId } = req.query;
-      if (serviceId && typeof serviceId === 'string') {
-        const packages = await storage.getServicePackagesByService(parseInt(serviceId));
+      const { serviceId, all } = req.query;
+      const includeInactive = all === "true";
+      
+      const [servicesList, packages] = await Promise.all([
+        storage.getServices(),
+        serviceId && typeof serviceId === 'string' 
+          ? storage.getServicePackagesByService(parseInt(serviceId))
+          : storage.getServicePackages()
+      ]);
+
+      if (includeInactive) {
         res.json(packages);
       } else {
-        const packages = await storage.getServicePackages();
-        res.json(packages);
+        // Filter out packages whose parent service is inactive
+        const activeServiceIds = new Set(servicesList.filter(s => s.isActive).map(s => s.id));
+        res.json(packages.filter(p => activeServiceIds.has(p.serviceId)));
       }
     } catch (error) {
       res.status(500).json({ message: "Error fetching service packages" });

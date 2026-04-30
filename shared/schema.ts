@@ -123,6 +123,7 @@ export const services = pgTable("services", {
   imageUrl: text("image_url").notNull(),
   basePrice: integer("base_price").notNull(), // price per person in cents
   featured: boolean("featured").default(false),
+  isActive: boolean("is_active").default(true),
 });
 
 // Service packages for each service
