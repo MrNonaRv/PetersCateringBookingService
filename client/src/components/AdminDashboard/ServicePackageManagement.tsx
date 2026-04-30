@@ -143,10 +143,10 @@ export default function ServicePackageManagement() {
         description: "The service package has been deleted successfully.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to delete the service package. Please try again.",
+        description: error.message || "Failed to delete the service package. Please try again.",
         variant: "destructive",
       });
     },

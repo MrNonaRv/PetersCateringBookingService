@@ -68,10 +68,10 @@ export default function ServicesManagement() {
       });
       setIsEditDialogOpen(false);
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to update the service. Please try again.",
+        description: error.message || "Failed to update the service package. Please try again.",
         variant: "destructive",
       });
     },
@@ -111,10 +111,10 @@ export default function ServicesManagement() {
         description: "The service has been removed.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to delete the service. Please try again.",
+        description: error.message || "Failed to delete the service. Please try again.",
         variant: "destructive",
       });
     },
