@@ -35,10 +35,10 @@ interface ServicePackage {
 
 export default function Packages() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState<number>(0);
+  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"recommended" | "price_asc" | "price_desc" | "name_asc">("recommended");
-  const [initialBookingType, setInitialBookingType] = useState<"standard" | "custom">("standard");
+  const [initialBookingType, setInitialBookingType] = useState<"standard" | "custom" | "room">("standard");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [detailsPkg, setDetailsPkg] = useState<ServicePackage | null>(null);
   const { toast } = useToast();
@@ -163,7 +163,7 @@ export default function Packages() {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600 mb-2">Service</p>
-              <Select value={selectedServiceId.toString()} onValueChange={(v) => setSelectedServiceId(parseInt(v))}>
+              <Select value={selectedServiceId?.toString() || "0"} onValueChange={(v) => setSelectedServiceId(v === "0" ? null : parseInt(v))}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="All Services" />
                 </SelectTrigger>
@@ -288,8 +288,8 @@ export default function Packages() {
         isOpen={isBookingModalOpen}
         onClose={closeBookingModal}
         services={services}
-        selectedServiceId={selectedServiceId ?? undefined}
-        initialPackageId={selectedPackageId ?? undefined}
+        selectedServiceId={selectedServiceId}
+        initialPackageId={selectedPackageId}
         initialBookingType={initialBookingType}
         onBookingSubmitted={handleBookingSubmitted}
       />

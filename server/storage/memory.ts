@@ -54,7 +54,7 @@ export class MemStorage implements IStorage {
     });
 
     // Basic seed data for the demo
-    const weddingService: Service = { id: 2, name: "Wedding Receptions", description: "Complete wedding catering", imageUrl: "https://images.unsplash.com/photo-1519225421980-715cb0215aed", basePrice: 150000, featured: true };
+    const weddingService: Service = { id: 2, name: "Wedding Receptions", description: "Complete wedding catering", imageUrl: "https://images.unsplash.com/photo-1519225421980-715cb0215aed", basePrice: 150000, featured: true, isActive: true };
     this.services.set(2, weddingService);
     this.servicePackages.set(1, { id: 1, serviceId: 2, name: "Gold Package", description: "Premium wedding package", pricePerPerson: 1500, minGuests: 50, maxGuests: 500, features: ["Full decor", "5 Main dishes"], hasThemedCake: true, isActive: true, sortOrder: 1 });
     
@@ -69,14 +69,14 @@ export class MemStorage implements IStorage {
   }
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentId++;
-    const user = { ...insertUser, id, phone: insertUser.phone || null };
+    const user = { ...insertUser, id, phone: insertUser.phone || null, role: insertUser.role || "customer" };
     this.users.set(id, user);
     return user;
   }
   async updateUser(id: number, userUpdate: Partial<InsertUser>): Promise<User | undefined> {
     const user = this.users.get(id);
     if (!user) return undefined;
-    const updated = { ...user, ...userUpdate };
+    const updated = { ...user, ...userUpdate, role: userUpdate.role || user.role };
     this.users.set(id, updated);
     return updated;
   }
@@ -85,14 +85,14 @@ export class MemStorage implements IStorage {
   async getService(id: number): Promise<Service | undefined> { return this.services.get(id); }
   async createService(s: InsertService): Promise<Service> {
     const id = this.currentId++;
-    const service = { ...s, id };
+    const service = { ...s, id, featured: s.featured ?? false, isActive: s.isActive ?? true };
     this.services.set(id, service);
     return service;
   }
   async updateService(id: number, s: Partial<InsertService>): Promise<Service | undefined> {
     const service = this.services.get(id);
     if (!service) return undefined;
-    const updated = { ...service, ...s };
+    const updated = { ...service, ...s, featured: s.featured ?? service.featured, isActive: s.isActive ?? service.isActive };
     this.services.set(id, updated);
     return updated;
   }
@@ -105,14 +105,23 @@ export class MemStorage implements IStorage {
   async getServicePackage(id: number): Promise<ServicePackage | undefined> { return this.servicePackages.get(id); }
   async createServicePackage(p: InsertServicePackage): Promise<ServicePackage> {
     const id = this.currentId++;
-    const pkg = { ...p, id, maxGuests: p.maxGuests || null, features: p.features || null, sortOrder: p.sortOrder || 0, hasThemedCake: p.hasThemedCake || false, isActive: p.isActive ?? true };
+    const pkg = { 
+      ...p, 
+      id, 
+      minGuests: p.minGuests ?? 0,
+      maxGuests: p.maxGuests || null, 
+      features: p.features || null, 
+      sortOrder: p.sortOrder || 0, 
+      hasThemedCake: p.hasThemedCake || false, 
+      isActive: p.isActive ?? true 
+    };
     this.servicePackages.set(id, pkg);
     return pkg;
   }
   async updateServicePackage(id: number, p: Partial<InsertServicePackage>): Promise<ServicePackage | undefined> {
     const pkg = this.servicePackages.get(id);
     if (!pkg) return undefined;
-    const updated = { ...pkg, ...p };
+    const updated = { ...pkg, ...p, minGuests: p.minGuests ?? pkg.minGuests };
     this.servicePackages.set(id, updated);
     return updated;
   }
@@ -211,14 +220,25 @@ export class MemStorage implements IStorage {
   async getRecentEvent(id: number): Promise<RecentEvent | undefined> { return this.recentEvents.get(id); }
   async createRecentEvent(e: InsertRecentEvent): Promise<RecentEvent> {
     const id = this.currentId++;
-    const event = { ...e, id, createdAt: new Date(), highlights: e.highlights || null, featured: e.featured || false };
+    const event = { 
+      ...e, 
+      id, 
+      createdAt: new Date(), 
+      highlights: e.highlights || [], 
+      featured: e.featured ?? false 
+    };
     this.recentEvents.set(id, event);
     return event;
   }
   async updateRecentEvent(id: number, e: Partial<InsertRecentEvent>): Promise<RecentEvent | undefined> {
     const event = this.recentEvents.get(id);
     if (!event) return undefined;
-    const updated = { ...event, ...e };
+    const updated = { 
+      ...event, 
+      ...e, 
+      highlights: e.highlights || event.highlights, 
+      featured: e.featured ?? event.featured 
+    };
     this.recentEvents.set(id, updated);
     return updated;
   }
@@ -231,7 +251,14 @@ export class MemStorage implements IStorage {
   async getGalleryImage(id: number): Promise<GalleryImage | undefined> { return this.galleryImages.get(id); }
   async createGalleryImage(i: InsertGalleryImage): Promise<GalleryImage> {
     const id = this.currentId++;
-    const img = { ...i, id, createdAt: new Date(), description: i.description || null, category: i.category || "general", isActive: i.isActive ?? true };
+    const img = { 
+      ...i, 
+      id, 
+      createdAt: new Date(), 
+      description: i.description || null, 
+      category: i.category || "general", 
+      isActive: i.isActive ?? true 
+    };
     this.galleryImages.set(id, img);
     return img;
   }
@@ -267,7 +294,16 @@ export class MemStorage implements IStorage {
   async getDish(id: number): Promise<Dish | undefined> { return this.dishes.get(id); }
   async createDish(d: InsertDish): Promise<Dish> {
     const id = this.currentId++;
-    const dish = { ...d, id, description: d.description || null, tags: d.tags || null, imageUrl: d.imageUrl || null, additionalCost: d.additionalCost || 0, isAvailable: d.isAvailable ?? true, sortOrder: d.sortOrder || 0 };
+    const dish = { 
+      ...d, 
+      id, 
+      description: d.description || null, 
+      tags: d.tags || [], 
+      imageUrl: d.imageUrl || null, 
+      additionalCost: d.additionalCost ?? 0, 
+      isAvailable: d.isAvailable ?? true, 
+      sortOrder: d.sortOrder ?? 0 
+    };
     this.dishes.set(id, dish);
     return dish;
   }
@@ -287,7 +323,15 @@ export class MemStorage implements IStorage {
   async getAddOn(id: number): Promise<AddOn | undefined> { return this.addOns.get(id); }
   async createAddOn(a: InsertAddOn): Promise<AddOn> {
     const id = this.currentId++;
-    const addOn = { ...a, id, description: a.description || null, minQuantity: a.minQuantity || 1, maxQuantity: a.maxQuantity || null, isAvailable: a.isAvailable ?? true, priceType: a.priceType || 'fixed' };
+    const addOn = { 
+      ...a, 
+      id, 
+      description: a.description || null, 
+      minQuantity: a.minQuantity ?? 1, 
+      maxQuantity: a.maxQuantity || null, 
+      isAvailable: a.isAvailable ?? true, 
+      priceType: a.priceType || 'fixed' 
+    };
     this.addOns.set(id, addOn);
     return addOn;
   }
@@ -304,7 +348,16 @@ export class MemStorage implements IStorage {
   async getVenue(id: number): Promise<Venue | undefined> { return this.venues.get(id); }
   async createVenue(v: InsertVenue): Promise<Venue> {
     const id = this.currentId++;
-    const venue = { ...v, id, description: v.description || null, capacityMin: v.capacityMin || 0, capacityMax: v.capacityMax || null, imageUrl: v.imageUrl || null, isAvailable: v.isAvailable ?? true, type: v.type || 'venue' };
+    const venue = { 
+      ...v, 
+      id, 
+      description: v.description || null, 
+      capacityMin: v.capacityMin ?? 0, 
+      capacityMax: v.capacityMax || null, 
+      imageUrl: v.imageUrl || null, 
+      isAvailable: v.isAvailable ?? true, 
+      type: v.type || 'venue' 
+    };
     this.venues.set(id, venue);
     return venue;
   }

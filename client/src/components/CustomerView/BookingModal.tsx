@@ -550,14 +550,6 @@ export default function BookingModal({
       if (bookingType === "custom") {
         fieldsToValidate.push("guestCount");
       }
-      if (bookingType === "room") {
-        fieldsToValidate = ["eventTime"];
-        const venueId = form.getValues("venueId");
-        if (!venueId) {
-          form.setError("venueId", { message: "Please select a room" });
-          return;
-        }
-      }
       if (form.getValues("casaReceptionAddon")) {
         fieldsToValidate = fieldsToValidate.filter((f) => f !== "venueAddress");
       }

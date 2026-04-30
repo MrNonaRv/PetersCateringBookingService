@@ -2,6 +2,7 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { initializeDatabase } from "./initDatabase";
+import { log } from "./vite";
 import { seed } from "./seed";
 import session from "express-session";
 import createMemoryStore from "memorystore";

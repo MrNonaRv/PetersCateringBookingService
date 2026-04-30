@@ -153,6 +153,16 @@ export function registerBookingRoutes(app: Express) {
         status: 'deposit_paid'
       });
 
+      if (!updatedBooking) {
+        throw new Error("Failed to update booking payment status");
+      }
+
+      // Fetch the full booking with customer details for notifications
+      const fullBooking = await storage.getBooking(updatedBooking.id);
+      if (!fullBooking) {
+        throw new Error("Failed to fetch full booking details");
+      }
+
       // Clear auto-cancel timer if it exists
       if (autoCancelTimers.has(booking.id)) {
         clearTimeout(autoCancelTimers.get(booking.id)!);
@@ -162,11 +172,11 @@ export function registerBookingRoutes(app: Express) {
       // Functional Enhancement: Send SMS Notification for deposit
       try {
         await sendDepositReceived({
-          customerPhone: updatedBooking.customer.phone || "",
-          customerName: updatedBooking.customer.name,
-          bookingReference: updatedBooking.bookingReference,
-          amountPaid: updatedBooking.depositAmount || 0,
-          remainingBalance: (updatedBooking.totalPrice || 0) - (updatedBooking.depositAmount || 0)
+          customerPhone: fullBooking.customer.phone || "",
+          customerName: fullBooking.customer.name,
+          bookingReference: fullBooking.bookingReference,
+          amountPaid: fullBooking.depositAmount || 0,
+          remainingBalance: (fullBooking.totalPrice || 0) - (fullBooking.depositAmount || 0)
         });
       } catch (smsError) {
         console.warn("SMS deposit notification failed:", smsError);
@@ -351,7 +361,7 @@ export function registerBookingRoutes(app: Express) {
 
       // Convert eventDate to string if it isn't already, so it matches the schema type if needed
       const updatedBooking = await storage.updateBooking(id, { 
-        eventDate: new Date(eventDate), 
+        eventDate: new Date(eventDate).toISOString().split('T')[0], 
         eventTime 
       });
 

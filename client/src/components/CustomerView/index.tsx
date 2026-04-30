@@ -26,7 +26,7 @@ export default function CustomerView() {
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
   const [bookingReference, setBookingReference] = useState("");
-  const [initialBookingType, setInitialBookingType] = useState<"standard" | "custom">("standard");
+  const [initialBookingType, setInitialBookingType] = useState<"standard" | "custom" | "room">("standard");
 
   const { toast } = useToast();
 
@@ -52,7 +52,7 @@ export default function CustomerView() {
     }
     let computedMode: "standard" | "custom" | "room" = mode || "standard";
     if (!mode && serviceId && services) {
-      const svc = services.find(s => s.id === serviceId);
+      const svc = services.find((s: any) => s.id === serviceId);
       const name = (svc?.name || "").toLowerCase();
       if (name.includes("venue") || name.includes("room")) {
         computedMode = "room";

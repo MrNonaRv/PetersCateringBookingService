@@ -185,7 +185,8 @@ var init_schema = __esm({
       imageUrl: text("image_url").notNull(),
       basePrice: integer("base_price").notNull(),
       // price per person in cents
-      featured: boolean("featured").default(false)
+      featured: boolean("featured").default(false),
+      isActive: boolean("is_active").default(true)
     });
     servicePackages = pgTable("service_packages", {
       id: serial("id").primaryKey(),
@@ -1440,11 +1441,18 @@ var init_auth2 = __esm({
 });
 
 // server/sms.ts
+function getSmsConfig() {
+  return {
+    apiToken: process.env.IPROGSMS_API_TOKEN,
+    senderName: process.env.IPROGSMS_SENDER_NAME || "IPROGSMS"
+  };
+}
 function isSMSConfigured() {
-  return !!IPROGSMS_API_TOKEN;
+  return !!process.env.IPROGSMS_API_TOKEN;
 }
 async function sendSMS(to, message) {
-  if (!IPROGSMS_API_TOKEN) {
+  const { apiToken, senderName } = getSmsConfig();
+  if (!apiToken) {
     console.warn("iProgSMS not configured. Skipping SMS:", { to, message: message.substring(0, 50) + "..." });
     return { success: false, error: "iProgSMS API token not configured" };
   }
@@ -1458,10 +1466,10 @@ async function sendSMS(to, message) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        api_token: IPROGSMS_API_TOKEN,
+        api_token: apiToken,
         phone_number: formattedNumber,
         message,
-        sender_name: IPROGSMS_SENDER_NAME
+        sender_name: senderName
       })
     });
     const data = await response.json();
@@ -1511,13 +1519,11 @@ async function sendBookingCancelled(params) {
 async function sendCustomMessage(params) {
   return sendSMS(params.customerPhone, params.message);
 }
-var IPROGSMS_API_TOKEN, IPROGSMS_API_URL, IPROGSMS_SENDER_NAME;
+var IPROGSMS_API_URL;
 var init_sms = __esm({
   "server/sms.ts"() {
     "use strict";
-    IPROGSMS_API_TOKEN = process.env.IPROGSMS_API_TOKEN;
     IPROGSMS_API_URL = "https://www.iprogsms.com/api/v1/sms_messages";
-    IPROGSMS_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME || "IPROGSMS";
   }
 });
 
@@ -1616,6 +1622,7 @@ var init_paymongo = __esm({
 });
 
 // server/routes/bookings.ts
+import fs from "fs";
 function registerBookingRoutes(app2) {
   app2.get("/api/bookings", isAuthenticated, async (req, res) => {
     try {
@@ -1703,6 +1710,19 @@ function registerBookingRoutes(app2) {
       res.status(500).json({ message: "Error fetching booking" });
     }
   });
+  app2.get("/api/debug/logs", async (req, res) => {
+    try {
+      const logPath = "/tmp/booking_error.log";
+      if (fs.existsSync(logPath)) {
+        const content = fs.readFileSync(logPath, "utf8");
+        res.type("text/plain").send(content);
+      } else {
+        res.send("No logs found in /tmp");
+      }
+    } catch (error) {
+      res.status(500).send("Error reading logs: " + error.message);
+    }
+  });
   app2.get("/api/bookings/verify-payment/:reference", async (req, res) => {
     try {
       const reference = req.params.reference;
@@ -1745,26 +1765,52 @@ function registerBookingRoutes(app2) {
     try {
       const { booking, customer, selectedDishes } = req.body;
       const bookingReference = `PCB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      const bookingWithDefaults = {
-        ...booking,
+      const {
+        serviceId,
+        packageId,
+        eventDate,
+        eventType,
+        eventTime,
+        guestCount,
+        venueAddress,
+        menuPreference,
+        serviceStyle,
+        additionalServices,
+        theme,
+        specialRequests,
+        totalPrice,
+        status,
+        paymentStatus,
+        paymentMethod,
+        paymentReference
+      } = booking;
+      const bookingToParse = {
+        serviceId,
+        packageId,
+        eventDate,
+        eventType,
+        eventTime: eventTime || "Fixed",
+        guestCount,
+        venueAddress,
+        menuPreference: menuPreference || "package",
+        serviceStyle: serviceStyle || "buffet",
+        additionalServices: additionalServices || "",
+        theme: theme || "",
+        specialRequests: specialRequests || "",
+        totalPrice: totalPrice || 0,
+        status: status || "pending_approval",
+        paymentStatus: paymentStatus || "pending",
+        paymentMethod: paymentMethod || null,
+        paymentReference: paymentReference || null,
         bookingReference,
-        customerId: 0,
-        totalPrice: booking.totalPrice || 0,
-        paymentStatus: booking.paymentStatus || "pending",
-        status: booking.status || "pending_approval",
-        additionalServices: booking.additionalServices || "",
-        specialRequests: booking.specialRequests || "",
-        paymentMethod: booking.paymentMethod || null,
-        paymentReference: booking.paymentReference || null,
-        menuPreference: booking.menuPreference || "package",
-        serviceStyle: booking.serviceStyle || "buffet"
+        customerId: 0
+        // Placeholder, will be updated in storage
       };
-      const customerWithDefaults = {
+      const bookingData = insertBookingSchema.parse(bookingToParse);
+      const customerData = insertCustomerSchema.parse({
         ...customer,
         company: customer.company || ""
-      };
-      const bookingData = insertBookingSchema.parse(bookingWithDefaults);
-      const customerData = insertCustomerSchema.parse(customerWithDefaults);
+      });
       const createdBooking = await storage.createBooking(bookingData, customerData, selectedDishes);
       try {
         await sendBookingConfirmation({
@@ -1781,9 +1827,20 @@ function registerBookingRoutes(app2) {
       res.status(201).json(createdBooking);
     } catch (error) {
       console.error("Booking creation error:", error);
+      try {
+        const logPath = "/tmp/booking_error.log";
+        fs.appendFileSync(logPath, `${(/* @__PURE__ */ new Date()).toISOString()} - ${error.message}
+${error.stack}
+${JSON.stringify(req.body)}
+
+`);
+      } catch (e) {
+      }
       res.status(400).json({
-        message: "Invalid booking data",
-        error: error instanceof Error ? error.message : "Unknown error"
+        message: error.message || "Invalid booking data",
+        error: error.message || "Unknown error",
+        details: error.errors || error
+        // For Zod errors
       });
     }
   });
@@ -2008,12 +2065,44 @@ var init_bookings = __esm({
 // server/routes/services.ts
 import multer from "multer";
 import path2 from "path";
-import fs from "fs";
+import fs2 from "fs";
 function registerServiceRoutes(app2) {
+  const uploadDir = path2.join(process.cwd(), "public", "uploads");
+  if (!fs2.existsSync(uploadDir)) {
+    fs2.mkdirSync(uploadDir, { recursive: true });
+  }
+  const storageMulter = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, file.fieldname + "-" + uniqueSuffix + path2.extname(file.originalname));
+    }
+  });
+  const upload = multer({
+    storage: storageMulter,
+    limits: { fileSize: 5 * 1024 * 1024 }
+  });
+  app2.post("/api/upload-image", isAuthenticated, upload.single("image"), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image uploaded" });
+      }
+      const imageUrl = `/uploads/${req.file.filename}`;
+      res.json({ url: imageUrl });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ message: "Error uploading image" });
+    }
+  });
   app2.get("/api/services", async (req, res) => {
     try {
-      const services2 = await storage.getServices();
-      res.json(services2);
+      const all = req.query.all === "true";
+      const servicesList = await storage.getServices();
+      if (all) {
+        res.json(servicesList);
+      } else {
+        res.json(servicesList.filter((s) => s.isActive));
+      }
     } catch (error) {
       res.status(500).json({ message: "Error fetching services" });
     }
@@ -2025,6 +2114,41 @@ function registerServiceRoutes(app2) {
       res.status(201).json(service);
     } catch (error) {
       res.status(400).json({ message: "Invalid service data" });
+    }
+  });
+  app2.put("/api/services/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { id: _, ...updateData } = req.body;
+      const serviceData = insertServiceSchema.partial().parse(updateData);
+      const service = await storage.updateService(id, serviceData);
+      if (!service) return res.status(404).json({ message: "Service not found" });
+      res.json(service);
+    } catch (error) {
+      console.error("PUT /api/services error:", error);
+      res.status(400).json({ message: "Invalid service data", error: error.message });
+    }
+  });
+  app2.delete("/api/services/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      try {
+        const success = await storage.deleteService(id);
+        if (!success) return res.status(404).json({ message: "Service not found" });
+        return res.status(200).send("Deleted");
+      } catch (dbError) {
+        console.log(`Hard delete failed for service ${id}, attempting deactivation instead.`);
+        const service = await storage.getService(id);
+        if (!service) return res.status(404).json({ message: "Service not found" });
+        await storage.updateService(id, { isActive: false });
+        return res.status(200).json({
+          message: "Service is being used by existing bookings, so it was deactivated instead of deleted to preserve history.",
+          deactivated: true
+        });
+      }
+    } catch (error) {
+      console.error("DELETE /api/services error:", error);
+      res.status(500).json({ message: "Error processing deletion request." });
     }
   });
   app2.get("/api/dishes", async (req, res) => {
@@ -2050,15 +2174,43 @@ function registerServiceRoutes(app2) {
       res.status(400).json({ message: "Invalid dish data" });
     }
   });
+  app2.put("/api/dishes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { id: _, ...updateData } = req.body;
+      const dishData = insertDishSchema.partial().parse(updateData);
+      const dish = await storage.updateDish(id, dishData);
+      if (!dish) return res.status(404).json({ message: "Dish not found" });
+      res.json(dish);
+    } catch (error) {
+      console.error("PUT /api/dishes error:", error);
+      res.status(400).json({ message: "Invalid dish data", error: error.message });
+    }
+  });
+  app2.delete("/api/dishes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteDish(id);
+      if (!success) return res.status(404).json({ message: "Dish not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      console.error("DELETE /api/dishes error:", error);
+      res.status(500).json({ message: "Error deleting dish." });
+    }
+  });
   app2.get("/api/service-packages", async (req, res) => {
     try {
-      const { serviceId } = req.query;
-      if (serviceId && typeof serviceId === "string") {
-        const packages = await storage.getServicePackagesByService(parseInt(serviceId));
+      const { serviceId, all } = req.query;
+      const includeInactive = all === "true";
+      const [servicesList, packages] = await Promise.all([
+        storage.getServices(),
+        serviceId && typeof serviceId === "string" ? storage.getServicePackagesByService(parseInt(serviceId)) : storage.getServicePackages()
+      ]);
+      if (includeInactive) {
         res.json(packages);
       } else {
-        const packages = await storage.getServicePackages();
-        res.json(packages);
+        const activeServiceIds = new Set(servicesList.filter((s) => s.isActive).map((s) => s.id));
+        res.json(packages.filter((p) => activeServiceIds.has(p.serviceId)));
       }
     } catch (error) {
       res.status(500).json({ message: "Error fetching service packages" });
@@ -2071,6 +2223,30 @@ function registerServiceRoutes(app2) {
       res.status(201).json(servicePackage);
     } catch (error) {
       res.status(400).json({ message: "Invalid service package data" });
+    }
+  });
+  app2.put("/api/service-packages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { id: _, ...updateData } = req.body;
+      const packageData = insertServicePackageSchema.partial().parse(updateData);
+      const servicePackage = await storage.updateServicePackage(id, packageData);
+      if (!servicePackage) return res.status(404).json({ message: "Package not found" });
+      res.json(servicePackage);
+    } catch (error) {
+      console.error("PUT /api/service-packages error:", error);
+      res.status(400).json({ message: "Invalid service package data", error: error.message });
+    }
+  });
+  app2.delete("/api/service-packages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteServicePackage(id);
+      if (!success) return res.status(404).json({ message: "Package not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      console.error("DELETE /api/service-packages error:", error);
+      res.status(500).json({ message: "Error deleting service package. It may be in use by bookings." });
     }
   });
   app2.get("/api/add-ons", async (req, res) => {
@@ -2096,19 +2272,29 @@ function registerServiceRoutes(app2) {
       res.status(400).json({ message: "Invalid add-on data" });
     }
   });
-  const uploadDir = path2.join(process.cwd(), "public", "uploads");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-  const upload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => cb(null, uploadDir),
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        cb(null, file.fieldname + "-" + uniqueSuffix + path2.extname(file.originalname));
-      }
-    }),
-    limits: { fileSize: 5 * 1024 * 1024 }
+  app2.put("/api/add-ons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { id: _, ...updateData } = req.body;
+      const addOnData = insertAddOnSchema.partial().parse(updateData);
+      const addOn = await storage.updateAddOn(id, addOnData);
+      if (!addOn) return res.status(404).json({ message: "Add-on not found" });
+      res.json(addOn);
+    } catch (error) {
+      console.error("PUT /api/add-ons error:", error);
+      res.status(400).json({ message: "Invalid add-on data", error: error.message });
+    }
+  });
+  app2.delete("/api/add-ons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteAddOn(id);
+      if (!success) return res.status(404).json({ message: "Add-on not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      console.error("DELETE /api/add-ons error:", error);
+      res.status(500).json({ message: "Error deleting add-on." });
+    }
   });
   app2.get("/api/gallery-images", async (req, res) => {
     try {
@@ -2141,6 +2327,48 @@ function registerServiceRoutes(app2) {
       res.status(201).json(uploadedImages);
     } catch (error) {
       res.status(400).json({ message: "Error uploading images" });
+    }
+  });
+  app2.put("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { id: _, ...updateData } = req.body;
+      const imageData = insertGalleryImageSchema.partial().parse(updateData);
+      const image = await storage.updateGalleryImage(id, imageData);
+      if (!image) return res.status(404).json({ message: "Image not found" });
+      res.json(image);
+    } catch (error) {
+      console.error("PUT /api/gallery-images error:", error);
+      res.status(400).json({ message: "Invalid image data", error: error.message });
+    }
+  });
+  app2.delete("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteGalleryImage(id);
+      if (!success) return res.status(404).json({ message: "Image not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      console.error("DELETE /api/gallery-images error:", error);
+      res.status(500).json({ message: "Error deleting image" });
+    }
+  });
+  app2.put("/api/gallery-images/:id/replace", isAuthenticated, upload.single("image"), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No image uploaded" });
+      const image = await storage.updateGalleryImage(id, {
+        filename: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size
+      });
+      if (!image) return res.status(404).json({ message: "Image not found" });
+      res.json(image);
+    } catch (error) {
+      console.error("PUT /api/gallery-images/replace error:", error);
+      res.status(500).json({ message: "Error replacing image" });
     }
   });
 }
@@ -2195,6 +2423,30 @@ function registerAdminRoutes(app2) {
       res.status(201).json(event);
     } catch (error) {
       res.status(400).json({ message: "Invalid event data" });
+    }
+  });
+  app2.put("/api/recent-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { id: _, ...updateData } = req.body;
+      const eventData = insertRecentEventSchema.partial().parse(updateData);
+      const event = await storage.updateRecentEvent(id, eventData);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      res.json(event);
+    } catch (error) {
+      console.error("PUT /api/recent-events error:", error);
+      res.status(400).json({ message: "Invalid event data", error: error.message });
+    }
+  });
+  app2.delete("/api/recent-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteRecentEvent(id);
+      if (!success) return res.status(404).json({ message: "Event not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      console.error("DELETE /api/recent-events error:", error);
+      res.status(500).json({ message: "Error deleting event" });
     }
   });
   app2.get("/api/paymongo/status", (req, res) => {
@@ -2374,7 +2626,7 @@ var init_routes2 = __esm({
 import "dotenv/config";
 import express from "express";
 import path3 from "path";
-import fs2 from "fs";
+import fs3 from "fs";
 
 // server/initDatabase.ts
 init_db();
@@ -2905,7 +3157,7 @@ async function startServer() {
     res.status(status).json({ message });
   });
   const distPath = path3.resolve(process.cwd(), "dist");
-  if (fs2.existsSync(distPath)) {
+  if (fs3.existsSync(distPath)) {
     app.use(express.static(distPath));
     app.use("*", (_req, res) => {
       res.sendFile(path3.resolve(distPath, "index.html"));
