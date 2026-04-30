@@ -180,6 +180,12 @@ export default function Sidebar({ collapsed, currentPage }: SidebarProps) {
           <i className="fas fa-sign-out-alt mr-3"></i>
           {!collapsed && <span>Logout</span>}
         </a>
+
+        {!collapsed && (
+          <div className="mt-auto p-4 text-xs text-white text-opacity-40 text-center">
+            Peter's Creation v1.2
+          </div>
+        )}
       </nav>
     </div>
   );

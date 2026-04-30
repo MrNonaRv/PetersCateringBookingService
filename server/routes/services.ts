@@ -13,6 +13,38 @@ import path from "path";
 import fs from "fs";
 
 export function registerServiceRoutes(app: Express) {
+  // Generic Image Upload for Services
+  const uploadDir = path.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const storageMulter = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+    }
+  });
+
+  const upload = multer({
+    storage: storageMulter,
+    limits: { fileSize: 5 * 1024 * 1024 }
+  });
+
+  app.post("/api/upload-image", isAuthenticated, upload.single('image'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image uploaded" });
+      }
+      const imageUrl = `/uploads/${req.file.filename}`;
+      res.json({ url: imageUrl });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ message: "Error uploading image" });
+    }
+  });
+
   // Services
   app.get("/api/services", async (req, res) => {
     try {
