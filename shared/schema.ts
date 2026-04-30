@@ -251,6 +251,7 @@ export const insertServiceSchema = createInsertSchema(services).pick({
   imageUrl: true,
   basePrice: true,
   featured: true,
+  isActive: true,
 });
 
 export const insertServicePackageSchema = createInsertSchema(servicePackages).omit({
