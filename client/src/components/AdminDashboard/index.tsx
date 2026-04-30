@@ -128,7 +128,7 @@ export default function AdminDashboard({ currentPage }: AdminDashboardProps) {
             currentPage === "bookings" ? "Booking Management" : 
             currentPage === "services" ? "Services Management" : 
             currentPage === "customers" ? "Customer Management" : 
-            "Admin Panel"
+            "Admin Panel v1.2"
           } 
         />
 
