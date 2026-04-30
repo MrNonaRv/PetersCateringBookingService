@@ -116,14 +116,15 @@ export function registerBookingRoutes(app: Express) {
   app.get("/api/debug/logs", async (req, res) => {
     try {
       const fs = require('fs');
-      if (fs.existsSync('booking_error.log')) {
-        const content = fs.readFileSync('booking_error.log', 'utf8');
+      const logPath = '/tmp/booking_error.log';
+      if (fs.existsSync(logPath)) {
+        const content = fs.readFileSync(logPath, 'utf8');
         res.type('text/plain').send(content);
       } else {
-        res.send("No logs found");
+        res.send("No logs found in /tmp");
       }
     } catch (error) {
-      res.status(500).send("Error reading logs");
+      res.status(500).send("Error reading logs: " + error.message);
     }
   });
 
@@ -230,15 +231,17 @@ export function registerBookingRoutes(app: Express) {
       res.status(201).json(createdBooking);
     } catch (error: any) {
       console.error("Booking creation error:", error);
-      // Log to file for diagnostics
+      // Log to file for diagnostics (use /tmp for Vercel)
       try {
         const fs = require('fs');
-        fs.appendFileSync('booking_error.log', `${new Date().toISOString()} - ${error.message}\n${error.stack}\n${JSON.stringify(req.body)}\n\n`);
+        const logPath = '/tmp/booking_error.log';
+        fs.appendFileSync(logPath, `${new Date().toISOString()} - ${error.message}\n${error.stack}\n${JSON.stringify(req.body)}\n\n`);
       } catch (e) {}
 
       res.status(400).json({ 
         message: "Invalid booking data",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error.message || "Unknown error",
+        details: error.errors || error // For Zod errors
       });
     }
   });
