@@ -1,4 +1,5 @@
 import { type Express, type Request, type Response } from "express";
+import fs from 'fs';
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth";
 import { insertBookingSchema, insertCustomerSchema } from "@shared/schema";
@@ -115,7 +116,6 @@ export function registerBookingRoutes(app: Express) {
   // Debug logs (Temporary)
   app.get("/api/debug/logs", async (req, res) => {
     try {
-      const fs = require('fs');
       const logPath = '/tmp/booking_error.log';
       if (fs.existsSync(logPath)) {
         const content = fs.readFileSync(logPath, 'utf8');
@@ -123,7 +123,7 @@ export function registerBookingRoutes(app: Express) {
       } else {
         res.send("No logs found in /tmp");
       }
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).send("Error reading logs: " + error.message);
     }
   });
@@ -233,7 +233,6 @@ export function registerBookingRoutes(app: Express) {
       console.error("Booking creation error:", error);
       // Log to file for diagnostics (use /tmp for Vercel)
       try {
-        const fs = require('fs');
         const logPath = '/tmp/booking_error.log';
         fs.appendFileSync(logPath, `${new Date().toISOString()} - ${error.message}\n${error.stack}\n${JSON.stringify(req.body)}\n\n`);
       } catch (e) {}
