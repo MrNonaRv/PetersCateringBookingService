@@ -232,8 +232,8 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           throw new Error(smsData.error || 'Failed to send SMS');
         }
 
-        // Only update status to approved after SMS succeeds
-        await apiRequest('PATCH', `/api/bookings/${selectedBooking.id}/status`, { status: 'approved' });
+        // Only update status to pending (Waiting for Deposit) after SMS succeeds
+        await apiRequest('PATCH', `/api/bookings/${selectedBooking.id}/status`, { status: 'pending' });
 
         toast({
           title: "Booking Approved",
@@ -355,7 +355,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
           {[
             { key: 'all', label: 'All' },
             { key: 'pending_approval', label: 'Pending Approval' },
-            { key: 'pending', label: 'Awaiting Deposit' },
+            { key: 'pending', label: 'Waiting for Deposit' },
             { key: 'deposit_paid', label: 'Deposit Paid' },
             { key: 'confirmed', label: 'Confirmed' },
             { key: 'completed', label: 'Completed' },
@@ -479,7 +479,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                     }>
                       {booking.status === 'deposit_paid' ? '✓ Deposit Paid' :
                        booking.status === 'pending_approval' ? 'Pending Approval' :
-                       booking.status === 'pending' ? 'Awaiting Deposit' :
+                       booking.status === 'pending' ? 'Waiting for Deposit' :
                        booking.status.charAt(0).toUpperCase() + booking.status.slice(1).replace(/_/g, ' ')}
                     </Badge>
                   </TableCell>
@@ -517,7 +517,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                       {booking.status === 'pending' && (
                         <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 flex items-center gap-1 px-2 py-1">
                           <Clock className="h-3 w-3" />
-                          Awaiting Deposit
+                          Waiting for Deposit
                         </Badge>
                       )}
 

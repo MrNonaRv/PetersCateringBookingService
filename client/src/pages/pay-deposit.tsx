@@ -300,10 +300,10 @@ export default function PayDeposit() {
                       <h3 className="text-sm font-semibold uppercase tracking-wider text-primary">Booking Reference</h3>
                       <p className="text-2xl font-mono font-bold text-gray-900 mt-1">{booking.bookingReference}</p>
                       <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mt-3 capitalize
-                        ${booking.status === 'approved' ? 'bg-blue-100 text-blue-800' : 
+                        ${booking.status === 'pending' || booking.status === 'approved' ? 'bg-blue-100 text-blue-800' : 
                           booking.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
                           booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {booking.status.replace('_', ' ')}
+                        {booking.status === 'pending' || booking.status === 'approved' ? 'Waiting for Deposit' : booking.status.replace('_', ' ')}
                       </div>
                     </div>
 

@@ -96,6 +96,7 @@ export default function BookingCalendar() {
   const getStatusBadge = (status: string) => {
     const statusStyles: Record<string, string> = {
       pending_approval: "bg-yellow-100 text-yellow-800",
+      pending: "bg-blue-100 text-blue-800",
       approved: "bg-blue-100 text-blue-800",
       deposit_paid: "bg-purple-100 text-purple-800",
       fully_paid: "bg-green-100 text-green-800",
@@ -103,9 +104,15 @@ export default function BookingCalendar() {
       completed: "bg-gray-100 text-gray-800",
       cancelled: "bg-red-100 text-red-800",
     };
+    
+    let label = status.replace(/_/g, ' ');
+    if (status === 'pending' || status === 'approved') {
+      label = "Waiting for Deposit";
+    }
+    
     return (
       <Badge className={statusStyles[status] || "bg-gray-100 text-gray-800"}>
-        {status.replace(/_/g, ' ')}
+        {label}
       </Badge>
     );
   };
