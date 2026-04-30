@@ -33,6 +33,29 @@ export function registerServiceRoutes(app: Express) {
     }
   });
 
+  app.put("/api/services/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const serviceData = insertServiceSchema.partial().parse(req.body);
+      const service = await storage.updateService(id, serviceData);
+      if (!service) return res.status(404).json({ message: "Service not found" });
+      res.json(service);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid service data" });
+    }
+  });
+
+  app.delete("/api/services/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteService(id);
+      if (!success) return res.status(404).json({ message: "Service not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting service" });
+    }
+  });
+
   // Dishes
   app.get("/api/dishes", async (req, res) => {
     try {
@@ -56,6 +79,29 @@ export function registerServiceRoutes(app: Express) {
       res.status(201).json(dish);
     } catch (error) {
       res.status(400).json({ message: "Invalid dish data" });
+    }
+  });
+
+  app.put("/api/dishes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const dishData = insertDishSchema.partial().parse(req.body);
+      const dish = await storage.updateDish(id, dishData);
+      if (!dish) return res.status(404).json({ message: "Dish not found" });
+      res.json(dish);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid dish data" });
+    }
+  });
+
+  app.delete("/api/dishes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteDish(id);
+      if (!success) return res.status(404).json({ message: "Dish not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting dish" });
     }
   });
 
@@ -85,6 +131,29 @@ export function registerServiceRoutes(app: Express) {
     }
   });
 
+  app.put("/api/service-packages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const packageData = insertServicePackageSchema.partial().parse(req.body);
+      const servicePackage = await storage.updateServicePackage(id, packageData);
+      if (!servicePackage) return res.status(404).json({ message: "Package not found" });
+      res.json(servicePackage);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid service package data" });
+    }
+  });
+
+  app.delete("/api/service-packages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteServicePackage(id);
+      if (!success) return res.status(404).json({ message: "Package not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting service package" });
+    }
+  });
+
   // Add-ons
   app.get("/api/add-ons", async (req, res) => {
     try {
@@ -108,6 +177,29 @@ export function registerServiceRoutes(app: Express) {
       res.status(201).json(addOn);
     } catch (error) {
       res.status(400).json({ message: "Invalid add-on data" });
+    }
+  });
+
+  app.put("/api/add-ons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const addOnData = insertAddOnSchema.partial().parse(req.body);
+      const addOn = await storage.updateAddOn(id, addOnData);
+      if (!addOn) return res.status(404).json({ message: "Add-on not found" });
+      res.json(addOn);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid add-on data" });
+    }
+  });
+
+  app.delete("/api/add-ons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteAddOn(id);
+      if (!success) return res.status(404).json({ message: "Add-on not found" });
+      res.status(200).send("Deleted");
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting add-on" });
     }
   });
 
