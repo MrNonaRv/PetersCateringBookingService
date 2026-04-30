@@ -1492,7 +1492,7 @@ async function sendBookingConfirmation(params) {
   const message = `Hi ${params.customerName}! Your catering request ${params.bookingReference} for ${params.eventType} on ${params.eventDate} has been received. We will call you shortly. - Peters Creation Catering`;
   return sendSMS(params.customerPhone, message);
 }
-async function sendBookingApproved2(params) {
+async function sendBookingApproved(params) {
   let message = `Hi ${params.customerName}, booking ${params.bookingReference} is APPROVED. To pay the deposit, please visit our website and enter code: ${params.bookingReference}. - Peters Catering`;
   return sendSMS(params.customerPhone, message);
 }
@@ -1500,9 +1500,16 @@ async function sendDepositReceived(params) {
   const message = `Hi ${params.customerName}, update received for ${params.bookingReference}. Your date is secured. - Peters Catering`;
   return sendSMS(params.customerPhone, message);
 }
+async function sendPaymentReminder(params) {
+  const message = `Hi ${params.customerName}, upcoming event on ${params.eventDate}. Ref: ${params.bookingReference}. See you soon! - Peters Catering`;
+  return sendSMS(params.customerPhone, message);
+}
 async function sendBookingCancelled(params) {
   const message = `Hi ${params.customerName}, your reservation ${params.bookingReference} has been cancelled. Please contact us if you have questions or want to rebook. - Peters Creation Catering`;
   return sendSMS(params.customerPhone, message);
+}
+async function sendCustomMessage(params) {
+  return sendSMS(params.customerPhone, params.message);
 }
 var IPROGSMS_API_TOKEN, IPROGSMS_API_URL, IPROGSMS_SENDER_NAME;
 var init_sms = __esm({
@@ -1826,7 +1833,7 @@ function registerBookingRoutes(app2) {
           }
         }, 24 * 60 * 60 * 1e3);
         autoCancelTimers.set(id, t);
-        await sendBookingApproved2({
+        await sendBookingApproved({
           customerPhone: booking.customer.phone || "",
           customerName: booking.customer.name,
           bookingReference: booking.bookingReference,

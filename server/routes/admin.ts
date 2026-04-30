@@ -12,7 +12,12 @@ import {
   createCheckoutSession, 
   getCheckoutSession 
 } from "../paymongo";
-import { isSMSConfigured } from "../sms";
+import { 
+  isSMSConfigured,
+  sendBookingApproved,
+  sendPaymentReminder,
+  sendCustomMessage
+} from "../sms";
 
 export function registerAdminRoutes(app: Express) {
   // Availability
