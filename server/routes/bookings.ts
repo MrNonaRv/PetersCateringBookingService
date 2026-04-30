@@ -112,6 +112,21 @@ export function registerBookingRoutes(app: Express) {
     }
   });
 
+  // Debug logs (Temporary)
+  app.get("/api/debug/logs", async (req, res) => {
+    try {
+      const fs = require('fs');
+      if (fs.existsSync('booking_error.log')) {
+        const content = fs.readFileSync('booking_error.log', 'utf8');
+        res.type('text/plain').send(content);
+      } else {
+        res.send("No logs found");
+      }
+    } catch (error) {
+      res.status(500).send("Error reading logs");
+    }
+  });
+
   // Verify payment status (Used on redirect back from payment gateway)
   app.get("/api/bookings/verify-payment/:reference", async (req, res) => {
     try {
