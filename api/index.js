@@ -1461,10 +1461,11 @@ async function sendSMS(to, message) {
         api_token: IPROGSMS_API_TOKEN,
         phone_number: formattedNumber,
         message,
-        sender_name: IPROGSMS_SENDER_NAME || DEFAULT_SENDER_NAME
+        sender_name: IPROGSMS_SENDER_NAME
       })
     });
     const data = await response.json();
+    console.log("iProgSMS response:", data);
     if (data.status === 200) {
       console.log("SMS sent successfully:", data.message_id);
       return { success: true, messageId: data.message_id };
@@ -1480,9 +1481,7 @@ async function sendSMS(to, message) {
 }
 function formatPhoneNumber(phone) {
   let cleaned = phone.replace(/\D/g, "");
-  if (cleaned.startsWith("+63")) {
-    cleaned = "0" + cleaned.substring(3);
-  } else if (cleaned.startsWith("63") && cleaned.length === 12) {
+  if (cleaned.startsWith("63") && cleaned.length === 12) {
     cleaned = "0" + cleaned.substring(2);
   } else if (cleaned.startsWith("9") && cleaned.length === 10) {
     cleaned = "0" + cleaned;
@@ -1493,7 +1492,7 @@ async function sendBookingConfirmation(params) {
   const message = `Hi ${params.customerName}! Your catering request ${params.bookingReference} for ${params.eventType} on ${params.eventDate} has been received. We will call you shortly. - Peters Creation Catering`;
   return sendSMS(params.customerPhone, message);
 }
-async function sendBookingApproved(params) {
+async function sendBookingApproved2(params) {
   let message = `Hi ${params.customerName}, booking ${params.bookingReference} is APPROVED. To pay the deposit, please visit our website and enter code: ${params.bookingReference}. - Peters Catering`;
   return sendSMS(params.customerPhone, message);
 }
@@ -1505,14 +1504,13 @@ async function sendBookingCancelled(params) {
   const message = `Hi ${params.customerName}, your reservation ${params.bookingReference} has been cancelled. Please contact us if you have questions or want to rebook. - Peters Creation Catering`;
   return sendSMS(params.customerPhone, message);
 }
-var IPROGSMS_API_TOKEN, IPROGSMS_API_URL, IPROGSMS_SENDER_NAME, DEFAULT_SENDER_NAME;
+var IPROGSMS_API_TOKEN, IPROGSMS_API_URL, IPROGSMS_SENDER_NAME;
 var init_sms = __esm({
   "server/sms.ts"() {
     "use strict";
     IPROGSMS_API_TOKEN = process.env.IPROGSMS_API_TOKEN;
     IPROGSMS_API_URL = "https://www.iprogsms.com/api/v1/sms_messages";
-    IPROGSMS_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME;
-    DEFAULT_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME;
+    IPROGSMS_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME || "IPROGSMS";
   }
 });
 
@@ -1828,7 +1826,7 @@ function registerBookingRoutes(app2) {
           }
         }, 24 * 60 * 60 * 1e3);
         autoCancelTimers.set(id, t);
-        await sendBookingApproved({
+        await sendBookingApproved2({
           customerPhone: booking.customer.phone || "",
           customerName: booking.customer.name,
           bookingReference: booking.bookingReference,
@@ -2259,6 +2257,50 @@ function registerAdminRoutes(app2) {
   });
   app2.get("/api/sms/status", (req, res) => {
     res.json({ configured: isSMSConfigured() });
+  });
+  app2.post("/api/sms/booking-approved", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId, customerPhone, customerName, bookingReference, depositAmount } = req.body;
+      const result = await sendBookingApproved({
+        customerPhone,
+        customerName,
+        bookingReference,
+        depositAmount
+      });
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  app2.post("/api/sms/payment-reminder", isAuthenticated, async (req, res) => {
+    try {
+      const { customerPhone, customerName, bookingReference, balanceAmount, eventDate, daysUntilEvent } = req.body;
+      const result = await sendPaymentReminder({
+        customerPhone,
+        customerName,
+        bookingReference,
+        balanceAmount,
+        eventDate,
+        daysUntilEvent
+      });
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  app2.post("/api/sms/custom", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId, message } = req.body;
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const result = await sendCustomMessage({
+        customerPhone: booking.customer.phone || "",
+        message
+      });
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
   app2.get("/api/payment-settings", isAuthenticated, async (req, res) => {
     try {

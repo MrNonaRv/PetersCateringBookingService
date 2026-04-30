@@ -1,7 +1,6 @@
 const IPROGSMS_API_TOKEN = process.env.IPROGSMS_API_TOKEN;
 const IPROGSMS_API_URL = 'https://www.iprogsms.com/api/v1/sms_messages';
-const IPROGSMS_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME;
-const DEFAULT_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME;
+const IPROGSMS_SENDER_NAME = process.env.IPROGSMS_SENDER_NAME || 'IPROGSMS';
 
 export function isSMSConfigured(): boolean {
   return !!IPROGSMS_API_TOKEN;
@@ -33,11 +32,12 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
         api_token: IPROGSMS_API_TOKEN,
         phone_number: formattedNumber,
         message: message,
-        sender_name: IPROGSMS_SENDER_NAME || DEFAULT_SENDER_NAME,
+        sender_name: IPROGSMS_SENDER_NAME,
       }),
     });
 
     const data = await response.json();
+    console.log('iProgSMS response:', data);
 
     if (data.status === 200) {
       console.log('SMS sent successfully:', data.message_id);
@@ -54,16 +54,19 @@ export async function sendSMS(to: string, message: string): Promise<SMSResult> {
 }
 
 function formatPhoneNumber(phone: string): string {
+  // First, keep the + if it exists to check the prefix, but actually the cleaned version is easier
   let cleaned = phone.replace(/\D/g, '');
 
-  if (cleaned.startsWith('+63')) {
-    cleaned = '0' + cleaned.substring(3);
-  } else if (cleaned.startsWith('63') && cleaned.length === 12) {
+  // If it starts with 63, replace with 0
+  if (cleaned.startsWith('63') && (cleaned.length === 12)) {
     cleaned = '0' + cleaned.substring(2);
-  } else if (cleaned.startsWith('9') && cleaned.length === 10) {
+  } 
+  // If it starts with 9 and has 10 digits, add 0
+  else if (cleaned.startsWith('9') && cleaned.length === 10) {
     cleaned = '0' + cleaned;
   }
-
+  // If it's already 09..., it's correct
+  
   return cleaned;
 }
 

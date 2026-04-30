@@ -145,6 +145,57 @@ export function registerAdminRoutes(app: Express) {
     res.json({ configured: isSMSConfigured() });
   });
 
+  // Send Booking Approved SMS
+  app.post("/api/sms/booking-approved", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId, customerPhone, customerName, bookingReference, depositAmount } = req.body;
+      const result = await sendBookingApproved({
+        customerPhone,
+        customerName,
+        bookingReference,
+        depositAmount
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Send Payment Reminder SMS
+  app.post("/api/sms/payment-reminder", isAuthenticated, async (req, res) => {
+    try {
+      const { customerPhone, customerName, bookingReference, balanceAmount, eventDate, daysUntilEvent } = req.body;
+      const result = await sendPaymentReminder({
+        customerPhone,
+        customerName,
+        bookingReference,
+        balanceAmount,
+        eventDate,
+        daysUntilEvent
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Send Custom SMS
+  app.post("/api/sms/custom", isAuthenticated, async (req, res) => {
+    try {
+      const { bookingId, message } = req.body;
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+      const result = await sendCustomMessage({
+        customerPhone: booking.customer.phone || "",
+        message
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Payment Settings
   app.get("/api/payment-settings", isAuthenticated, async (req, res) => {
     try {
