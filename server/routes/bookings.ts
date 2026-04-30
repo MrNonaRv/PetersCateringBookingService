@@ -213,8 +213,14 @@ export function registerBookingRoutes(app: Express) {
       }
 
       res.status(201).json(createdBooking);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Booking creation error:", error);
+      // Log to file for diagnostics
+      try {
+        const fs = require('fs');
+        fs.appendFileSync('booking_error.log', `${new Date().toISOString()} - ${error.message}\n${error.stack}\n${JSON.stringify(req.body)}\n\n`);
+      } catch (e) {}
+
       res.status(400).json({ 
         message: "Invalid booking data",
         error: error instanceof Error ? error.message : "Unknown error"

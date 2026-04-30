@@ -396,7 +396,7 @@ export default function BookingModal({
       const selectedVenue = venues.find((v) => v.id === data.venueId);
 
       let totalPrice = selectedPackage
-        ? selectedPackage.pricePerPerson
+        ? (selectedPackage.pricePerPerson * data.guestCount)
         : (currentSelectedService?.basePrice || 0) * data.guestCount;
 
       if (selectedVenue) {
@@ -716,7 +716,7 @@ export default function BookingModal({
     const selectedVenue = venues.find((v) => v.id === form.getValues("venueId"));
 
     let totalPriceCalc = selectedPackage
-      ? selectedPackage.pricePerPerson
+      ? (selectedPackage.pricePerPerson * guestCount)
       : (selectedService?.basePrice || 0) * guestCount;
 
     if (selectedVenue) {
