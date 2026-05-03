@@ -438,6 +438,55 @@ export function registerBookingRoutes(app: Express) {
     }
   });
 
+  // Public endpoint for customer to lookup their quote
+  app.get("/api/custom-quotes/reference/:reference", async (req, res) => {
+    try {
+      const reference = req.params.reference;
+      const quote = await storage.getCustomQuoteByReference(reference);
+      if (!quote) return res.status(404).json({ message: "Quote not found" });
+      
+      // Return a safe subset of the quote data to the public
+      res.json({
+        id: quote.id,
+        quoteReference: quote.quoteReference,
+        eventDate: quote.eventDate,
+        eventType: quote.eventType,
+        guestCount: quote.guestCount,
+        venueAddress: quote.venueAddress,
+        status: quote.status,
+        proposedPrice: quote.proposedPrice,
+        adminNotes: quote.adminNotes,
+        createdAt: quote.createdAt
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching quote" });
+    }
+  });
+
+  // Public endpoint for customer to accept/reject a quote
+  app.patch("/api/custom-quotes/reference/:reference/respond", async (req, res) => {
+    try {
+      const reference = req.params.reference;
+      const { status } = req.body;
+      
+      if (!['accepted', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid response status" });
+      }
+
+      const quote = await storage.getCustomQuoteByReference(reference);
+      if (!quote) return res.status(404).json({ message: "Quote not found" });
+
+      if (quote.status !== 'quoted') {
+        return res.status(400).json({ message: "This quote cannot be responded to at this time." });
+      }
+
+      const updatedQuote = await storage.updateCustomQuoteStatus(quote.id, status, {});
+      res.json({ success: true, status: updatedQuote?.status });
+    } catch (error) {
+      res.status(500).json({ message: "Error responding to quote" });
+    }
+  });
+
   // Webhook endpoint for Paymongo payment notifications
   app.post("/api/paymongo/webhook", async (req, res) => {
     try {

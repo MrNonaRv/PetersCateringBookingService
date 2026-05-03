@@ -33,6 +33,7 @@ export default function Navigation({ onBookNow }: NavigationProps) {
             <a href="/#about" className="hover:text-secondary transition">About</a>
             <a href="/#gallery" className="hover:text-secondary transition">Gallery</a>
             <a href="/#contact" className="hover:text-secondary transition">Contact</a>
+            <a href="/quote-status" className="hover:text-secondary transition font-medium text-primary">Quote Status</a>
             <a href="/pay-deposit" className="hover:text-secondary transition font-medium text-primary">Pay Deposit</a>
           </div>
           <div>
@@ -83,6 +84,13 @@ export default function Navigation({ onBookNow }: NavigationProps) {
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Contact
+              </a>
+              <a 
+                href="/quote-status" 
+                className="hover:text-secondary transition font-medium text-primary"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Quote Status
               </a>
               <a 
                 href="/pay-deposit" 
