@@ -29,7 +29,7 @@ export function registerServiceRoutes(app: Express) {
 
   const upload = multer({
     storage: storageMulter,
-    limits: { fileSize: 5 * 1024 * 1024 }
+    limits: { fileSize: 10 * 1024 * 1024 } // Increased to 10MB
   });
 
   app.post("/api/upload-image", isAuthenticated, upload.single('image'), (req, res) => {
@@ -316,8 +316,12 @@ export function registerServiceRoutes(app: Express) {
         uploadedImages.push(image);
       }
       res.status(201).json(uploadedImages);
-    } catch (error) {
-      res.status(400).json({ message: "Error uploading images" });
+    } catch (error: any) {
+      console.error("Gallery Upload Error:", error);
+      res.status(400).json({ 
+        message: "Error uploading images", 
+        error: error.message || "Unknown error" 
+      });
     }
   });
 

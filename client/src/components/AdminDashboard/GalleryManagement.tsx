@@ -79,7 +79,10 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
         credentials: 'include',
         body: formData,
       });
-      if (!res.ok) throw new Error('Failed to upload images');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Failed to upload images');
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -91,10 +94,10 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
       setIsUploadDialogOpen(false);
       resetUploadForm();
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to upload images. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to upload images. Please try again.",
         variant: "destructive",
       });
     },
@@ -205,7 +208,10 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
         body: fd,
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to replace image");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Failed to replace image');
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -215,10 +221,10 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
         description: "The image file has been updated.",
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to replace the image. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to replace image. Please try again.",
         variant: "destructive",
       });
     },
