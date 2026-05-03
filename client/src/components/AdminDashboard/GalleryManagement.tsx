@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { compressImage } from "@/lib/image-utils";
 import { Upload, Edit, Trash2, Image as ImageIcon, Eye, Check, X } from "lucide-react";
 
 interface GalleryImage {
@@ -159,7 +160,7 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     const files = fileInputRef.current?.files;
     if (!files || files.length === 0) {
       toast({
@@ -170,15 +171,29 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
       return;
     }
 
-    const formData = new FormData();
-    Array.from(files).forEach(file => {
-      formData.append('images', file);
-    });
-    formData.append('title', uploadForm.title);
-    formData.append('description', uploadForm.description);
-    formData.append('category', uploadForm.category);
+    try {
+      const formData = new FormData();
+      
+      // Compress all files before appending
+      for (const file of Array.from(files)) {
+        const compressedBlob = await compressImage(file);
+        const compressedFile = new File([compressedBlob], file.name, { type: 'image/jpeg' });
+        formData.append('images', compressedFile);
+      }
+      
+      formData.append('title', uploadForm.title);
+      formData.append('description', uploadForm.description);
+      formData.append('category', uploadForm.category);
 
-    uploadMutation.mutate(formData);
+      uploadMutation.mutate(formData);
+    } catch (error) {
+      console.error("Compression error:", error);
+      toast({
+        title: "Compression failed",
+        description: "Failed to process images for upload.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditImage = (image: GalleryImage) => {

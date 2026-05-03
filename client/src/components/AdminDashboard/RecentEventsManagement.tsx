@@ -28,6 +28,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { compressImage } from "@/lib/image-utils";
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  Calendar, 
+  MapPin, 
+  Users, 
+  Edit, 
+  Trash2, 
+  ChevronRight,
+  MoreVertical,
+  Star,
+  Clock,
+  Settings,
+  ArrowRight
+} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -35,7 +52,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Calendar, MapPin, Users } from "lucide-react";
 
 const formSchema = insertRecentEventSchema.extend({
   eventDate: z.string(),
@@ -337,8 +353,13 @@ export function RecentEventsManagement() {
                               if (!file) return;
                               try {
                                 setUploadingImage(true);
+                                
+                                // Compress image before uploading
+                                const compressedBlob = await compressImage(file);
+                                const compressedFile = new File([compressedBlob], file.name, { type: 'image/jpeg' });
+                                
                                 const fd = new FormData();
-                                fd.append("image", file);
+                                fd.append("image", compressedFile);
                                 const res = await fetch("/api/upload-image", {
                                   method: "POST",
                                   body: fd,

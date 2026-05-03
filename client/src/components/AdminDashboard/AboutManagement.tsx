@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { compressImage } from "@/lib/image-utils";
 
 export default function AboutManagement() {
   const { toast } = useToast();
@@ -20,8 +21,12 @@ export default function AboutManagement() {
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
+      // Compress image before uploading
+      const compressedBlob = await compressImage(file);
+      const compressedFile = new File([compressedBlob], file.name, { type: 'image/jpeg' });
+      
       const fd = new FormData();
-      fd.append("images", file);
+      fd.append("images", compressedFile);
       fd.append("title", "About Image");
       fd.append("description", "About section image");
       fd.append("category", "about");

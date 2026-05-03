@@ -314,7 +314,8 @@ var init_schema = __esm({
       description: true,
       imageUrl: true,
       basePrice: true,
-      featured: true
+      featured: true,
+      isActive: true
     });
     insertServicePackageSchema = createInsertSchema(servicePackages).omit({
       id: true
@@ -919,7 +920,7 @@ var init_memory = __esm({
           email: "admin@peterscreation.com",
           phone: null
         });
-        const weddingService = { id: 2, name: "Wedding Receptions", description: "Complete wedding catering", imageUrl: "https://images.unsplash.com/photo-1519225421980-715cb0215aed", basePrice: 15e4, featured: true };
+        const weddingService = { id: 2, name: "Wedding Receptions", description: "Complete wedding catering", imageUrl: "https://images.unsplash.com/photo-1519225421980-715cb0215aed", basePrice: 15e4, featured: true, isActive: true };
         this.services.set(2, weddingService);
         this.servicePackages.set(1, { id: 1, serviceId: 2, name: "Gold Package", description: "Premium wedding package", pricePerPerson: 1500, minGuests: 50, maxGuests: 500, features: ["Full decor", "5 Main dishes"], hasThemedCake: true, isActive: true, sortOrder: 1 });
         this.dishes.set(1, { id: 1, name: "Lechon", description: "Roasted pig", category: "main", tags: ["popular"], imageUrl: "", additionalCost: 0, isAvailable: true, sortOrder: 1 });
@@ -936,14 +937,14 @@ var init_memory = __esm({
       }
       async createUser(insertUser) {
         const id = this.currentId++;
-        const user = { ...insertUser, id, phone: insertUser.phone || null };
+        const user = { ...insertUser, id, phone: insertUser.phone || null, role: insertUser.role || "customer" };
         this.users.set(id, user);
         return user;
       }
       async updateUser(id, userUpdate) {
         const user = this.users.get(id);
         if (!user) return void 0;
-        const updated = { ...user, ...userUpdate };
+        const updated = { ...user, ...userUpdate, role: userUpdate.role || user.role };
         this.users.set(id, updated);
         return updated;
       }
@@ -955,14 +956,14 @@ var init_memory = __esm({
       }
       async createService(s) {
         const id = this.currentId++;
-        const service = { ...s, id };
+        const service = { ...s, id, featured: s.featured ?? false, isActive: s.isActive ?? true };
         this.services.set(id, service);
         return service;
       }
       async updateService(id, s) {
         const service = this.services.get(id);
         if (!service) return void 0;
-        const updated = { ...service, ...s };
+        const updated = { ...service, ...s, featured: s.featured ?? service.featured, isActive: s.isActive ?? service.isActive };
         this.services.set(id, updated);
         return updated;
       }
@@ -980,14 +981,23 @@ var init_memory = __esm({
       }
       async createServicePackage(p) {
         const id = this.currentId++;
-        const pkg = { ...p, id, maxGuests: p.maxGuests || null, features: p.features || null, sortOrder: p.sortOrder || 0, hasThemedCake: p.hasThemedCake || false, isActive: p.isActive ?? true };
+        const pkg = {
+          ...p,
+          id,
+          minGuests: p.minGuests ?? 0,
+          maxGuests: p.maxGuests || null,
+          features: p.features || null,
+          sortOrder: p.sortOrder || 0,
+          hasThemedCake: p.hasThemedCake || false,
+          isActive: p.isActive ?? true
+        };
         this.servicePackages.set(id, pkg);
         return pkg;
       }
       async updateServicePackage(id, p) {
         const pkg = this.servicePackages.get(id);
         if (!pkg) return void 0;
-        const updated = { ...pkg, ...p };
+        const updated = { ...pkg, ...p, minGuests: p.minGuests ?? pkg.minGuests };
         this.servicePackages.set(id, updated);
         return updated;
       }
@@ -1096,14 +1106,25 @@ var init_memory = __esm({
       }
       async createRecentEvent(e) {
         const id = this.currentId++;
-        const event = { ...e, id, createdAt: /* @__PURE__ */ new Date(), highlights: e.highlights || null, featured: e.featured || false };
+        const event = {
+          ...e,
+          id,
+          createdAt: /* @__PURE__ */ new Date(),
+          highlights: e.highlights || [],
+          featured: e.featured ?? false
+        };
         this.recentEvents.set(id, event);
         return event;
       }
       async updateRecentEvent(id, e) {
         const event = this.recentEvents.get(id);
         if (!event) return void 0;
-        const updated = { ...event, ...e };
+        const updated = {
+          ...event,
+          ...e,
+          highlights: e.highlights || event.highlights,
+          featured: e.featured ?? event.featured
+        };
         this.recentEvents.set(id, updated);
         return updated;
       }
@@ -1121,7 +1142,14 @@ var init_memory = __esm({
       }
       async createGalleryImage(i) {
         const id = this.currentId++;
-        const img = { ...i, id, createdAt: /* @__PURE__ */ new Date(), description: i.description || null, category: i.category || "general", isActive: i.isActive ?? true };
+        const img = {
+          ...i,
+          id,
+          createdAt: /* @__PURE__ */ new Date(),
+          description: i.description || null,
+          category: i.category || "general",
+          isActive: i.isActive ?? true
+        };
         this.galleryImages.set(id, img);
         return img;
       }
@@ -1165,7 +1193,16 @@ var init_memory = __esm({
       }
       async createDish(d) {
         const id = this.currentId++;
-        const dish = { ...d, id, description: d.description || null, tags: d.tags || null, imageUrl: d.imageUrl || null, additionalCost: d.additionalCost || 0, isAvailable: d.isAvailable ?? true, sortOrder: d.sortOrder || 0 };
+        const dish = {
+          ...d,
+          id,
+          description: d.description || null,
+          tags: d.tags || [],
+          imageUrl: d.imageUrl || null,
+          additionalCost: d.additionalCost ?? 0,
+          isAvailable: d.isAvailable ?? true,
+          sortOrder: d.sortOrder ?? 0
+        };
         this.dishes.set(id, dish);
         return dish;
       }
@@ -1190,7 +1227,15 @@ var init_memory = __esm({
       }
       async createAddOn(a) {
         const id = this.currentId++;
-        const addOn = { ...a, id, description: a.description || null, minQuantity: a.minQuantity || 1, maxQuantity: a.maxQuantity || null, isAvailable: a.isAvailable ?? true, priceType: a.priceType || "fixed" };
+        const addOn = {
+          ...a,
+          id,
+          description: a.description || null,
+          minQuantity: a.minQuantity ?? 1,
+          maxQuantity: a.maxQuantity || null,
+          isAvailable: a.isAvailable ?? true,
+          priceType: a.priceType || "fixed"
+        };
         this.addOns.set(id, addOn);
         return addOn;
       }
@@ -1212,7 +1257,16 @@ var init_memory = __esm({
       }
       async createVenue(v) {
         const id = this.currentId++;
-        const venue = { ...v, id, description: v.description || null, capacityMin: v.capacityMin || 0, capacityMax: v.capacityMax || null, imageUrl: v.imageUrl || null, isAvailable: v.isAvailable ?? true, type: v.type || "venue" };
+        const venue = {
+          ...v,
+          id,
+          description: v.description || null,
+          capacityMin: v.capacityMin ?? 0,
+          capacityMax: v.capacityMax || null,
+          imageUrl: v.imageUrl || null,
+          isAvailable: v.isAvailable ?? true,
+          type: v.type || "venue"
+        };
         this.venues.set(id, venue);
         return venue;
       }
@@ -1739,17 +1793,24 @@ function registerBookingRoutes(app2) {
         paymentStatus: "deposit_paid",
         status: "deposit_paid"
       });
+      if (!updatedBooking) {
+        throw new Error("Failed to update booking payment status");
+      }
+      const fullBooking = await storage.getBooking(updatedBooking.id);
+      if (!fullBooking) {
+        throw new Error("Failed to fetch full booking details");
+      }
       if (autoCancelTimers.has(booking.id)) {
         clearTimeout(autoCancelTimers.get(booking.id));
         autoCancelTimers.delete(booking.id);
       }
       try {
         await sendDepositReceived({
-          customerPhone: updatedBooking.customer.phone || "",
-          customerName: updatedBooking.customer.name,
-          bookingReference: updatedBooking.bookingReference,
-          amountPaid: updatedBooking.depositAmount || 0,
-          remainingBalance: (updatedBooking.totalPrice || 0) - (updatedBooking.depositAmount || 0)
+          customerPhone: fullBooking.customer.phone || "",
+          customerName: fullBooking.customer.name,
+          bookingReference: fullBooking.bookingReference,
+          amountPaid: fullBooking.depositAmount || 0,
+          remainingBalance: (fullBooking.totalPrice || 0) - (fullBooking.depositAmount || 0)
         });
       } catch (smsError) {
         console.warn("SMS deposit notification failed:", smsError);
@@ -1929,7 +1990,7 @@ ${JSON.stringify(req.body)}
         return res.status(404).json({ message: "Booking not found" });
       }
       const updatedBooking = await storage.updateBooking(id, {
-        eventDate: new Date(eventDate),
+        eventDate: new Date(eventDate).toISOString().split("T")[0],
         eventTime
       });
       res.json(updatedBooking);
@@ -2071,23 +2132,18 @@ function registerServiceRoutes(app2) {
   if (!fs2.existsSync(uploadDir)) {
     fs2.mkdirSync(uploadDir, { recursive: true });
   }
-  const storageMulter = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, file.fieldname + "-" + uniqueSuffix + path2.extname(file.originalname));
-    }
-  });
   const upload = multer({
-    storage: storageMulter,
-    limits: { fileSize: 5 * 1024 * 1024 }
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }
+    // Increased to 10MB
   });
   app2.post("/api/upload-image", isAuthenticated, upload.single("image"), (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No image uploaded" });
       }
-      const imageUrl = `/uploads/${req.file.filename}`;
+      const base64 = req.file.buffer.toString("base64");
+      const imageUrl = `data:${req.file.mimetype};base64,${base64}`;
       res.json({ url: imageUrl });
     } catch (error) {
       console.error("Upload error:", error);
@@ -2315,7 +2371,7 @@ function registerServiceRoutes(app2) {
         const image = await storage.createGalleryImage({
           title: title || file.originalname,
           description: description || "",
-          filename: file.filename,
+          filename: `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
           originalName: file.originalname,
           mimeType: file.mimetype,
           size: file.size,
@@ -2326,7 +2382,11 @@ function registerServiceRoutes(app2) {
       }
       res.status(201).json(uploadedImages);
     } catch (error) {
-      res.status(400).json({ message: "Error uploading images" });
+      console.error("Gallery Upload Error:", error);
+      res.status(400).json({
+        message: "Error uploading images",
+        error: error.message || "Unknown error"
+      });
     }
   });
   app2.put("/api/gallery-images/:id", isAuthenticated, async (req, res) => {
@@ -2359,7 +2419,7 @@ function registerServiceRoutes(app2) {
       const file = req.file;
       if (!file) return res.status(400).json({ message: "No image uploaded" });
       const image = await storage.updateGalleryImage(id, {
-        filename: file.filename,
+        filename: `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size
@@ -3080,8 +3140,8 @@ function log(message, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 var app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: false }));
 app.use(async (req, res, next) => {
   try {
     await serverPromise;
