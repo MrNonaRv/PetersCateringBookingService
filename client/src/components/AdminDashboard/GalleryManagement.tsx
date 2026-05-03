@@ -57,6 +57,7 @@ export default function GalleryManagement({ onSelectImage, selectedImages = [], 
   };
 
   const getImageUrl = (filename: string) => {
+    if (filename.startsWith('data:') || filename.startsWith('http')) return filename;
     return `/uploads/${filename}`;
   };
 

@@ -33,7 +33,9 @@ export default function ImagePicker({ value, onChange, onImageSelect, label = "I
   const [urlInput, setUrlInput] = useState(value || "");
 
   const handleImageSelect = (image: GalleryImage) => {
-    const imageUrl = `/uploads/${image.filename}`;
+    const imageUrl = image.filename.startsWith('data:') || image.filename.startsWith('http')
+      ? image.filename
+      : `/uploads/${image.filename}`;
     
     if (onChange) {
       onChange(imageUrl);

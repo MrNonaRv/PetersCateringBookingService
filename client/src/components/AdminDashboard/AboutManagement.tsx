@@ -124,7 +124,7 @@ export default function AboutManagement() {
                 <Card key={img.id} className="overflow-hidden">
                   <div className="relative h-40">
                     <img
-                      src={`/uploads/${img.filename}`}
+                      src={img.filename.startsWith('data:') || img.filename.startsWith('http') ? img.filename : `/uploads/${img.filename}`}
                       className="w-full h-full object-cover"
                       alt={img.title}
                     />

@@ -19,16 +19,8 @@ export function registerServiceRoutes(app: Express) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
 
-  const storageMulter = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-    }
-  });
-
   const upload = multer({
-    storage: storageMulter,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 } // Increased to 10MB
   });
 
@@ -37,7 +29,8 @@ export function registerServiceRoutes(app: Express) {
       if (!req.file) {
         return res.status(400).json({ message: "No image uploaded" });
       }
-      const imageUrl = `/uploads/${req.file.filename}`;
+      const base64 = req.file.buffer.toString('base64');
+      const imageUrl = `data:${req.file.mimetype};base64,${base64}`;
       res.json({ url: imageUrl });
     } catch (error) {
       console.error("Upload error:", error);
@@ -306,7 +299,7 @@ export function registerServiceRoutes(app: Express) {
         const image = await storage.createGalleryImage({
           title: title || file.originalname,
           description: description || "",
-          filename: file.filename,
+          filename: `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
           originalName: file.originalname,
           mimeType: file.mimetype,
           size: file.size,
@@ -358,7 +351,7 @@ export function registerServiceRoutes(app: Express) {
       if (!file) return res.status(400).json({ message: "No image uploaded" });
 
       const image = await storage.updateGalleryImage(id, {
-        filename: file.filename,
+        filename: `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size

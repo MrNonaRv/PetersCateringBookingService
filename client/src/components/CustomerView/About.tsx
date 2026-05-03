@@ -23,7 +23,7 @@ export default function About() {
         <div className="flex flex-col md:flex-row items-center">
           <div className="md:w-1/2 mb-8 md:mb-0">
             <img 
-              src={activeImage ? `/uploads/${activeImage.filename}` : fallback}
+              src={activeImage ? (activeImage.filename.startsWith('data:') || activeImage.filename.startsWith('http') ? activeImage.filename : `/uploads/${activeImage.filename}`) : fallback}
               alt="About Peter's Creation Catering" 
               className="rounded-lg shadow-xl"
             />
