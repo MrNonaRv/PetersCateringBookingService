@@ -429,8 +429,8 @@ export function registerBookingRoutes(app: Express) {
   app.patch("/api/custom-quotes/:id/status", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status, quotedPrice, notes } = req.body;
-      const quote = await storage.updateCustomQuoteStatus(id, status, { proposedPrice: quotedPrice, adminNotes: notes });
+      const { status, quotedPrice, notes, proposedPackage } = req.body;
+      const quote = await storage.updateCustomQuoteStatus(id, status, { proposedPrice: quotedPrice, adminNotes: notes, proposedPackage });
       if (!quote) return res.status(404).json({ message: "Quote not found" });
       res.json(quote);
     } catch (error) {
@@ -455,7 +455,9 @@ export function registerBookingRoutes(app: Express) {
         venueAddress: quote.venueAddress,
         status: quote.status,
         proposedPrice: quote.proposedPrice,
+        proposedPackage: quote.proposedPackage,
         adminNotes: quote.adminNotes,
+        clientMessage: quote.clientMessage,
         createdAt: quote.createdAt
       });
     } catch (error) {
@@ -495,8 +497,30 @@ export function registerBookingRoutes(app: Express) {
         const servicesList = await storage.getServices();
         const fallbackServiceId = servicesList.length > 0 ? servicesList[0].id : 1;
 
+        let parsedPackage: any = null;
+        let selectedDishIds: number[] = [];
+        let combinedAdditionalServices = quote.adminNotes || "Custom Quote Accepted";
+        
+        if (quote.proposedPackage) {
+          try {
+            parsedPackage = JSON.parse(quote.proposedPackage);
+            if (parsedPackage.dishes) {
+              selectedDishIds = parsedPackage.dishes.map((d: any) => d.id);
+            }
+            if (parsedPackage.customFeatures) {
+              combinedAdditionalServices += "\n\nFeatures: " + parsedPackage.customFeatures;
+            }
+            if (parsedPackage.addOns && parsedPackage.addOns.length > 0) {
+              combinedAdditionalServices += "\n\nAdd-ons: " + parsedPackage.addOns.map((a: any) => `${a.quantity}x ${a.name}`).join(", ");
+            }
+          } catch (e) {
+            console.error("Failed to parse proposedPackage during auto-booking", e);
+          }
+        }
+
         const bookingPayload = {
-          serviceId: fallbackServiceId,
+          serviceId: parsedPackage?.serviceId || fallbackServiceId,
+          packageId: parsedPackage?.packageId || undefined,
           eventDate: quote.eventDate,
           eventType: quote.eventType,
           eventTime: quote.eventTime || "Fixed",
@@ -504,8 +528,8 @@ export function registerBookingRoutes(app: Express) {
           venueAddress: quote.venueAddress,
           menuPreference: "custom",
           serviceStyle: "buffet",
-          additionalServices: quote.adminNotes || "Custom Quote Accepted",
-          theme: quote.theme || "",
+          additionalServices: combinedAdditionalServices,
+          theme: parsedPackage?.theme || quote.theme || "",
           specialRequests: quote.specialRequests || "",
           totalPrice: quote.proposedPrice,
           depositAmount: Math.round(quote.proposedPrice * 0.5), // Default 50% deposit
@@ -525,7 +549,7 @@ export function registerBookingRoutes(app: Express) {
             company: quote.customer.company || ""
           });
 
-          const createdBooking = await storage.createBooking(bookingData, customerData, []);
+          const createdBooking = await storage.createBooking(bookingData, customerData, selectedDishIds);
           bookingReference = createdBooking.bookingReference;
           
           // Send SMS Approval

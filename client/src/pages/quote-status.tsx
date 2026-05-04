@@ -221,14 +221,89 @@ export default function QuoteStatus() {
                           <p className="text-3xl font-bold text-primary">{formatPrice(quote.proposedPrice)}</p>
                         </div>
                         
-                        {quote.adminNotes && (
-                          <div>
-                            <p className="text-sm text-gray-500 font-medium mb-2">Message & Details</p>
-                            <div className="text-sm text-gray-700 whitespace-pre-wrap bg-slate-50 p-3 rounded">
-                              {quote.adminNotes}
+                        {(() => {
+                          let packageDetails = null;
+                          if (quote.proposedPackage) {
+                            try {
+                              packageDetails = JSON.parse(quote.proposedPackage);
+                            } catch (e) {
+                              console.error("Failed to parse proposedPackage", e);
+                            }
+                          }
+
+                          return (
+                            <div className="space-y-6">
+                              {packageDetails ? (
+                                <>
+                                  {packageDetails.theme && (
+                                    <div className="pt-4 border-t">
+                                      <p className="text-sm text-gray-500 font-medium mb-1">Agreed Theme / Motif</p>
+                                      <p className="font-medium text-gray-900">{packageDetails.theme}</p>
+                                    </div>
+                                  )}
+
+                                  {packageDetails.dishes && packageDetails.dishes.length > 0 && (
+                                    <div className="pt-4 border-t">
+                                      <p className="text-sm text-gray-500 font-medium mb-3">Included Menu</p>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {packageDetails.dishes.map((dish: any) => (
+                                          <div key={dish.id} className="flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-100">
+                                            <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                                            <div>
+                                              <p className="text-sm font-medium leading-none">{dish.name}</p>
+                                              <p className="text-xs text-gray-500 mt-1 uppercase">{dish.category}</p>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {packageDetails.addOns && packageDetails.addOns.length > 0 && (
+                                    <div className="pt-4 border-t">
+                                      <p className="text-sm text-gray-500 font-medium mb-3">Included Equipment & Add-ons</p>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {packageDetails.addOns.map((addon: any) => (
+                                          <div key={addon.id} className="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-100">
+                                            <p className="text-sm font-medium">{addon.name}</p>
+                                            <p className="text-xs bg-white px-2 py-1 rounded border">Qty: {addon.quantity}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {packageDetails.customFeatures && (
+                                    <div className="pt-4 border-t">
+                                      <p className="text-sm text-gray-500 font-medium mb-2">Additional Notes / Services</p>
+                                      <div className="text-sm text-gray-700 whitespace-pre-wrap bg-slate-50 p-3 rounded border border-slate-100">
+                                        {packageDetails.customFeatures}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                quote.adminNotes && (
+                                  <div className="pt-4 border-t">
+                                    <p className="text-sm text-gray-500 font-medium mb-2">Message & Details</p>
+                                    <div className="text-sm text-gray-700 whitespace-pre-wrap bg-slate-50 p-3 rounded">
+                                      {quote.adminNotes}
+                                    </div>
+                                  </div>
+                                )
+                              )}
+                              
+                              {packageDetails && quote.adminNotes && (
+                                <div className="pt-4 border-t">
+                                  <p className="text-sm text-gray-500 font-medium mb-2">Message from our Team</p>
+                                  <div className="text-sm text-gray-700 whitespace-pre-wrap bg-blue-50/50 p-3 rounded border border-blue-100">
+                                    {quote.adminNotes}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     </div>
                   )}

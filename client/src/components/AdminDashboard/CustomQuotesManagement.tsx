@@ -32,6 +32,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Eye, Edit, FileText, Loader2, Package, Building, Calculator } from "lucide-react";
 
 interface CustomQuote {
@@ -75,6 +77,9 @@ export default function CustomQuotesManagement() {
   const [customPackageName, setCustomPackageName] = useState<string>("");
   const [customPerPersonPesos, setCustomPerPersonPesos] = useState<string>("");
   const [customFeatures, setCustomFeatures] = useState<string>("");
+  const [customTheme, setCustomTheme] = useState<string>("");
+  const [selectedDishes, setSelectedDishes] = useState<number[]>([]);
+  const [selectedAddOns, setSelectedAddOns] = useState<{id: number, quantity: number}[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -90,13 +95,20 @@ export default function CustomQuotesManagement() {
   const { data: venues = [] } = useQuery<any[]>({
     queryKey: ["/api/venues"],
   });
+  const { data: dishes = [] } = useQuery<any[]>({
+    queryKey: ["/api/dishes"],
+  });
+  const { data: addOns = [] } = useQuery<any[]>({
+    queryKey: ["/api/add-ons"],
+  });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: number; status: string; quotedPrice?: number; notes?: string }) => {
+    mutationFn: async (data: { id: number; status: string; quotedPrice?: number; notes?: string; proposedPackage?: string }) => {
       const res = await apiRequest("PATCH", `/api/custom-quotes/${data.id}/status`, {
         status: data.status,
         quotedPrice: data.quotedPrice,
-        notes: data.notes
+        notes: data.notes,
+        proposedPackage: data.proposedPackage
       });
       return res.json();
     },
@@ -172,16 +184,52 @@ export default function CustomQuotesManagement() {
     setCustomPackageName("");
     setCustomPerPersonPesos("");
     setCustomFeatures("");
+    setCustomTheme(quote.theme || "");
+    setSelectedDishes([]);
+    setSelectedAddOns([]);
+    
+    // Parse existing proposed package if available
+    if (quote.proposedPackage) {
+      try {
+        const parsed = JSON.parse(quote.proposedPackage);
+        if (parsed.theme) setCustomTheme(parsed.theme);
+        if (parsed.dishes) setSelectedDishes(parsed.dishes.map((d: any) => d.id));
+        if (parsed.addOns) setSelectedAddOns(parsed.addOns.map((a: any) => ({ id: a.id, quantity: a.quantity })));
+      } catch (e) {
+        console.error("Failed to parse proposedPackage", e);
+      }
+    }
+    
     setIsEditDialogOpen(true);
   };
 
   const handleUpdate = () => {
     if (!selectedQuote) return;
+    
+    let proposedPackageJson = undefined;
+    if (menuType === "custom") {
+      const pkgObj = {
+        serviceId: finalServiceId,
+        theme: customTheme,
+        dishes: selectedDishes.map(id => {
+          const dish = dishes.find((d: any) => d.id === id);
+          return dish ? { id: dish.id, name: dish.name, category: dish.category } : null;
+        }).filter(Boolean),
+        addOns: selectedAddOns.map(ao => {
+          const addon = addOns.find((a: any) => a.id === ao.id);
+          return addon ? { id: addon.id, name: addon.name, quantity: ao.quantity, totalPrice: addon.price * ao.quantity } : null;
+        }).filter(Boolean),
+        customFeatures
+      };
+      proposedPackageJson = JSON.stringify(pkgObj);
+    }
+    
     updateMutation.mutate({
       id: selectedQuote.id,
       status: editStatus,
       quotedPrice: editQuotedPrice ? Math.round(parseFloat(editQuotedPrice) * 100) : undefined,
       notes: editNotes || undefined,
+      proposedPackage: proposedPackageJson
     });
   };
 
@@ -209,9 +257,20 @@ export default function CustomQuotesManagement() {
     }
     const extra = extraChargesPesos ? Math.round(parseFloat(extraChargesPesos) * 100) : 0;
     total += extra;
+    
+    // Add selected Add-ons total
+    if (menuType === "custom") {
+      selectedAddOns.forEach(ao => {
+        const addon = addOns.find((a: any) => a.id === ao.id);
+        if (addon) {
+          total += addon.price * ao.quantity;
+        }
+      });
+    }
+
     const deposit = Math.round(total * (depositPercent / 100));
     return { total, deposit };
-  }, [menuType, customPerPersonPesos, editPackageId, editServiceId, editVenueId, venues, services, filteredPackages, selectedQuote, depositPercent, extraChargesPesos]);
+  }, [menuType, customPerPersonPesos, editPackageId, editServiceId, editVenueId, venues, services, filteredPackages, selectedQuote, depositPercent, extraChargesPesos, selectedAddOns, addOns]);
 
   const finalServiceId = useMemo(() => {
     if (editServiceId) return editServiceId;
@@ -556,20 +615,119 @@ export default function CustomQuotesManagement() {
                     </Select>
                   </div>
                   {menuType === "custom" && (
-                    <>
-                      <div>
-                        <Label>Custom Package Name</Label>
-                        <Input type="text" placeholder="e.g., Birthday Deluxe" value={customPackageName} onChange={(e) => setCustomPackageName(e.target.value)} />
+                    <div className="col-span-full border-t border-b py-4 my-4 space-y-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Package className="h-5 w-5 text-primary" />
+                        <h3 className="font-semibold text-lg">Custom Package Builder</h3>
                       </div>
-                      <div>
-                        <Label>Custom Price Per Person (₱)</Label>
-                        <Input type="number" placeholder="0" value={customPerPersonPesos} onChange={(e) => setCustomPerPersonPesos(e.target.value)} />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <Label>Agreed Theme / Motif</Label>
+                          <Input type="text" placeholder="e.g., Rustic, Minimalist, Blue & Gold" value={customTheme} onChange={(e) => setCustomTheme(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label>Base Custom Package Name (Optional)</Label>
+                          <Input type="text" placeholder="e.g., Birthday Deluxe" value={customPackageName} onChange={(e) => setCustomPackageName(e.target.value)} />
+                        </div>
                       </div>
-                      <div>
-                        <Label>Custom Package Includes</Label>
-                        <Textarea placeholder="List inclusions, menu items, decorations, equipment..." value={customFeatures} onChange={(e) => setCustomFeatures(e.target.value)} rows={3} />
+
+                      <div className="space-y-3">
+                        <Label>Select Dishes</Label>
+                        <ScrollArea className="h-64 rounded-md border p-4">
+                          {["main", "vegetable", "appetizer", "soup", "dessert", "drink"].map(cat => {
+                            const categoryDishes = dishes.filter((d: any) => d.category === cat);
+                            if (categoryDishes.length === 0) return null;
+                            return (
+                              <div key={cat} className="mb-6">
+                                <h4 className="font-medium text-sm text-gray-500 uppercase tracking-wider mb-3">{cat}s</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {categoryDishes.map((dish: any) => (
+                                    <div key={dish.id} className="flex items-start space-x-2">
+                                      <Checkbox 
+                                        id={`dish-${dish.id}`} 
+                                        checked={selectedDishes.includes(dish.id)}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            setSelectedDishes([...selectedDishes, dish.id]);
+                                          } else {
+                                            setSelectedDishes(selectedDishes.filter(id => id !== dish.id));
+                                          }
+                                        }}
+                                      />
+                                      <label htmlFor={`dish-${dish.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        {dish.name}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </ScrollArea>
+                        <p className="text-xs text-gray-500">Selected: {selectedDishes.length} dishes</p>
                       </div>
-                    </>
+
+                      <div className="space-y-3">
+                        <Label>Select Add-ons</Label>
+                        <ScrollArea className="h-48 rounded-md border p-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {addOns.map((addon: any) => {
+                              const selected = selectedAddOns.find(a => a.id === addon.id);
+                              return (
+                                <div key={addon.id} className="flex flex-col gap-2 p-3 border rounded bg-gray-50/50">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium">{addon.name}</label>
+                                    <span className="text-xs font-bold text-primary">{formatPrice(addon.price)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <Checkbox 
+                                      id={`addon-${addon.id}`}
+                                      checked={!!selected}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedAddOns([...selectedAddOns, { id: addon.id, quantity: 1 }]);
+                                        } else {
+                                          setSelectedAddOns(selectedAddOns.filter(a => a.id !== addon.id));
+                                        }
+                                      }}
+                                    />
+                                    <label htmlFor={`addon-${addon.id}`} className="text-xs text-gray-600">Include</label>
+                                    {selected && (
+                                      <div className="flex items-center gap-2 ml-auto">
+                                        <span className="text-xs">Qty:</span>
+                                        <Input 
+                                          type="number" 
+                                          min="1" 
+                                          className="h-7 w-16 px-2 py-0 text-sm"
+                                          value={selected.quantity}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value) || 1;
+                                            setSelectedAddOns(selectedAddOns.map(a => a.id === addon.id ? { ...a, quantity: val } : a));
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <Label>Custom Base Price Per Person (₱)</Label>
+                          <Input type="number" placeholder="e.g. 500" value={customPerPersonPesos} onChange={(e) => setCustomPerPersonPesos(e.target.value)} />
+                          <p className="text-xs text-gray-500 mt-1">This will be multiplied by {selectedQuote?.guestCount} guests.</p>
+                        </div>
+                        <div>
+                          <Label>Additional Included Services / Notes</Label>
+                          <Textarea placeholder="e.g. Basic sound system included..." value={customFeatures} onChange={(e) => setCustomFeatures(e.target.value)} rows={2} />
+                        </div>
+                      </div>
+                    </div>
                   )}
                   <div>
                     <Label>Extra Charges (₱)</Label>
