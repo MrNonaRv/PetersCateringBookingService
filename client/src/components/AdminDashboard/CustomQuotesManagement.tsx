@@ -140,6 +140,7 @@ export default function CustomQuotesManagement() {
     const statusStyles: Record<string, string> = {
       pending: "bg-yellow-100 text-yellow-800",
       reviewing: "bg-blue-100 text-blue-800",
+      revision_requested: "bg-purple-100 text-purple-800",
       quoted: "bg-green-100 text-green-800",
       accepted: "bg-emerald-100 text-emerald-800",
       rejected: "bg-red-100 text-red-800",
@@ -469,6 +470,14 @@ export default function CustomQuotesManagement() {
                   <p className="text-sm whitespace-pre-wrap">{selectedQuote.adminNotes}</p>
                 </div>
               )}
+              {selectedQuote.clientMessage && (
+                <div className="col-span-2 bg-purple-50 p-3 rounded-lg border border-purple-100">
+                  <h4 className="font-semibold text-sm text-purple-800 mb-1 flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" /> Client Revision Request
+                  </h4>
+                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{selectedQuote.clientMessage}</p>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -575,6 +584,7 @@ export default function CustomQuotesManagement() {
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="reviewing">Reviewing</SelectItem>
+                        <SelectItem value="revision_requested">Revision Requested</SelectItem>
                         <SelectItem value="quoted">Quoted</SelectItem>
                         <SelectItem value="accepted">Accepted</SelectItem>
                         <SelectItem value="rejected">Rejected</SelectItem>

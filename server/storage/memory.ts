@@ -403,7 +403,8 @@ export class MemStorage implements IStorage {
       proposedPackage: q.proposedPackage || null,
       proposedPrice: q.proposedPrice || null,
       depositAmount: q.depositAmount || null,
-      adminNotes: q.adminNotes || null
+      adminNotes: q.adminNotes || null,
+      clientMessage: q.clientMessage || null
     };
     this.customQuotes.set(qid, quote);
     return this.getCustomQuote(qid) as Promise<CustomQuoteWithCustomer>;

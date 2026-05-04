@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -9,12 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileText, CheckCircle2, XCircle, Clock, Loader2, AlertCircle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Search, FileText, CheckCircle2, XCircle, Clock, Loader2, AlertCircle, MessageSquare } from "lucide-react";
 
 export default function QuoteStatus() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [reference, setReference] = useState("");
   const [searchRef, setSearchRef] = useState("");
+  const [isRevising, setIsRevising] = useState(false);
+  const [clientMessage, setClientMessage] = useState("");
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const { data: quote, isLoading, error, refetch } = useQuery({
@@ -30,17 +35,32 @@ export default function QuoteStatus() {
   };
 
   const respondMutation = useMutation({
-    mutationFn: async (status: 'accepted' | 'rejected') => {
-      const res = await apiRequest("PATCH", `/api/custom-quotes/reference/${searchRef}/respond`, { status });
+    mutationFn: async (payload: { status: 'accepted' | 'rejected' | 'revision_requested', clientMessage?: string }) => {
+      const res = await apiRequest("PATCH", `/api/custom-quotes/reference/${searchRef}/respond`, payload);
       return res.json();
     },
-    onSuccess: (data) => {
-      toast({
-        title: data.status === 'accepted' ? "Quote Accepted!" : "Quote Declined",
-        description: data.status === 'accepted' 
-          ? "Thank you! Our team will contact you shortly to finalize your booking."
-          : "We've recorded your decision. Feel free to request another quote anytime.",
-      });
+    onSuccess: (data, variables) => {
+      if (variables.status === 'accepted') {
+        toast({
+          title: "Quote Accepted!",
+          description: "Booking created successfully. Redirecting to payment...",
+        });
+        if (data.bookingReference) {
+          setTimeout(() => setLocation(`/pay-deposit?ref=${data.bookingReference}`), 1500);
+        }
+      } else if (variables.status === 'revision_requested') {
+        toast({
+          title: "Revision Requested",
+          description: "We've received your request and will update your proposal soon.",
+        });
+        setIsRevising(false);
+        setClientMessage("");
+      } else {
+        toast({
+          title: "Quote Declined",
+          description: "We've recorded your decision. Feel free to request another quote anytime.",
+        });
+      }
       refetch();
     },
     onError: () => {
@@ -57,6 +77,7 @@ export default function QuoteStatus() {
       new: { class: "bg-blue-100 text-blue-800", icon: Clock, label: "Received" },
       pending: { class: "bg-blue-100 text-blue-800", icon: Clock, label: "Pending" },
       reviewing: { class: "bg-yellow-100 text-yellow-800", icon: Search, label: "Under Review" },
+      revision_requested: { class: "bg-purple-100 text-purple-800", icon: MessageSquare, label: "Revision Requested" },
       quoted: { class: "bg-green-100 text-green-800", icon: FileText, label: "Quoted" },
       accepted: { class: "bg-emerald-100 text-emerald-800", icon: CheckCircle2, label: "Accepted" },
       rejected: { class: "bg-gray-100 text-gray-800", icon: XCircle, label: "Declined" },
@@ -173,6 +194,20 @@ export default function QuoteStatus() {
                     </div>
                   )}
 
+                  {quote.status === 'revision_requested' && (
+                    <div className="bg-purple-50 text-purple-800 p-4 rounded-md">
+                      <p className="font-medium">We are reviewing your requested changes.</p>
+                      <p className="text-sm mt-1 mb-3">Our team will update your proposal based on your feedback.</p>
+                      
+                      {quote.clientMessage && (
+                        <div className="bg-white/60 p-3 rounded text-sm border border-purple-100">
+                          <p className="text-xs font-semibold text-purple-600 mb-1">Your Request:</p>
+                          <p>{quote.clientMessage}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {quote.status === 'quoted' && (
                     <div className="bg-green-50 border border-green-100 rounded-lg p-6 space-y-4">
                       <div>
@@ -232,27 +267,75 @@ export default function QuoteStatus() {
                   </div>
                 </CardContent>
 
-                {quote.status === 'quoted' && (
-                  <CardFooter className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+                {quote.status === 'quoted' && !isRevising && (
+                  <CardFooter className="bg-gray-50 px-6 py-4 flex flex-col sm:flex-row justify-end gap-3 border-t">
                     <Button 
                       variant="outline" 
-                      onClick={() => respondMutation.mutate('rejected')}
-                      disabled={respondMutation.isPending}
+                      onClick={() => setIsRevising(true)}
                     >
-                      Decline
+                      Request Changes
                     </Button>
-                    <Button 
-                      onClick={() => respondMutation.mutate('accepted')}
-                      disabled={respondMutation.isPending}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      {respondMutation.isPending && respondMutation.variables === 'accepted' ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                      )}
-                      Accept Proposal
-                    </Button>
+                    <div className="flex justify-end gap-3 w-full sm:w-auto mt-3 sm:mt-0">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => respondMutation.mutate({ status: 'rejected' })}
+                        disabled={respondMutation.isPending}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      >
+                        Decline
+                      </Button>
+                      <Button 
+                        onClick={() => respondMutation.mutate({ status: 'accepted' })}
+                        disabled={respondMutation.isPending}
+                        className="bg-green-600 hover:bg-green-700 text-white flex-grow sm:flex-grow-0"
+                      >
+                        {respondMutation.isPending && respondMutation.variables?.status === 'accepted' ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                        )}
+                        Accept & Book Now
+                      </Button>
+                    </div>
+                  </CardFooter>
+                )}
+
+                {isRevising && (
+                  <CardFooter className="bg-purple-50 px-6 py-6 flex flex-col gap-4 border-t border-purple-100 animate-in slide-in-from-top-2">
+                    <div className="w-full">
+                      <label className="block text-sm font-medium text-purple-900 mb-2">
+                        What would you like to change?
+                      </label>
+                      <Textarea 
+                        placeholder="e.g. Can we remove the dessert to lower the cost? / Can we add 20 more guests?"
+                        value={clientMessage}
+                        onChange={(e) => setClientMessage(e.target.value)}
+                        className="bg-white border-purple-200 focus-visible:ring-purple-500"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-3 w-full">
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => {
+                          setIsRevising(false);
+                          setClientMessage("");
+                        }}
+                        disabled={respondMutation.isPending}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={() => respondMutation.mutate({ status: 'revision_requested', clientMessage })}
+                        disabled={!clientMessage.trim() || respondMutation.isPending}
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        {respondMutation.isPending && respondMutation.variables?.status === 'revision_requested' && (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        )}
+                        Submit Revision Request
+                      </Button>
+                    </div>
                   </CardFooter>
                 )}
               </Card>

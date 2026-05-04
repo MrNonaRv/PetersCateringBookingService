@@ -467,22 +467,88 @@ export function registerBookingRoutes(app: Express) {
   app.patch("/api/custom-quotes/reference/:reference/respond", async (req, res) => {
     try {
       const reference = req.params.reference;
-      const { status } = req.body;
+      const { status, clientMessage } = req.body;
       
-      if (!['accepted', 'rejected'].includes(status)) {
+      if (!['accepted', 'rejected', 'revision_requested'].includes(status)) {
         return res.status(400).json({ message: "Invalid response status" });
       }
 
       const quote = await storage.getCustomQuoteByReference(reference);
       if (!quote) return res.status(404).json({ message: "Quote not found" });
 
-      if (quote.status !== 'quoted') {
+      if (quote.status !== 'quoted' && status !== 'revision_requested') {
         return res.status(400).json({ message: "This quote cannot be responded to at this time." });
       }
 
-      const updatedQuote = await storage.updateCustomQuoteStatus(quote.id, status, {});
-      res.json({ success: true, status: updatedQuote?.status });
+      const updates: any = {};
+      if (status === 'revision_requested' && clientMessage) {
+        updates.clientMessage = clientMessage;
+      }
+
+      const updatedQuote = await storage.updateCustomQuoteStatus(quote.id, status, updates);
+      
+      let bookingReference = null;
+
+      // Auto-booking feature: If accepted, create a booking automatically
+      if (status === 'accepted' && quote.proposedPrice) {
+        // Fallback service ID if needed
+        const servicesList = await storage.getServices();
+        const fallbackServiceId = servicesList.length > 0 ? servicesList[0].id : 1;
+
+        const bookingPayload = {
+          serviceId: fallbackServiceId,
+          eventDate: quote.eventDate,
+          eventType: quote.eventType,
+          eventTime: quote.eventTime || "Fixed",
+          guestCount: quote.guestCount,
+          venueAddress: quote.venueAddress,
+          menuPreference: "custom",
+          serviceStyle: "buffet",
+          additionalServices: quote.adminNotes || "Custom Quote Accepted",
+          theme: quote.theme || "",
+          specialRequests: quote.specialRequests || "",
+          totalPrice: quote.proposedPrice,
+          depositAmount: Math.round(quote.proposedPrice * 0.5), // Default 50% deposit
+          status: "pending_approval",
+          paymentStatus: "pending",
+          bookingReference: `PCB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+          customerId: quote.customerId
+        };
+        
+        try {
+          const bookingData = insertBookingSchema.parse(bookingPayload);
+          // Customer data is just passed as-is from the quote to satisfy the signature
+          const customerData = insertCustomerSchema.parse({
+            name: quote.customer.name,
+            email: quote.customer.email,
+            phone: quote.customer.phone,
+            company: quote.customer.company || ""
+          });
+
+          const createdBooking = await storage.createBooking(bookingData, customerData, []);
+          bookingReference = createdBooking.bookingReference;
+          
+          // Send SMS Approval
+          try {
+            await sendBookingApproved({
+              customerPhone: createdBooking.customer.phone || "",
+              customerName: createdBooking.customer.name,
+              bookingReference: createdBooking.bookingReference,
+              depositAmount: createdBooking.depositAmount || 0
+            });
+          } catch (smsError) {
+             console.warn("SMS Approval failed to send:", smsError);
+          }
+
+        } catch (err) {
+          console.error("Auto-booking failed:", err);
+          // Continue returning success for the quote acceptance even if auto-booking fails
+        }
+      }
+
+      res.json({ success: true, status: updatedQuote?.status, bookingReference });
     } catch (error) {
+      console.error("Quote respond error:", error);
       res.status(500).json({ message: "Error responding to quote" });
     }
   });

@@ -84,6 +84,7 @@ export const customQuotes = pgTable("custom_quotes", {
   proposedPrice: integer("proposed_price"), // in cents
   depositAmount: integer("deposit_amount"), // in cents
   adminNotes: text("admin_notes"),
+  clientMessage: text("client_message"), // Used for revision requests
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
