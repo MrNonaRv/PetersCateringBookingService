@@ -811,10 +811,6 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
-            <Button onClick={() => {
-              setIsViewDialogOpen(false);
-              editBooking(selectedBooking);
-            }}>Response</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,48 +1,118 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Image as ImageIcon } from "lucide-react";
+
+interface GalleryImage {
+  id: number;
+  title: string;
+  description: string;
+  filename: string;
+  category: string;
+  isActive: boolean;
+}
+
 export default function Gallery() {
-  // Array of gallery images
-  const galleryImages = [
-    {
-      src: "https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      alt: "Elegant plated dinner"
+  const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
+
+  const { data: images, isLoading } = useQuery<GalleryImage[]>({
+    queryKey: ["/api/gallery-images"],
+    queryFn: async () => {
+      const res = await fetch("/api/gallery-images");
+      if (!res.ok) throw new Error("Failed to fetch gallery images");
+      return res.json();
     },
-    {
-      src: "https://images.unsplash.com/photo-1484723091739-30a097e8f929?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      alt: "Dessert selection"
-    },
-    {
-      src: "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      alt: "Outdoor wedding reception"
-    },
-    {
-      src: "https://images.unsplash.com/photo-1621111848501-8d3634f82336?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      alt: "Corporate luncheon buffet"
-    },
-    {
-      src: "https://images.unsplash.com/photo-1485963631004-f2f00b1d6606?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      alt: "Appetizer selection"
-    },
-    {
-      src: "https://images.unsplash.com/photo-1529566652340-2c41a1eb6d93?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400",
-      alt: "Formal table setting"
-    }
-  ];
+  });
+
+  const activeImages = images?.filter(img => img.isActive) || [];
+
+  const getImageUrl = (filename: string) => {
+    if (filename.startsWith('data:') || filename.startsWith('http')) return filename;
+    return `/uploads/${filename}`;
+  };
 
   return (
-    <section id="gallery" className="py-16 container mx-auto px-4">
-      <div className="text-center mb-12">
-        <h2 className="text-3xl font-heading font-bold text-primary mb-2">Our Food Gallery</h2>
-        <p className="text-[#343a40] max-w-2xl mx-auto">Take a look at some of our most popular dishes and event setups</p>
-      </div>
+    <section id="gallery" className="py-16 bg-slate-50">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-heading font-bold text-primary mb-4">Our Culinary Creations</h2>
+          <div className="w-20 h-1 bg-secondary mx-auto mb-6"></div>
+          <p className="text-gray-600 max-w-2xl mx-auto text-lg">
+            Experience the artistry and passion behind our dishes through our curated gallery.
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {galleryImages.map((image, index) => (
-          <img 
-            key={index}
-            src={image.src} 
-            alt={image.alt} 
-            className="rounded-lg shadow-md hover:shadow-xl transition transform hover:scale-105"
-          />
-        ))}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+            <p className="text-gray-500 font-medium">Loading our masterpiece gallery...</p>
+          </div>
+        ) : activeImages.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+            <ImageIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">No images yet</h3>
+            <p className="text-gray-500">We're currently preparing our gallery. Check back soon!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {activeImages.map((image) => (
+              <div 
+                key={image.id}
+                className="group relative cursor-pointer overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1"
+                onClick={() => setSelectedImage(image)}
+              >
+                <div className="aspect-[4/3] overflow-hidden">
+                  <img 
+                    src={getImageUrl(image.filename)} 
+                    alt={image.title} 
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-6">
+                  <h4 className="text-white font-bold text-lg mb-1 transform translate-y-4 transition-transform duration-300 group-hover:translate-y-0">
+                    {image.title}
+                  </h4>
+                  <p className="text-white/80 text-sm line-clamp-2 transform translate-y-4 transition-transform duration-300 delay-75 group-hover:translate-y-0">
+                    {image.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+          <DialogContent className="max-w-4xl p-0 overflow-hidden bg-white border-none sm:rounded-3xl">
+            {selectedImage && (
+              <div className="flex flex-col">
+                <div className="relative aspect-video sm:aspect-[16/9] bg-gray-100">
+                  <img 
+                    src={getImageUrl(selectedImage.filename)} 
+                    alt={selectedImage.title} 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="p-8">
+                  <DialogHeader className="mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wider">
+                        {selectedImage.category}
+                      </span>
+                    </div>
+                    <DialogTitle className="text-3xl font-heading font-bold text-gray-900">
+                      {selectedImage.title}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="prose prose-slate max-w-none">
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      {selectedImage.description || "No description available for this image."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </section>
   );

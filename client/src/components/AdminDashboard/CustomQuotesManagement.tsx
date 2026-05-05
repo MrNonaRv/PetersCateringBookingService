@@ -541,9 +541,6 @@ export default function CustomQuotesManagement() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
-            <Button onClick={() => { setIsViewDialogOpen(false); if (selectedQuote) editQuote(selectedQuote); }}>
-              Edit Quote
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
