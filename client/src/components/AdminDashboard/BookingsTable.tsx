@@ -811,17 +811,13 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
-            <Button onClick={() => {
-              setIsViewDialogOpen(false);
-              editBooking(selectedBooking);
-            }}>Response</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Booking Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Update Booking Status</DialogTitle>
             <DialogDescription>
@@ -930,7 +926,7 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
 
       {/* SMS Notification Dialog */}
       <Dialog open={isSmsDialogOpen} onOpenChange={setIsSmsDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-green-600" />

@@ -470,7 +470,7 @@ export default function CustomQuotesManagement() {
       </Card>
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Quote Details</DialogTitle>
             <DialogDescription>
@@ -541,15 +541,12 @@ export default function CustomQuotesManagement() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
-            <Button onClick={() => { setIsViewDialogOpen(false); if (selectedQuote) editQuote(selectedQuote); }}>
-              Edit Quote
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Update Quote</DialogTitle>
             <DialogDescription>

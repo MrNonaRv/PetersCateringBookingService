@@ -183,7 +183,7 @@ export default function PaymentMonitoring() {
       </CardContent>
 
       <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Payment Status</DialogTitle>
             <DialogDescription>
