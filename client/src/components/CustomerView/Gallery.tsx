@@ -35,10 +35,10 @@ export default function Gallery() {
     <section id="gallery" className="py-16 bg-slate-50">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-heading font-bold text-primary mb-4">Our Culinary Creations</h2>
+          <h2 className="text-4xl font-heading font-bold text-primary mb-4">Our Event Gallery</h2>
           <div className="w-20 h-1 bg-secondary mx-auto mb-6"></div>
           <p className="text-gray-600 max-w-2xl mx-auto text-lg">
-            Experience the artistry and passion behind our dishes through our curated gallery.
+            Experience the memorable moments and beautiful setups from our past events.
           </p>
         </div>
 
