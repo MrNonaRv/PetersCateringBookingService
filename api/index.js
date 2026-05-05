@@ -153,6 +153,8 @@ var init_schema = __esm({
       depositAmount: integer("deposit_amount"),
       // in cents
       adminNotes: text("admin_notes"),
+      clientMessage: text("client_message"),
+      // Used for revision requests
       createdAt: timestamp("created_at").notNull().defaultNow(),
       updatedAt: timestamp("updated_at").notNull().defaultNow()
     });
@@ -1316,7 +1318,8 @@ var init_memory = __esm({
           proposedPackage: q.proposedPackage || null,
           proposedPrice: q.proposedPrice || null,
           depositAmount: q.depositAmount || null,
-          adminNotes: q.adminNotes || null
+          adminNotes: q.adminNotes || null,
+          clientMessage: q.clientMessage || null
         };
         this.customQuotes.set(qid, quote);
         return this.getCustomQuote(qid);
@@ -2050,12 +2053,126 @@ ${JSON.stringify(req.body)}
   app2.patch("/api/custom-quotes/:id/status", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status, quotedPrice, notes } = req.body;
-      const quote = await storage.updateCustomQuoteStatus(id, status, { proposedPrice: quotedPrice, adminNotes: notes });
+      const { status, quotedPrice, notes, proposedPackage } = req.body;
+      const quote = await storage.updateCustomQuoteStatus(id, status, { proposedPrice: quotedPrice, adminNotes: notes, proposedPackage });
       if (!quote) return res.status(404).json({ message: "Quote not found" });
       res.json(quote);
     } catch (error) {
       res.status(500).json({ message: "Error updating quote status" });
+    }
+  });
+  app2.get("/api/custom-quotes/reference/:reference", async (req, res) => {
+    try {
+      const reference = req.params.reference;
+      const quote = await storage.getCustomQuoteByReference(reference);
+      if (!quote) return res.status(404).json({ message: "Quote not found" });
+      res.json({
+        id: quote.id,
+        quoteReference: quote.quoteReference,
+        eventDate: quote.eventDate,
+        eventType: quote.eventType,
+        guestCount: quote.guestCount,
+        venueAddress: quote.venueAddress,
+        status: quote.status,
+        proposedPrice: quote.proposedPrice,
+        proposedPackage: quote.proposedPackage,
+        adminNotes: quote.adminNotes,
+        clientMessage: quote.clientMessage,
+        createdAt: quote.createdAt
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching quote" });
+    }
+  });
+  app2.patch("/api/custom-quotes/reference/:reference/respond", async (req, res) => {
+    try {
+      const reference = req.params.reference;
+      const { status, clientMessage } = req.body;
+      if (!["accepted", "rejected", "revision_requested"].includes(status)) {
+        return res.status(400).json({ message: "Invalid response status" });
+      }
+      const quote = await storage.getCustomQuoteByReference(reference);
+      if (!quote) return res.status(404).json({ message: "Quote not found" });
+      if (quote.status !== "quoted" && status !== "revision_requested") {
+        return res.status(400).json({ message: "This quote cannot be responded to at this time." });
+      }
+      const updates = {};
+      if (status === "revision_requested" && clientMessage) {
+        updates.clientMessage = clientMessage;
+      }
+      const updatedQuote = await storage.updateCustomQuoteStatus(quote.id, status, updates);
+      let bookingReference = null;
+      if (status === "accepted" && quote.proposedPrice) {
+        const servicesList = await storage.getServices();
+        const fallbackServiceId = servicesList.length > 0 ? servicesList[0].id : 1;
+        let parsedPackage = null;
+        let selectedDishIds = [];
+        let combinedAdditionalServices = quote.adminNotes || "Custom Quote Accepted";
+        if (quote.proposedPackage) {
+          try {
+            parsedPackage = JSON.parse(quote.proposedPackage);
+            if (parsedPackage.dishes) {
+              selectedDishIds = parsedPackage.dishes.map((d) => d.id);
+            }
+            if (parsedPackage.customFeatures) {
+              combinedAdditionalServices += "\n\nFeatures: " + parsedPackage.customFeatures;
+            }
+            if (parsedPackage.addOns && parsedPackage.addOns.length > 0) {
+              combinedAdditionalServices += "\n\nAdd-ons: " + parsedPackage.addOns.map((a) => `${a.quantity}x ${a.name}`).join(", ");
+            }
+          } catch (e) {
+            console.error("Failed to parse proposedPackage during auto-booking", e);
+          }
+        }
+        const bookingPayload = {
+          serviceId: parsedPackage?.serviceId || fallbackServiceId,
+          packageId: parsedPackage?.packageId || void 0,
+          eventDate: quote.eventDate,
+          eventType: quote.eventType,
+          eventTime: quote.eventTime || "Fixed",
+          guestCount: quote.guestCount,
+          venueAddress: quote.venueAddress,
+          menuPreference: "custom",
+          serviceStyle: "buffet",
+          additionalServices: combinedAdditionalServices,
+          theme: parsedPackage?.theme || quote.theme || "",
+          specialRequests: quote.specialRequests || "",
+          totalPrice: quote.proposedPrice,
+          depositAmount: Math.round(quote.proposedPrice * 0.5),
+          // Default 50% deposit
+          status: "pending_approval",
+          paymentStatus: "pending",
+          bookingReference: `PCB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+          customerId: quote.customerId
+        };
+        try {
+          const bookingData = insertBookingSchema.parse(bookingPayload);
+          const customerData = insertCustomerSchema.parse({
+            name: quote.customer.name,
+            email: quote.customer.email,
+            phone: quote.customer.phone,
+            company: quote.customer.company || ""
+          });
+          const createdBooking = await storage.createBooking(bookingData, customerData, selectedDishIds);
+          bookingReference = createdBooking.bookingReference;
+          try {
+            await sendBookingApproved({
+              customerPhone: createdBooking.customer.phone || "",
+              customerName: createdBooking.customer.name,
+              bookingReference: createdBooking.bookingReference,
+              depositAmount: createdBooking.depositAmount || 0
+            });
+          } catch (smsError) {
+            console.warn("SMS Approval failed to send:", smsError);
+          }
+        } catch (err) {
+          console.error("Auto-booking failed:", err);
+        }
+      }
+      res.json({ success: true, status: updatedQuote?.status, bookingReference });
+    } catch (error) {
+      console.error("Quote respond error:", error);
+      res.status(500).json({ message: "Error responding to quote" });
     }
   });
   app2.post("/api/paymongo/webhook", async (req, res) => {
