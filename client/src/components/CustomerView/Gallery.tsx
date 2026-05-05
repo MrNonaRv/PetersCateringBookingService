@@ -82,7 +82,7 @@ export default function Gallery() {
         )}
 
         <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-          <DialogContent className="max-w-4xl p-0 overflow-hidden bg-white border-none sm:rounded-3xl">
+          <DialogContent className="max-w-4xl p-0 max-h-[90vh] overflow-y-auto bg-white border-none sm:rounded-3xl">
             {selectedImage && (
               <div className="flex flex-col">
                 <div className="relative aspect-video sm:aspect-[16/9] bg-gray-100">
