@@ -344,14 +344,18 @@ export function registerBookingRoutes(app: Express) {
       res.status(500).json({ message: "Error updating booking status" });
     }
   });
-  // Reschedule booking (Customer/Public)
+  // Reschedule booking (Customer/Public) — one-time limit with mandatory reason
   app.patch("/api/bookings/:id/reschedule", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { eventDate, eventTime } = req.body;
+      const { eventDate, eventTime, reason } = req.body;
 
       if (!eventDate || !eventTime) {
         return res.status(400).json({ message: "eventDate and eventTime are required" });
+      }
+
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({ message: "A reason for rescheduling is required" });
       }
 
       const booking = await storage.getBooking(id);
@@ -359,10 +363,29 @@ export function registerBookingRoutes(app: Express) {
         return res.status(404).json({ message: "Booking not found" });
       }
 
-      // Convert eventDate to string if it isn't already, so it matches the schema type if needed
+      // Parse existing adminNotes JSON to check reschedule count
+      let notes: any = {};
+      try { notes = booking.adminNotes ? JSON.parse(booking.adminNotes) : {}; } catch {}
+
+      const rescheduleCount: number = notes.rescheduleCount || 0;
+
+      if (rescheduleCount >= 1) {
+        return res.status(403).json({ 
+          message: "You have already rescheduled this booking once. Please contact us directly for further changes."
+        });
+      }
+
+      // Store reschedule details in adminNotes JSON
+      notes.rescheduleCount = rescheduleCount + 1;
+      notes.rescheduleReason = reason.trim();
+      notes.rescheduledAt = new Date().toISOString();
+      notes.rescheduledFrom = booking.eventDate;
+      notes.rescheduledTo = new Date(eventDate).toISOString().split('T')[0];
+
       const updatedBooking = await storage.updateBooking(id, { 
         eventDate: new Date(eventDate).toISOString().split('T')[0], 
-        eventTime 
+        eventTime,
+        adminNotes: JSON.stringify(notes)
       });
 
       res.json(updatedBooking);

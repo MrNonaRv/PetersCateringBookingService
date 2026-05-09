@@ -743,6 +743,26 @@ export default function BookingsTable({ limit }: BookingsTableProps) {
                           <p className="text-blue-700">{selectedBooking.additionalServices}</p>
                         </div>
                       )}
+
+                      {(() => {
+                        let notes: any = {};
+                        try { notes = selectedBooking.adminNotes ? JSON.parse(selectedBooking.adminNotes) : {}; } catch {}
+                        if (!notes.rescheduleCount) return null;
+                        return (
+                          <div className="col-span-3 bg-amber-50 p-3 rounded-md border border-amber-200 text-sm">
+                            <span className="font-medium text-amber-800 block mb-2">🗓️ Client Rescheduled This Booking</span>
+                            {notes.rescheduleReason && (
+                              <div className="mb-1"><span className="text-gray-600 font-medium">Reason: </span><span className="text-amber-700">{notes.rescheduleReason}</span></div>
+                            )}
+                            {notes.rescheduledFrom && notes.rescheduledTo && (
+                              <div className="mb-1"><span className="text-gray-600 font-medium">Date Change: </span><span className="text-amber-700">{notes.rescheduledFrom} → {notes.rescheduledTo}</span></div>
+                            )}
+                            {notes.rescheduledAt && (
+                              <div><span className="text-gray-600 font-medium">Submitted: </span><span className="text-amber-700">{new Date(notes.rescheduledAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

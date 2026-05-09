@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from "../components/ui/label";
 import { useToast } from "../hooks/use-toast";
 import { PaymentMethods } from "../components/CustomerView/PaymentMethods";
-import { Loader2, Search, CheckCircle2, ArrowRight, Calendar, Users, Utensils, CreditCard, ChevronLeft } from "lucide-react";
+import { Loader2, Search, CheckCircle2, ArrowRight, Calendar, Users, Utensils, CreditCard, ChevronLeft, AlertTriangle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 export default function PayDeposit() {
   const [bookingReference, setBookingReference] = useState("");
   const [searchedReference, setSearchedReference] = useState("");
@@ -20,6 +21,7 @@ export default function PayDeposit() {
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
   const [newDate, setNewDate] = useState("");
   const [newTime, setNewTime] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -50,11 +52,11 @@ export default function PayDeposit() {
   }, [booking]);
 
   const rescheduleMutation = useMutation({
-    mutationFn: async (data: { id: number; eventDate: string; eventTime: string }) => {
+    mutationFn: async (data: { id: number; eventDate: string; eventTime: string; reason: string }) => {
       const res = await fetch(`/api/bookings/${data.id}/reschedule`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventDate: data.eventDate, eventTime: data.eventTime }),
+        body: JSON.stringify({ eventDate: data.eventDate, eventTime: data.eventTime, reason: data.reason }),
       });
       if (!res.ok) {
         const errData = await res.json();
@@ -63,8 +65,9 @@ export default function PayDeposit() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Booking rescheduled successfully." });
+      toast({ title: "Success", description: "Booking rescheduled successfully. The admin has been notified." });
       setIsRescheduleOpen(false);
+      setRescheduleReason("");
       refetch();
     },
     onError: (err) => {
@@ -315,23 +318,39 @@ export default function PayDeposit() {
                             <h4 className="font-semibold text-gray-900 border-b pb-2">Event Information</h4>
                             <div className="flex items-start gap-3">
                               <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-                              <div>
+                             <div>
                                 <p className="text-sm font-medium text-gray-500">Event Date</p>
                                 <p className="font-semibold text-gray-900">{formatDate(booking.eventDate)}</p>
-                                {booking.status !== 'completed' && booking.status !== 'cancelled' && (
-                                  <Button 
-                                    variant="link" 
-                                    size="sm" 
-                                    className="h-auto p-0 text-primary mt-1" 
-                                    onClick={() => {
-                                      setNewDate(new Date(booking.eventDate).toISOString().split('T')[0]);
-                                      setNewTime(booking.eventTime);
-                                      setIsRescheduleOpen(true);
-                                    }}
-                                  >
-                                    Reschedule Date
-                                  </Button>
-                                )}
+                                {(() => {
+                                  // Parse adminNotes to check if already rescheduled
+                                  let notes: any = {};
+                                  try { notes = booking.adminNotes ? JSON.parse(booking.adminNotes) : {}; } catch {}
+                                  const alreadyRescheduled = (notes.rescheduleCount || 0) >= 1;
+                                  if (booking.status === 'completed' || booking.status === 'cancelled') return null;
+                                  if (alreadyRescheduled) {
+                                    return (
+                                      <div className="flex items-center gap-1 mt-1 text-xs text-amber-600">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        <span>Reschedule limit reached</span>
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      className="h-auto p-0 text-primary mt-1"
+                                      onClick={() => {
+                                        setNewDate(new Date(booking.eventDate).toISOString().split('T')[0]);
+                                        setNewTime(booking.eventTime);
+                                        setRescheduleReason("");
+                                        setIsRescheduleOpen(true);
+                                      }}
+                                    >
+                                      Reschedule Date
+                                    </Button>
+                                  );
+                                })()}
                               </div>
                             </div>
 
@@ -503,11 +522,11 @@ export default function PayDeposit() {
         </div>
         {/* Reschedule Dialog */}
         <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[460px]">
             <DialogHeader>
               <DialogTitle>Reschedule Booking</DialogTitle>
               <DialogDescription>
-                Select a new date and time for your event.
+                You can only reschedule your booking <strong>once</strong>. Please provide your new preferred date, time, and a reason for the change.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -530,14 +549,32 @@ export default function PayDeposit() {
                   onChange={(e) => setNewTime(e.target.value)}
                 />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="reason">Reason for Rescheduling <span className="text-red-500">*</span></Label>
+                <Textarea
+                  id="reason"
+                  placeholder="Please explain why you need to reschedule your event..."
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                  rows={3}
+                  className="resize-none"
+                />
+                <p className="text-xs text-muted-foreground">{rescheduleReason.trim().length}/10 characters minimum</p>
+              </div>
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-amber-700">
+                  This is a <strong>one-time</strong> reschedule. After this, you will need to contact us directly to make further date changes.
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsRescheduleOpen(false)} disabled={rescheduleMutation.isPending}>
                 Cancel
               </Button>
-              <Button 
-                onClick={() => rescheduleMutation.mutate({ id: booking?.id || 0, eventDate: newDate, eventTime: newTime })}
-                disabled={!newDate || !newTime || rescheduleMutation.isPending}
+              <Button
+                onClick={() => rescheduleMutation.mutate({ id: booking?.id || 0, eventDate: newDate, eventTime: newTime, reason: rescheduleReason })}
+                disabled={!newDate || !newTime || rescheduleReason.trim().length < 10 || rescheduleMutation.isPending}
               >
                 {rescheduleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Confirm Reschedule

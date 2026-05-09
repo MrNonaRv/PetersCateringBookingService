@@ -78,8 +78,7 @@ export default function TopNav({ toggleSidebar, user, title }: TopNavProps) {
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
                 <Badge className="absolute -top-1 -right-1 w-4 h-4 p-0 flex items-center justify-center font-medium text-[10px] bg-[#e74c3c]">
-                  {
-                    (() => {
+                  {(() => {
                       const pending = bookings.filter((b: any) => b.status === 'pending_approval').length;
                       const upcoming = bookings.filter((b: any) => {
                         const d = new Date(b.eventDate);
@@ -87,7 +86,13 @@ export default function TopNav({ toggleSidebar, user, title }: TopNavProps) {
                         const diff = (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
                         return diff >= 0 && diff <= 7;
                       }).length;
-                      return String(pending + upcoming);
+                      const rescheduled = bookings.filter((b: any) => {
+                        try {
+                          const notes = b.adminNotes ? JSON.parse(b.adminNotes) : {};
+                          return (notes.rescheduleCount || 0) >= 1;
+                        } catch { return false; }
+                      }).length;
+                      return String(pending + upcoming + rescheduled);
                     })()
                   }
                 </Badge>
@@ -102,7 +107,8 @@ export default function TopNav({ toggleSidebar, user, title }: TopNavProps) {
                   .slice(0, 3)
                   .map((b: any) => ({
                     type: 'Pending Approval',
-                    booking: b
+                    booking: b,
+                    detail: null
                   })),
                 ...bookings
                   .filter((b: any) => {
@@ -114,16 +120,40 @@ export default function TopNav({ toggleSidebar, user, title }: TopNavProps) {
                   .slice(0, 3)
                   .map((b: any) => ({
                     type: 'Upcoming Event',
-                    booking: b
-                  }))
+                    booking: b,
+                    detail: null
+                  })),
+                ...bookings
+                  .filter((b: any) => {
+                    try {
+                      const notes = b.adminNotes ? JSON.parse(b.adminNotes) : {};
+                      return (notes.rescheduleCount || 0) >= 1;
+                    } catch { return false; }
+                  })
+                  .slice(0, 5)
+                  .map((b: any) => {
+                    let reason = '';
+                    try {
+                      const notes = b.adminNotes ? JSON.parse(b.adminNotes) : {};
+                      reason = notes.rescheduleReason || '';
+                    } catch {}
+                    return {
+                      type: 'Reschedule Request',
+                      booking: b,
+                      detail: reason
+                    };
+                  })
               ].map((item, idx) => (
                 <DropdownMenuItem key={idx} asChild>
                   <Link href={`/admin/bookings?customer=${encodeURIComponent(item.booking.customer.email)}`}>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">{item.type}</span>
+                      <span className={`text-sm font-medium ${item.type === 'Reschedule Request' ? 'text-amber-600' : ''}`}>{item.type}</span>
                       <span className="text-xs text-muted-foreground">
                         {item.booking.customer.name} • {item.booking.bookingReference}
                       </span>
+                      {item.detail && (
+                        <span className="text-xs text-gray-500 italic truncate max-w-[240px]">"{item.detail}"</span>
+                      )}
                     </div>
                   </Link>
                 </DropdownMenuItem>
